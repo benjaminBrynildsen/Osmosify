@@ -1,0 +1,113 @@
+Frame it as a Parent Reading Tracker + Mastery Flashcards: each reading session uploads page photos → OCR + cleanup → the app updates the child’s word library, automatically queues only newly encountered words into the flashcard deck (excluding already-known/mastered words), and provides a “History Test” mode that can re-test previously learned words on demand (refresh) to prevent forgetting.
+
+Core objects
+
+Child Profile
+
+Name, grade/level (optional), settings (stop-words on/off, grade filter)
+
+Reading Session
+
+Date/time, book title (optional), uploaded images, extracted + cleaned text
+
+Word Library (per child)
+
+word, first_seen, last_seen, total_occurrences, sessions_seen_count
+
+status: new | learning | mastered
+
+mastery_correct_count (0–10), incorrect_count, last_tested
+
+Pipeline
+
+Upload pages (mobile-friendly)
+
+OCR (text per page)
+
+Cleanup (remove footers/ads/stickers; normalize case; strip punctuation; split words)
+
+Filter (stop-words, grade-level word lists if enabled)
+
+Update stats
+
+frequencies for session
+
+cumulative frequencies across sessions
+
+mark words as “new” if never seen for that child
+
+Dashboard screens
+
+Home / Child Select
+
+Session Upload
+
+upload photos, optional book name, run OCR
+
+preview cleaned text + “remove missed junk” quick edit
+
+Insights
+
+Top repeated words (this session / all time)
+
+“New words today” list
+
+Vocabulary size over time
+
+Word Library
+
+search, sort (newest, most frequent, not mastered)
+
+status filters (new/learning/mastered)
+
+Flashcards (Mastery Mode)
+
+Deck source: defaults to New Words Queue = words with status new (or learning if user chooses) and not mastered
+
+Deck size: e.g., 10 at a time (configurable)
+
+Flow:
+
+show one word (large)
+
+parent taps ✓ if child says correctly, X if not
+
+✓ increments mastery_correct_count
+
+X increments incorrect_count (and optionally decreases mastery count by 1 if you want)
+
+shuffle continuously
+
+Mastery rule: when mastery_correct_count >= 10 → status becomes mastered and it leaves the active deck
+
+History Test (Refresh Mode)
+
+Purpose: re-check retention.
+
+Pick list: previously mastered words (or “learning” words) based on:
+
+last_tested oldest first, or
+
+random sample, or
+
+most frequent historically
+
+Refresh action: “Generate a 20-word review test”
+
+runs the same flashcard UI
+
+logs results; if missed, optionally demote from mastered → learning
+
+Simple settings
+
+Stop-words toggle (common words)
+
+Grade/level filter toggle (restrict to age-appropriate words list)
+
+Mastery threshold (default 10)
+
+Deck size (default 10)
+
+Demote on misses in refresh test (on/off)
+
+Do you want the “History Test” to demote a mastered word if missed (keeps it honest), or just record misses without changing mastery?
