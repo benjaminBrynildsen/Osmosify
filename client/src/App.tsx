@@ -12,6 +12,8 @@ import Flashcards from "@/pages/flashcards";
 import HistoryTest from "@/pages/history-test";
 import WordLibrary from "@/pages/word-library";
 import ChildSettings from "@/pages/child-settings";
+import Presets from "@/pages/presets";
+import Books from "@/pages/books";
 
 function Router() {
   return (
@@ -23,6 +25,8 @@ function Router() {
       <Route path="/child/:id/history-test" component={HistoryTest} />
       <Route path="/child/:id/library" component={WordLibrary} />
       <Route path="/child/:id/settings" component={ChildSettings} />
+      <Route path="/child/:id/presets" component={Presets} />
+      <Route path="/child/:id/books" component={Books} />
       <Route path="/session/:id" component={SessionDetails} />
       <Route component={NotFound} />
     </Switch>

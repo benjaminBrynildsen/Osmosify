@@ -245,9 +245,12 @@ export class DatabaseStorage implements IStorage {
 
   async createBook(book: InsertBook): Promise<Book> {
     const wordList = book.words || [];
+    const normalizedWords = wordList.map(w => w.toLowerCase().trim()).filter(w => w.length > 0);
+    const uniqueWords = Array.from(new Set(normalizedWords));
     const [created] = await db.insert(books).values({
       ...book,
-      wordCount: wordList.length,
+      words: uniqueWords,
+      wordCount: uniqueWords.length,
     }).returning();
     return created;
   }
@@ -255,7 +258,10 @@ export class DatabaseStorage implements IStorage {
   async updateBook(id: string, data: Partial<InsertBook>): Promise<Book | undefined> {
     const updateData: Partial<Book> = { ...data };
     if (data.words) {
-      updateData.wordCount = data.words.length;
+      const normalizedWords = data.words.map(w => w.toLowerCase().trim()).filter(w => w.length > 0);
+      const uniqueWords = Array.from(new Set(normalizedWords));
+      updateData.words = uniqueWords;
+      updateData.wordCount = uniqueWords.length;
     }
     const [updated] = await db
       .update(books)

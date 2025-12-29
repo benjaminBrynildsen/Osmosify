@@ -17,6 +17,8 @@ import {
   Settings,
   GraduationCap,
   TrendingUp,
+  ListPlus,
+  BookMarked,
 } from "lucide-react";
 import type { Child, ReadingSession, Word } from "@shared/schema";
 
@@ -147,6 +149,26 @@ export default function ChildDashboard() {
             <Library className="h-6 w-6" />
             <span>Word Library</span>
           </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/child/${childId}/presets`)}
+            data-testid="button-presets"
+          >
+            <ListPlus className="h-6 w-6" />
+            <span>Word Lists</span>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/child/${childId}/books`)}
+            data-testid="button-books"
+          >
+            <BookMarked className="h-6 w-6" />
+            <span>Book Library</span>
+          </Button>
         </div>
 
         {newWords.length > 0 && (
@@ -176,8 +198,8 @@ export default function ChildDashboard() {
               </div>
               {newWords.length > 0 && (
                 <Button
-                  variant="link"
-                  className="px-0 mt-3"
+                  variant="ghost"
+                  className="px-0 mt-3 text-primary"
                   onClick={() => setLocation(`/child/${childId}/flashcards`)}
                   data-testid="link-practice-new-words"
                 >
@@ -193,7 +215,7 @@ export default function ChildDashboard() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Recent Sessions</h3>
             {sessions && sessions.length > 5 && (
-              <Button variant="link" className="px-0" onClick={() => setLocation(`/child/${childId}/sessions`)}>
+              <Button variant="ghost" className="px-0 text-primary" onClick={() => setLocation(`/child/${childId}/sessions`)}>
                 View all
               </Button>
             )}

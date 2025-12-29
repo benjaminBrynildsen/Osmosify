@@ -315,10 +315,18 @@ export async function registerRoutes(
   });
 
   // Add preset words to a child's word library
+  const addPresetSchema = z.object({
+    presetId: z.string().min(1),
+  });
+
   app.post("/api/children/:id/add-preset", async (req, res) => {
     try {
       const childId = req.params.id;
-      const { presetId } = req.body;
+      const parsed = addPresetSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request: presetId required" });
+      }
+      const { presetId } = parsed.data;
 
       const child = await storage.getChild(childId);
       if (!child) {
