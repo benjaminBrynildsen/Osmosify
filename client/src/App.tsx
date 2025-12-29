@@ -4,13 +4,26 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import Home from "@/pages/home";
+import ChildDashboard from "@/pages/child-dashboard";
+import UploadSession from "@/pages/upload-session";
+import SessionDetails from "@/pages/session-details";
+import Flashcards from "@/pages/flashcards";
+import HistoryTest from "@/pages/history-test";
+import WordLibrary from "@/pages/word-library";
+import ChildSettings from "@/pages/child-settings";
 
 function Router() {
   return (
     <Switch>
-      {/* Add pages below */}
-      {/* <Route path="/" component={Home}/> */}
-      {/* Fallback to 404 */}
+      <Route path="/" component={Home} />
+      <Route path="/child/:id" component={ChildDashboard} />
+      <Route path="/child/:id/upload" component={UploadSession} />
+      <Route path="/child/:id/flashcards" component={Flashcards} />
+      <Route path="/child/:id/history-test" component={HistoryTest} />
+      <Route path="/child/:id/library" component={WordLibrary} />
+      <Route path="/child/:id/settings" component={ChildSettings} />
+      <Route path="/session/:id" component={SessionDetails} />
       <Route component={NotFound} />
     </Switch>
   );
