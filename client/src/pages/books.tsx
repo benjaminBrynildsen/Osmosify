@@ -30,6 +30,7 @@ import {
   Library,
   FlaskConical,
   Sparkles,
+  Gamepad2,
 } from "lucide-react";
 import type { Child, BookReadiness, Word, Book } from "@shared/schema";
 
@@ -334,6 +335,33 @@ export default function Books() {
                       {selectedBook.words.filter(w => masteredWordSet.has(w.toLowerCase())).length} / {selectedBook.words.length}
                     </span>
                   </div>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2"
+                    onClick={() => {
+                      setSelectedBook(null);
+                      setLocation(`/child/${childId}/flashcards?bookId=${selectedBook.id}`);
+                    }}
+                    data-testid="button-practice-flashcards"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Practice Flashcards
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30"
+                    onClick={() => {
+                      setSelectedBook(null);
+                      setLocation(`/child/${childId}/word-pop?bookId=${selectedBook.id}`);
+                    }}
+                    data-testid="button-play-word-pop"
+                  >
+                    <Gamepad2 className="h-4 w-4 text-purple-500" />
+                    Play Word Pop
+                  </Button>
                 </div>
               </div>
             </>

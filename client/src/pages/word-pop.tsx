@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useLocation } from "wouter";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useParams, useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Volume2, Trophy, Flame, Play, RotateCcw, Star } from "lucide-react";
+import { ArrowLeft, Volume2, Trophy, Flame, Play, RotateCcw, Star, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Word, Child } from "@shared/schema";
+import type { Word, Child, Book } from "@shared/schema";
 
 interface Bubble {
   id: number;
@@ -20,6 +20,9 @@ interface Bubble {
 export default function WordPop() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const bookId = searchParams.get("bookId");
   const childId = parseInt(id || "0");
 
   const [gameState, setGameState] = useState<"ready" | "playing" | "gameover">("ready");
@@ -43,7 +46,21 @@ export default function WordPop() {
     queryKey: ["/api/children", childId, "words"],
   });
 
-  const playableWords = words.filter(w => w.word.length >= 2 && w.word.length <= 12);
+  const { data: book } = useQuery<Book>({
+    queryKey: ["/api/books", bookId],
+    enabled: !!bookId,
+  });
+
+  const playableWords = useMemo(() => {
+    let filtered = words.filter(w => w.word.length >= 2 && w.word.length <= 12);
+    
+    if (book && book.words) {
+      const bookWordSet = new Set(book.words.map(w => w.toLowerCase()));
+      filtered = filtered.filter(w => bookWordSet.has(w.word.toLowerCase()));
+    }
+    
+    return filtered;
+  }, [words, book]);
 
   const speak = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
@@ -194,6 +211,8 @@ export default function WordPop() {
     };
   }, [gameState, targetWord, nextRound]);
 
+  const backPath = bookId ? `/child/${childId}/books` : `/child/${childId}`;
+
   if (playableWords.length < 4) {
     return (
       <div className="min-h-screen bg-background p-4">
@@ -201,7 +220,7 @@ export default function WordPop() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setLocation(`/child/${childId}`)}
+            onClick={() => setLocation(backPath)}
             className="mb-4"
             data-testid="button-back"
           >
@@ -214,7 +233,10 @@ export default function WordPop() {
               <Trophy className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
               <h2 className="text-xl font-bold mb-2">Not Enough Words</h2>
               <p className="text-muted-foreground mb-4">
-                Add at least 4 words to {child?.name}'s library to play Word Pop!
+                {book 
+                  ? `This book needs at least 4 words in ${child?.name}'s library to play Word Pop!`
+                  : `Add at least 4 words to ${child?.name}'s library to play Word Pop!`
+                }
               </p>
               <Button onClick={() => setLocation(`/child/${childId}/presets`)} data-testid="button-add-words">
                 Add Word Lists
@@ -232,7 +254,7 @@ export default function WordPop() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setLocation(`/child/${childId}`)}
+          onClick={() => setLocation(backPath)}
           data-testid="button-back"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -305,6 +327,12 @@ export default function WordPop() {
           <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
             <Trophy className="w-20 h-20 text-primary mb-6" />
             <h1 className="text-3xl font-bold mb-2">Word Pop</h1>
+            {book && (
+              <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                <BookOpen className="w-4 h-4" />
+                <span>{book.title}</span>
+              </div>
+            )}
             <p className="text-muted-foreground text-center mb-8 max-w-xs">
               Listen to the word and tap the matching bubble before it floats away!
             </p>
@@ -340,7 +368,7 @@ export default function WordPop() {
             </div>
             
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setLocation(`/child/${childId}`)} data-testid="button-exit">
+              <Button variant="outline" onClick={() => setLocation(backPath)} data-testid="button-exit">
                 Exit
               </Button>
               <Button onClick={startGame} data-testid="button-play-again">
