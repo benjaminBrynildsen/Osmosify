@@ -34,7 +34,8 @@ export default function WordPop() {
   const [roundsInLevel, setRoundsInLevel] = useState(0);
   const [targetWord, setTargetWord] = useState<string>("");
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
-  const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
+  const [feedback, setFeedback] = useState<"correct" | "wrong" | "levelup" | null>(null);
+  const [celebrateWord, setCelebrateWord] = useState<string>("");
   const [wordsPlayed, setWordsPlayed] = useState(0);
   const [preferredVoice, setPreferredVoice] = useState<SpeechSynthesisVoice | null>(null);
   const gameAreaRef = useRef<HTMLDivElement>(null);
@@ -178,6 +179,7 @@ export default function WordPop() {
         setBestStreak(best => Math.max(best, newStreak));
         return newStreak;
       });
+      setCelebrateWord(bubble.word);
       setFeedback("correct");
       
       setRoundsInLevel(prev => {
@@ -185,20 +187,22 @@ export default function WordPop() {
         if (newRounds >= ROUNDS_PER_LEVEL) {
           setLevel(lvl => {
             const newLevel = lvl + 1;
-            speak(`Level ${newLevel}!`);
+            setTimeout(() => {
+              setFeedback("levelup");
+              speak(`Level ${newLevel}!`);
+            }, 1500);
             setTimeout(() => {
               setFeedback(null);
               nextRound(newLevel, 0);
-            }, 1200);
+            }, 3000);
             return newLevel;
           });
           return 0;
         } else {
-          speak("Great!");
           setTimeout(() => {
             setFeedback(null);
             nextRound(undefined, newRounds);
-          }, 800);
+          }, 2000);
           return newRounds;
         }
       });
@@ -374,14 +378,64 @@ export default function WordPop() {
         <AnimatePresence>
           {feedback === "correct" && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
+              className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20 bg-green-500"
             >
-              <div className="bg-green-500/20 rounded-full p-8">
-                <Star className="w-16 h-16 text-green-500" />
+              <div className="absolute inset-0 overflow-hidden">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ 
+                      opacity: 0,
+                      scale: 0,
+                      x: `${Math.random() * 100}%`,
+                      y: `${Math.random() * 100}%`
+                    }}
+                    animate={{ 
+                      opacity: [0, 1, 1, 0],
+                      scale: [0, 1.2, 1, 0.8],
+                      rotate: [0, 15, -15, 0]
+                    }}
+                    transition={{ 
+                      duration: 1.5,
+                      delay: i * 0.1,
+                      ease: "easeOut"
+                    }}
+                    className="absolute"
+                    style={{ left: `${10 + (i % 4) * 25}%`, top: `${10 + Math.floor(i / 4) * 30}%` }}
+                  >
+                    <Star className="w-8 h-8 text-yellow-300 fill-yellow-300" />
+                  </motion.div>
+                ))}
               </div>
+              <motion.p
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                className="text-5xl font-bold text-white drop-shadow-lg z-10"
+              >
+                {celebrateWord}
+              </motion.p>
+            </motion.div>
+          )}
+          
+          {feedback === "levelup" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20 bg-purple-600"
+            >
+              <motion.p
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 200 }}
+                className="text-4xl font-bold text-white drop-shadow-lg"
+              >
+                Level {level}!
+              </motion.p>
             </motion.div>
           )}
         </AnimatePresence>
