@@ -21,21 +21,29 @@ export async function sendVerificationCode(
   code: string
 ): Promise<boolean> {
   try {
+    console.log(`[Twilio] Attempting to send SMS to ${phoneNumber}`);
+    
     const client = getClient();
     
     if (!twilioPhoneNumber) {
+      console.error("[Twilio] TWILIO_PHONE_NUMBER not configured");
       throw new Error("Twilio phone number not configured");
     }
 
-    await client.messages.create({
+    console.log(`[Twilio] Sending from ${twilioPhoneNumber} to ${phoneNumber}`);
+    
+    const message = await client.messages.create({
       body: `Your Osmosify verification code is: ${code}. It expires in 10 minutes.`,
       from: twilioPhoneNumber,
       to: phoneNumber,
     });
 
+    console.log(`[Twilio] SMS sent successfully, SID: ${message.sid}`);
     return true;
-  } catch (error) {
-    console.error("Failed to send SMS:", error);
+  } catch (error: any) {
+    console.error("[Twilio] Failed to send SMS:", error?.message || error);
+    console.error("[Twilio] Error code:", error?.code);
+    console.error("[Twilio] More info:", error?.moreInfo);
     return false;
   }
 }
