@@ -92,6 +92,75 @@ export type ReadingSession = typeof readingSessions.$inferSelect;
 export type InsertWord = z.infer<typeof insertWordSchema>;
 export type Word = typeof words.$inferSelect;
 
+// Preset word lists (built-in lists like alphabet, CVC, sight words)
+export const presetWordLists = pgTable("preset_word_lists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  category: text("category").notNull(), // "alphabet", "phonics", "cvc", "sight_words"
+  description: text("description"),
+  words: text("words").array().notNull().default(sql`ARRAY[]::text[]`),
+  gradeLevel: text("grade_level"),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const insertPresetWordListSchema = createInsertSchema(presetWordLists).omit({
+  id: true,
+});
+
+export type InsertPresetWordList = z.infer<typeof insertPresetWordListSchema>;
+export type PresetWordList = typeof presetWordLists.$inferSelect;
+
+// Books with word lists for readiness tracking
+export const books = pgTable("books", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  author: text("author"),
+  gradeLevel: text("grade_level"),
+  words: text("words").array().notNull().default(sql`ARRAY[]::text[]`),
+  wordCount: integer("word_count").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertBookSchema = createInsertSchema(books).omit({
+  id: true,
+  createdAt: true,
+  wordCount: true,
+});
+
+export type InsertBook = z.infer<typeof insertBookSchema>;
+export type Book = typeof books.$inferSelect;
+
+// Track which books a child is working toward
+export const childBookProgress = pgTable("child_book_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  childId: varchar("child_id").notNull().references(() => children.id, { onDelete: "cascade" }),
+  bookId: varchar("book_id").notNull().references(() => books.id, { onDelete: "cascade" }),
+  masteredWordCount: integer("mastered_word_count").notNull().default(0),
+  totalWordCount: integer("total_word_count").notNull().default(0),
+  readinessPercent: integer("readiness_percent").notNull().default(0),
+  isReady: boolean("is_ready").notNull().default(false),
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+});
+
+export const childBookProgressRelations = relations(childBookProgress, ({ one }) => ({
+  child: one(children, {
+    fields: [childBookProgress.childId],
+    references: [children.id],
+  }),
+  book: one(books, {
+    fields: [childBookProgress.bookId],
+    references: [books.id],
+  }),
+}));
+
+export const insertChildBookProgressSchema = createInsertSchema(childBookProgress).omit({
+  id: true,
+  lastUpdated: true,
+});
+
+export type InsertChildBookProgress = z.infer<typeof insertChildBookProgressSchema>;
+export type ChildBookProgress = typeof childBookProgress.$inferSelect;
+
 // Flashcard result type for frontend
 export interface FlashcardResult {
   wordId: string;
@@ -105,4 +174,13 @@ export interface SessionInsights {
   totalWordsCount: number;
   newWords: string[];
   topRepeatedWords: { word: string; count: number }[];
+}
+
+// Book readiness type for frontend
+export interface BookReadiness {
+  book: Book;
+  masteredCount: number;
+  totalCount: number;
+  percent: number;
+  isReady: boolean;
 }

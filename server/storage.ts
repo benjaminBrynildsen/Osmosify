@@ -5,12 +5,22 @@ import {
   type InsertReadingSession,
   type Word,
   type InsertWord,
+  type PresetWordList,
+  type InsertPresetWordList,
+  type Book,
+  type InsertBook,
+  type ChildBookProgress,
+  type InsertChildBookProgress,
+  type BookReadiness,
   children,
   readingSessions,
   words,
+  presetWordLists,
+  books,
+  childBookProgress,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Children
@@ -33,6 +43,24 @@ export interface IStorage {
   createWord(word: InsertWord): Promise<Word>;
   updateWord(id: string, data: Partial<Word>): Promise<Word | undefined>;
   bulkUpsertWords(childId: string, wordList: string[]): Promise<{ newWords: string[]; totalWords: number }>;
+
+  // Preset Word Lists
+  getPresetWordLists(): Promise<PresetWordList[]>;
+  getPresetWordList(id: string): Promise<PresetWordList | undefined>;
+  createPresetWordList(list: InsertPresetWordList): Promise<PresetWordList>;
+  seedPresetWordLists(lists: InsertPresetWordList[]): Promise<void>;
+
+  // Books
+  getBooks(): Promise<Book[]>;
+  getBook(id: string): Promise<Book | undefined>;
+  createBook(book: InsertBook): Promise<Book>;
+  updateBook(id: string, data: Partial<InsertBook>): Promise<Book | undefined>;
+  deleteBook(id: string): Promise<void>;
+
+  // Book Progress & Readiness
+  getChildBookProgress(childId: string): Promise<ChildBookProgress[]>;
+  calculateBookReadiness(childId: string): Promise<BookReadiness[]>;
+  updateChildBookProgress(childId: string, bookId: string): Promise<ChildBookProgress>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -161,7 +189,7 @@ export class DatabaseStorage implements IStorage {
           })
           .where(eq(words.id, existingWord.id));
       } else {
-        await db.insert(words).values({
+        await db.insert(words).values([{
           childId,
           word: lowerWord,
           status: "new",
@@ -169,7 +197,7 @@ export class DatabaseStorage implements IStorage {
           sessionsSeenCount: 1,
           masteryCorrectCount: 0,
           incorrectCount: 0,
-        });
+        }]);
         newWords.push(lowerWord);
         existingWordSet.add(lowerWord);
       }
@@ -179,6 +207,176 @@ export class DatabaseStorage implements IStorage {
       newWords,
       totalWords: wordList.length,
     };
+  }
+
+  // Preset Word Lists
+  async getPresetWordLists(): Promise<PresetWordList[]> {
+    return db.select().from(presetWordLists).orderBy(presetWordLists.sortOrder);
+  }
+
+  async getPresetWordList(id: string): Promise<PresetWordList | undefined> {
+    const [list] = await db.select().from(presetWordLists).where(eq(presetWordLists.id, id));
+    return list;
+  }
+
+  async createPresetWordList(list: InsertPresetWordList): Promise<PresetWordList> {
+    const [created] = await db.insert(presetWordLists).values(list).returning();
+    return created;
+  }
+
+  async seedPresetWordLists(lists: InsertPresetWordList[]): Promise<void> {
+    const existing = await this.getPresetWordLists();
+    if (existing.length === 0) {
+      for (const list of lists) {
+        await db.insert(presetWordLists).values(list);
+      }
+    }
+  }
+
+  // Books
+  async getBooks(): Promise<Book[]> {
+    return db.select().from(books).orderBy(books.title);
+  }
+
+  async getBook(id: string): Promise<Book | undefined> {
+    const [book] = await db.select().from(books).where(eq(books.id, id));
+    return book;
+  }
+
+  async createBook(book: InsertBook): Promise<Book> {
+    const wordList = book.words || [];
+    const [created] = await db.insert(books).values({
+      ...book,
+      wordCount: wordList.length,
+    }).returning();
+    return created;
+  }
+
+  async updateBook(id: string, data: Partial<InsertBook>): Promise<Book | undefined> {
+    const updateData: Partial<Book> = { ...data };
+    if (data.words) {
+      updateData.wordCount = data.words.length;
+    }
+    const [updated] = await db
+      .update(books)
+      .set(updateData)
+      .where(eq(books.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteBook(id: string): Promise<void> {
+    await db.delete(books).where(eq(books.id, id));
+  }
+
+  // Book Progress & Readiness
+  async getChildBookProgress(childId: string): Promise<ChildBookProgress[]> {
+    return db
+      .select()
+      .from(childBookProgress)
+      .where(eq(childBookProgress.childId, childId));
+  }
+
+  async calculateBookReadiness(childId: string): Promise<BookReadiness[]> {
+    const allBooks = await this.getBooks();
+    const childWords = await this.getWordsByChild(childId);
+    const masteredWordSet = new Set(
+      childWords
+        .filter(w => w.status === "mastered")
+        .map(w => w.word.toLowerCase())
+    );
+
+    const readiness: BookReadiness[] = [];
+
+    for (const book of allBooks) {
+      const bookWords = book.words.map(w => w.toLowerCase());
+      const uniqueBookWords = Array.from(new Set(bookWords));
+      const totalCount = uniqueBookWords.length;
+      
+      let masteredCount = 0;
+      for (const word of uniqueBookWords) {
+        if (masteredWordSet.has(word)) {
+          masteredCount++;
+        }
+      }
+
+      const percent = totalCount > 0 ? Math.round((masteredCount / totalCount) * 100) : 0;
+      const isReady = percent >= 80;
+
+      readiness.push({
+        book,
+        masteredCount,
+        totalCount,
+        percent,
+        isReady,
+      });
+    }
+
+    return readiness.sort((a, b) => b.percent - a.percent);
+  }
+
+  async updateChildBookProgress(childId: string, bookId: string): Promise<ChildBookProgress> {
+    const book = await this.getBook(bookId);
+    if (!book) {
+      throw new Error("Book not found");
+    }
+
+    const childWords = await this.getWordsByChild(childId);
+    const masteredWordSet = new Set(
+      childWords
+        .filter(w => w.status === "mastered")
+        .map(w => w.word.toLowerCase())
+    );
+
+    const bookWords = book.words.map(w => w.toLowerCase());
+    const uniqueBookWords = Array.from(new Set(bookWords));
+    const totalWordCount = uniqueBookWords.length;
+    
+    let masteredWordCount = 0;
+    for (const word of uniqueBookWords) {
+      if (masteredWordSet.has(word)) {
+        masteredWordCount++;
+      }
+    }
+
+    const readinessPercent = totalWordCount > 0 ? Math.round((masteredWordCount / totalWordCount) * 100) : 0;
+    const isReady = readinessPercent >= 80;
+
+    const existing = await db
+      .select()
+      .from(childBookProgress)
+      .where(and(
+        eq(childBookProgress.childId, childId),
+        eq(childBookProgress.bookId, bookId)
+      ));
+
+    if (existing.length > 0) {
+      const [updated] = await db
+        .update(childBookProgress)
+        .set({
+          masteredWordCount,
+          totalWordCount,
+          readinessPercent,
+          isReady,
+          lastUpdated: new Date(),
+        })
+        .where(eq(childBookProgress.id, existing[0].id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(childBookProgress)
+        .values({
+          childId,
+          bookId,
+          masteredWordCount,
+          totalWordCount,
+          readinessPercent,
+          isReady,
+        })
+        .returning();
+      return created;
+    }
   }
 }
 

@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { processText, getTopRepeatedWords } from "./textProcessor";
 import { extractTextFromImages } from "./ocrService";
-import { insertChildSchema } from "@shared/schema";
+import { insertChildSchema, insertBookSchema } from "@shared/schema";
+import { presetWordLists as presetData } from "./presetData";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -288,6 +289,140 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to master word" });
     }
   });
+
+  // Preset Word Lists endpoints
+  app.get("/api/presets", async (req, res) => {
+    try {
+      const presets = await storage.getPresetWordLists();
+      res.json(presets);
+    } catch (error) {
+      console.error("Error fetching presets:", error);
+      res.status(500).json({ error: "Failed to fetch presets" });
+    }
+  });
+
+  app.get("/api/presets/:id", async (req, res) => {
+    try {
+      const preset = await storage.getPresetWordList(req.params.id);
+      if (!preset) {
+        return res.status(404).json({ error: "Preset not found" });
+      }
+      res.json(preset);
+    } catch (error) {
+      console.error("Error fetching preset:", error);
+      res.status(500).json({ error: "Failed to fetch preset" });
+    }
+  });
+
+  // Add preset words to a child's word library
+  app.post("/api/children/:id/add-preset", async (req, res) => {
+    try {
+      const childId = req.params.id;
+      const { presetId } = req.body;
+
+      const child = await storage.getChild(childId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
+
+      const preset = await storage.getPresetWordList(presetId);
+      if (!preset) {
+        return res.status(404).json({ error: "Preset not found" });
+      }
+
+      const { newWords, totalWords } = await storage.bulkUpsertWords(childId, preset.words);
+
+      res.json({
+        added: newWords.length,
+        total: totalWords,
+        presetName: preset.name,
+      });
+    } catch (error) {
+      console.error("Error adding preset:", error);
+      res.status(500).json({ error: "Failed to add preset words" });
+    }
+  });
+
+  // Books endpoints
+  app.get("/api/books", async (req, res) => {
+    try {
+      const books = await storage.getBooks();
+      res.json(books);
+    } catch (error) {
+      console.error("Error fetching books:", error);
+      res.status(500).json({ error: "Failed to fetch books" });
+    }
+  });
+
+  app.get("/api/books/:id", async (req, res) => {
+    try {
+      const book = await storage.getBook(req.params.id);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      res.json(book);
+    } catch (error) {
+      console.error("Error fetching book:", error);
+      res.status(500).json({ error: "Failed to fetch book" });
+    }
+  });
+
+  app.post("/api/books", async (req, res) => {
+    try {
+      const parsed = insertBookSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.message });
+      }
+      const book = await storage.createBook(parsed.data);
+      res.status(201).json(book);
+    } catch (error) {
+      console.error("Error creating book:", error);
+      res.status(500).json({ error: "Failed to create book" });
+    }
+  });
+
+  app.patch("/api/books/:id", async (req, res) => {
+    try {
+      const book = await storage.updateBook(req.params.id, req.body);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      res.json(book);
+    } catch (error) {
+      console.error("Error updating book:", error);
+      res.status(500).json({ error: "Failed to update book" });
+    }
+  });
+
+  app.delete("/api/books/:id", async (req, res) => {
+    try {
+      await storage.deleteBook(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting book:", error);
+      res.status(500).json({ error: "Failed to delete book" });
+    }
+  });
+
+  // Book readiness endpoints
+  app.get("/api/children/:id/book-readiness", async (req, res) => {
+    try {
+      const childId = req.params.id;
+      const child = await storage.getChild(childId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
+
+      const readiness = await storage.calculateBookReadiness(childId);
+      res.json(readiness);
+    } catch (error) {
+      console.error("Error calculating readiness:", error);
+      res.status(500).json({ error: "Failed to calculate book readiness" });
+    }
+  });
+
+  // Seed presets on startup
+  await storage.seedPresetWordLists(presetData);
 
   return httpServer;
 }
