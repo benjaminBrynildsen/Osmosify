@@ -11,8 +11,8 @@ import {
   Camera,
   BookOpen,
   Sparkles,
-  Trophy,
-  History,
+  Unlock,
+  RefreshCw,
   Library,
   Settings,
   GraduationCap,
@@ -63,7 +63,7 @@ export default function ChildDashboard() {
 
   const newWords = words?.filter((w) => w.status === "new") || [];
   const learningWords = words?.filter((w) => w.status === "learning") || [];
-  const masteredWords = words?.filter((w) => w.status === "mastered") || [];
+  const unlockedWords = words?.filter((w) => w.status === "mastered") || [];
   const recentSessions = sessions?.slice(0, 5) || [];
 
   return (
@@ -92,9 +92,9 @@ export default function ChildDashboard() {
             icon={BookOpen}
           />
           <StatBlock
-            value={masteredWords.length}
-            label="Mastered"
-            icon={Trophy}
+            value={unlockedWords.length}
+            label="Unlocked"
+            icon={Unlock}
           />
           <StatBlock
             value={newWords.length}
@@ -118,7 +118,7 @@ export default function ChildDashboard() {
             data-testid="button-flashcards"
           >
             <Sparkles className="h-6 w-6" />
-            <span>Flashcards</span>
+            <span>Unlock Words</span>
           </Button>
           <Button
             size="lg"
@@ -128,7 +128,7 @@ export default function ChildDashboard() {
             data-testid="button-books"
           >
             <BookMarked className="h-6 w-6" />
-            <span>Book Library</span>
+            <span>Prepare Books</span>
           </Button>
           <Button
             size="lg"
@@ -164,11 +164,11 @@ export default function ChildDashboard() {
             variant="outline"
             className="h-auto py-4 flex-col gap-2"
             onClick={() => setLocation(`/child/${childId}/history-test`)}
-            disabled={masteredWords.length + learningWords.length === 0}
+            disabled={unlockedWords.length + learningWords.length === 0}
             data-testid="button-history-test"
           >
-            <History className="h-6 w-6" />
-            <span>History Test</span>
+            <RefreshCw className="h-6 w-6" />
+            <span>Keep Words Strong</span>
           </Button>
           <Button
             size="lg"
@@ -188,7 +188,7 @@ export default function ChildDashboard() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
-                New Words to Learn
+                Words Ready to Unlock
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -216,7 +216,7 @@ export default function ChildDashboard() {
                   data-testid="link-practice-new-words"
                 >
                   <TrendingUp className="h-4 w-4 mr-1" />
-                  Practice these words
+                  Start unlocking these words
                 </Button>
               )}
             </CardContent>

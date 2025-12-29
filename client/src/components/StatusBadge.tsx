@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import type { WordStatus } from "@shared/schema";
-import { Sparkles, BookOpen, Trophy } from "lucide-react";
+import { Sparkles, BookOpen, Unlock } from "lucide-react";
 
 interface StatusBadgeProps {
   status: WordStatus;
@@ -22,9 +22,9 @@ export function StatusBadge({ status, size = "default" }: StatusBadgeProps) {
       className: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
     },
     mastered: {
-      label: "Mastered",
+      label: "Unlocked",
       variant: "default" as const,
-      icon: Trophy,
+      icon: Unlock,
       className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
     },
   };

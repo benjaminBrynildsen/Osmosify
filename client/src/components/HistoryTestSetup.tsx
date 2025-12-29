@@ -36,15 +36,15 @@ export function HistoryTestSetup({ masteredCount, learningCount, onStartTest }: 
         <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
           <RotateCcw className="h-8 w-8 text-primary" />
         </div>
-        <h2 className="text-2xl font-bold">History Test</h2>
+        <h2 className="text-2xl font-bold">Keep Words Strong</h2>
         <p className="text-muted-foreground">
-          Review previously learned words to keep them fresh
+          Previously unlocked words are gently revisited to make sure they stay familiar
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Test Size</CardTitle>
+          <CardTitle className="text-base">Review Size</CardTitle>
           <CardDescription>How many words do you want to review?</CardDescription>
         </CardHeader>
         <CardContent>
@@ -72,7 +72,7 @@ export function HistoryTestSetup({ masteredCount, learningCount, onStartTest }: 
             <div className="flex items-center space-x-3 py-2">
               <RadioGroupItem value="mastered" id="mastered" data-testid="radio-mastered" />
               <Label htmlFor="mastered" className="flex-1 cursor-pointer">
-                <span className="font-medium">Mastered words only</span>
+                <span className="font-medium">Unlocked words only</span>
                 <span className="text-sm text-muted-foreground ml-2">({masteredCount} available)</span>
               </Label>
             </div>
@@ -86,7 +86,7 @@ export function HistoryTestSetup({ masteredCount, learningCount, onStartTest }: 
             <div className="flex items-center space-x-3 py-2">
               <RadioGroupItem value="both" id="both" data-testid="radio-both" />
               <Label htmlFor="both" className="flex-1 cursor-pointer">
-                <span className="font-medium">Both mastered and learning</span>
+                <span className="font-medium">Both unlocked and learning</span>
                 <span className="text-sm text-muted-foreground ml-2">({masteredCount + learningCount} available)</span>
               </Label>
             </div>
@@ -144,7 +144,7 @@ export function HistoryTestSetup({ masteredCount, learningCount, onStartTest }: 
         <Play className="h-5 w-5 mr-2" />
         {totalAvailable === 0
           ? "No words available"
-          : `Start Test (${effectiveSize} words)`}
+          : `Start Review (${effectiveSize} words)`}
       </Button>
     </div>
   );

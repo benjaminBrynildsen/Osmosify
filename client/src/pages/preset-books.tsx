@@ -98,7 +98,7 @@ export default function PresetBooks() {
 
       <main className="container mx-auto max-w-2xl p-4 space-y-4">
         <p className="text-muted-foreground">
-          Browse popular children's books. Tap a book to see which words {child.name} has already mastered.
+          Browse popular children's books. Tap a book to see which words {child.name} has already unlocked.
         </p>
 
         {booksWithReadiness.length === 0 ? (
@@ -213,7 +213,7 @@ export default function PresetBooks() {
 
                 <div className="mt-4 pt-4 border-t">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Mastered words</span>
+                    <span className="text-muted-foreground">Unlocked words</span>
                     <span className="font-medium">
                       {selectedBook.words.filter(w => masteredWordSet.has(w.toLowerCase())).length} / {selectedBook.words.length}
                     </span>

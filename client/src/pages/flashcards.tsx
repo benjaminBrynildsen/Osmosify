@@ -45,8 +45,8 @@ export default function Flashcards() {
       queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "words"] });
       if (data.added > 0) {
         toast({
-          title: "Words added",
-          description: `Added ${data.added} new words from "${data.bookTitle}" to practice.`,
+          title: "Words ready",
+          description: `Added ${data.added} new words from "${data.bookTitle}" to prepare.`,
         });
       }
     },
@@ -87,12 +87,12 @@ export default function Flashcards() {
     queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "words"] });
     toast({
       title: "Session Complete!",
-      description: `Mastered ${masteredWordIds.length} words in this session.`,
+      description: `Unlocked ${masteredWordIds.length} words in this session.`,
     });
   };
 
   if (isLoading) {
-    return <LoadingScreen message={bookId ? "Loading book words..." : "Loading flashcards..."} />;
+    return <LoadingScreen message={bookId ? "Preparing book words..." : "Preparing words..."} />;
   }
 
   let deckWords = words?.filter((w) => w.status === "new" || w.status === "learning") || [];
@@ -105,7 +105,7 @@ export default function Flashcards() {
   const deckSize = child?.deckSize || 7;
   const masteryThreshold = child?.masteryThreshold || 7;
   const limitedDeck = deckWords.slice(0, deckSize);
-  const headerTitle = book ? `Practice: ${book.title}` : "Flashcards";
+  const headerTitle = book ? `Prepare: ${book.title}` : "Word Preparation";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -128,8 +128,8 @@ export default function Flashcards() {
           <div className="flex-1 flex items-center justify-center p-4">
             <EmptyState
               type="words"
-              title="No words to practice"
-              description="All words have been mastered! Try a History Test to review previously learned words."
+              title="No words to prepare"
+              description="All words have been unlocked! Use 'Keep Words Strong' to review previously learned words."
             />
           </div>
         )}

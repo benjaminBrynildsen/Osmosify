@@ -238,7 +238,7 @@ export default function Books() {
         </Button>
 
         <p className="text-muted-foreground text-sm">
-          Books become "Ready" when 90% or more words are mastered.
+          Books become "Ready" when 90% or more words are unlocked.
         </p>
 
         <div className="flex flex-wrap gap-2">
@@ -375,7 +375,7 @@ export default function Books() {
 
                 <div className="mt-4 pt-4 border-t">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Mastered words</span>
+                    <span className="text-muted-foreground">Unlocked words</span>
                     <span className="font-medium">
                       {selectedBook.words.filter(w => masteredWordSet.has(w.toLowerCase())).length} / {selectedBook.words.length}
                     </span>
@@ -390,10 +390,10 @@ export default function Books() {
                       setSelectedBook(null);
                       setLocation(`/child/${childId}/flashcards?bookId=${selectedBook.id}`);
                     }}
-                    data-testid="button-practice-flashcards"
+                    data-testid="button-prepare-words"
                   >
                     <Sparkles className="h-4 w-4" />
-                    Practice Flashcards
+                    Prepare Words
                   </Button>
                   <Button
                     variant="outline"
@@ -611,7 +611,7 @@ function BookCard({
           </div>
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
-              {item.masteredCount} of {item.totalCount} words mastered
+              {item.masteredCount} of {item.totalCount} words unlocked
             </p>
             {unmasteredCount > 0 && (
               <Button
@@ -620,7 +620,7 @@ function BookCard({
                 data-testid={`button-practice-book-${item.book.id}`}
               >
                 <Sparkles className="h-3 w-3 mr-1" />
-                Practice
+                Prepare
               </Button>
             )}
           </div>

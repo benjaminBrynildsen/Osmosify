@@ -64,7 +64,7 @@ export function WordCard({ word }: WordCardProps) {
             <div className="flex items-center gap-2 text-sm">
               <Target className="h-4 w-4 text-muted-foreground" />
               <div>
-                <p className="text-muted-foreground text-xs">Mastery progress</p>
+                <p className="text-muted-foreground text-xs">Unlock progress</p>
                 <p className="font-medium">{word.masteryCorrectCount}/10</p>
               </div>
             </div>

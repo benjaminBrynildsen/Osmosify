@@ -180,10 +180,10 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
   if (words.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-96 p-4" data-testid="flashcard-empty">
-        <p className="text-lg font-medium text-foreground mb-2">No words to practice</p>
+        <p className="text-lg font-medium text-foreground mb-2">No words to prepare</p>
         <p className="text-sm text-muted-foreground text-center">
           {mode === "mastery"
-            ? "All words have been mastered! Try a History Test to review."
+            ? "All words have been unlocked! Use 'Keep Words Strong' to review."
             : "No words available for review."}
         </p>
       </div>
@@ -220,9 +220,9 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
               {percentage >= 80 ? "Great job!" : percentage >= 60 ? "Keep practicing!" : "Don't give up!"}
             </p>
           </div>
-          <Button onClick={initializeSession} className="gap-2" data-testid="button-restart-flashcards">
+          <Button onClick={initializeSession} className="gap-2" data-testid="button-restart-session">
             <RotateCcw className="h-4 w-4" />
-            Practice Again
+            Review Again
           </Button>
         </motion.div>
       );
@@ -251,15 +251,15 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
             {masteredIds.length} / {totalWords}
           </p>
           <p className="text-lg font-medium text-foreground">
-            Words Mastered!
+            Words Unlocked!
           </p>
           <p className="text-sm text-muted-foreground mt-2">
             {totalCorrect} correct out of {totalAttempts} total attempts
           </p>
         </div>
-        <Button onClick={initializeSession} className="gap-2" data-testid="button-restart-flashcards">
+        <Button onClick={initializeSession} className="gap-2" data-testid="button-restart-session">
           <RotateCcw className="h-4 w-4" />
-          Practice Again
+          Continue Preparing
         </Button>
       </motion.div>
     );
@@ -294,7 +294,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
         <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground mb-2">
           {mode === "mastery" ? (
             <>
-              <span>{masteredIds.length} of {totalWords} mastered</span>
+              <span>{masteredIds.length} of {totalWords} unlocked</span>
               <span className="text-xs">
                 This word: {currentProgress.sessionCorrectCount} / {masteryThreshold}
               </span>
@@ -302,7 +302,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
           ) : (
             <>
               <span>{historyResults.length + 1} of {totalWords}</span>
-              <span className="text-xs">History Test</span>
+              <span className="text-xs">Keep Words Strong</span>
             </>
           )}
         </div>

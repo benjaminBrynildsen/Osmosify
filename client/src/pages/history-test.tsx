@@ -72,7 +72,7 @@ export default function HistoryTest() {
     const missedCount = results.length - correctCount;
     
     toast({
-      title: "History Test Complete!",
+      title: "Review Complete!",
       description: child?.demoteOnMiss && missedCount > 0
         ? `${correctCount}/${results.length} correct. ${missedCount} words moved back to learning.`
         : `You got ${correctCount} out of ${results.length} correct.`,
@@ -92,7 +92,7 @@ export default function HistoryTest() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader
-        title="History Test"
+        title="Keep Words Strong"
         showBack
         backPath={`/child/${childId}`}
       />

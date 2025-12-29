@@ -64,7 +64,7 @@ export default function WordLibrary() {
   return (
     <div className="min-h-screen bg-background pb-24">
       <AppHeader
-        title="Word Library"
+        title="Your Child's Word Library"
         showBack
         backPath={`/child/${childId}`}
       />

@@ -83,7 +83,7 @@ export function WordFilters({
             onClick={() => onStatusFilterChange("mastered")}
             data-testid="button-filter-mastered"
           >
-            Mastered
+            Unlocked
           </Button>
         </div>
 
