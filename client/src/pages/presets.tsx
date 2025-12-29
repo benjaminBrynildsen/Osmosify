@@ -10,8 +10,9 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   BookOpen,
   Plus,
-  Check,
   Loader2,
+  Sparkles,
+  Gamepad2,
 } from "lucide-react";
 import type { Child, PresetWordList } from "@shared/schema";
 
@@ -91,7 +92,7 @@ export default function Presets() {
 
       <main className="container mx-auto max-w-2xl p-4 space-y-6">
         <p className="text-muted-foreground">
-          Add preset word lists to {child.name}'s vocabulary. Words will be added as "new" and can be practiced with flashcards.
+          Add word lists to {child.name}'s vocabulary, or jump right in to prepare words and play Word Pop.
         </p>
 
         {categoryOrder.map(category => {
@@ -138,19 +139,39 @@ export default function Presets() {
                           </span>
                         )}
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => addPresetMutation.mutate(preset.id)}
-                        disabled={addPresetMutation.isPending}
-                        data-testid={`button-add-preset-${preset.id}`}
-                      >
-                        {addPresetMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <Plus className="h-4 w-4 mr-2" />
-                        )}
-                        Add to Library
-                      </Button>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => addPresetMutation.mutate(preset.id)}
+                          disabled={addPresetMutation.isPending}
+                          data-testid={`button-add-preset-${preset.id}`}
+                        >
+                          {addPresetMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Plus className="h-4 w-4 mr-2" />
+                          )}
+                          Add to Library
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => setLocation(`/child/${childId}/flashcards?presetId=${preset.id}`)}
+                          data-testid={`button-prepare-preset-${preset.id}`}
+                        >
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          Prepare Words
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setLocation(`/child/${childId}/word-pop?presetId=${preset.id}`)}
+                          data-testid={`button-wordpop-preset-${preset.id}`}
+                        >
+                          <Gamepad2 className="h-4 w-4 mr-2" />
+                          Word Pop
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}

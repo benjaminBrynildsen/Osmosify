@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Volume2, Trophy, Flame, Play, RotateCcw, Star, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Word, Child, Book } from "@shared/schema";
+import type { Word, Child, Book, PresetWordList } from "@shared/schema";
 
 interface Bubble {
   id: number;
@@ -23,6 +23,7 @@ export default function WordPop() {
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
   const bookId = searchParams.get("bookId");
+  const presetId = searchParams.get("presetId");
   const childId = id || "";
 
   const [gameState, setGameState] = useState<"ready" | "playing" | "gameover">("ready");
@@ -57,6 +58,11 @@ export default function WordPop() {
     enabled: !!bookId,
   });
 
+  const { data: preset } = useQuery<PresetWordList>({
+    queryKey: [`/api/presets/${presetId}`],
+    enabled: !!presetId,
+  });
+
   const playableWords = useMemo(() => {
     if (book && book.words) {
       return book.words
@@ -64,8 +70,14 @@ export default function WordPop() {
         .map((word, index) => ({ id: index, word: word.toLowerCase(), status: "new" as const }));
     }
     
+    if (preset && preset.words) {
+      return preset.words
+        .filter(w => w.length >= 2 && w.length <= 12)
+        .map((word, index) => ({ id: index, word: word.toLowerCase(), status: "new" as const }));
+    }
+    
     return words.filter(w => w.word.length >= 2 && w.word.length <= 12);
-  }, [words, book]);
+  }, [words, book, preset]);
 
   useEffect(() => {
     if ('speechSynthesis' in window) {
@@ -269,7 +281,8 @@ export default function WordPop() {
     };
   }, [gameState, targetWord, nextRound]);
 
-  const backPath = bookId ? `/child/${childId}/books` : `/child/${childId}`;
+  const backPath = bookId ? `/child/${childId}/books` : presetId ? `/child/${childId}/presets` : `/child/${childId}`;
+  const sourceName = book?.title || preset?.name;
 
   if (playableWords.length < 4) {
     return (
@@ -291,8 +304,8 @@ export default function WordPop() {
               <Trophy className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
               <h2 className="text-xl font-bold mb-2">Not Enough Words</h2>
               <p className="text-muted-foreground mb-4">
-                {book 
-                  ? `This book needs at least 4 words in ${child?.name}'s library to play Word Pop!`
+                {sourceName 
+                  ? `"${sourceName}" needs at least 4 words to play Word Pop!`
                   : `Add at least 4 words to ${child?.name}'s library to play Word Pop!`
                 }
               </p>
@@ -444,10 +457,10 @@ export default function WordPop() {
           <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
             <Trophy className="w-20 h-20 text-primary mb-6" />
             <h1 className="text-3xl font-bold mb-2">Word Pop</h1>
-            {book && (
+            {sourceName && (
               <div className="flex items-center gap-2 text-muted-foreground mb-2">
                 <BookOpen className="w-4 h-4" />
-                <span>{book.title}</span>
+                <span>{sourceName}</span>
               </div>
             )}
             <p className="text-muted-foreground text-center mb-8 max-w-xs">

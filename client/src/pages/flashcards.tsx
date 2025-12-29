@@ -7,7 +7,7 @@ import { LoadingScreen } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Child, Word, Book } from "@shared/schema";
+import type { Child, Word, Book, PresetWordList } from "@shared/schema";
 
 export default function Flashcards() {
   const params = useParams<{ id: string }>();
@@ -15,6 +15,7 @@ export default function Flashcards() {
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
   const bookId = searchParams.get("bookId");
+  const presetId = searchParams.get("presetId");
   const childId = params.id;
   const { toast } = useToast();
   const [wordsImported, setWordsImported] = useState(false);
@@ -31,6 +32,11 @@ export default function Flashcards() {
   const { data: book, isLoading: bookLoading } = useQuery<Book>({
     queryKey: ["/api/books", bookId],
     enabled: !!bookId,
+  });
+
+  const { data: preset, isLoading: presetLoading } = useQuery<PresetWordList>({
+    queryKey: [`/api/presets/${presetId}`],
+    enabled: !!presetId,
   });
 
   const importBookWordsMutation = useMutation({
@@ -60,9 +66,36 @@ export default function Flashcards() {
     },
   });
 
+  const importPresetWordsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/children/${childId}/add-preset`, {
+        presetId,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setWordsImported(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "words"] });
+      if (data.added > 0) {
+        toast({
+          title: "Words ready",
+          description: `Added ${data.added} new words from "${data.presetName}" to prepare.`,
+        });
+      }
+    },
+    onError: () => {
+      setWordsImported(true);
+      toast({
+        title: "Error",
+        description: "Failed to load preset words. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   useEffect(() => {
     setWordsImported(false);
-  }, [bookId]);
+  }, [bookId, presetId]);
 
   useEffect(() => {
     if (bookId && book && !wordsImported && !importBookWordsMutation.isPending) {
@@ -70,7 +103,13 @@ export default function Flashcards() {
     }
   }, [bookId, book, wordsImported]);
 
-  const isLoading = wordsLoading || (bookId && bookLoading) || (bookId && !wordsImported);
+  useEffect(() => {
+    if (presetId && preset && !wordsImported && !importPresetWordsMutation.isPending) {
+      importPresetWordsMutation.mutate();
+    }
+  }, [presetId, preset, wordsImported]);
+
+  const isLoading = wordsLoading || (bookId && bookLoading) || (bookId && !wordsImported) || (presetId && presetLoading) || (presetId && !wordsImported);
 
   const masterWordMutation = useMutation({
     mutationFn: async (wordId: string) => {
@@ -100,19 +139,23 @@ export default function Flashcards() {
   if (book && book.words) {
     const bookWordsSet = new Set(book.words.map(w => w.toLowerCase()));
     deckWords = deckWords.filter(w => bookWordsSet.has(w.word.toLowerCase()));
+  } else if (preset && preset.words) {
+    const presetWordsSet = new Set(preset.words.map(w => w.toLowerCase()));
+    deckWords = deckWords.filter(w => presetWordsSet.has(w.word.toLowerCase()));
   }
   
   const deckSize = child?.deckSize || 7;
   const masteryThreshold = child?.masteryThreshold || 7;
   const limitedDeck = deckWords.slice(0, deckSize);
-  const headerTitle = book ? `Prepare: ${book.title}` : "Word Preparation";
+  const headerTitle = book ? `Prepare: ${book.title}` : preset ? `Prepare: ${preset.name}` : "Word Preparation";
+  const backPath = bookId ? `/child/${childId}/books` : presetId ? `/child/${childId}/presets` : `/child/${childId}`;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader
         title={headerTitle}
         showBack
-        backPath={bookId ? `/child/${childId}/books` : `/child/${childId}`}
+        backPath={backPath}
       />
 
       <main className="flex-1 flex flex-col">
