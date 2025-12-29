@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -17,6 +17,7 @@ import Presets from "@/pages/presets";
 import Books from "@/pages/books";
 import PresetBooks from "@/pages/preset-books";
 import SplashScreen from "@/components/SplashScreen";
+import { WelcomeCarousel } from "@/components/WelcomeCarousel";
 
 function Router() {
   return (
@@ -39,11 +40,33 @@ function Router() {
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [welcomeChecked, setWelcomeChecked] = useState(false);
+
+  useEffect(() => {
+    const hasSeenWelcome = localStorage.getItem("osmosify_welcome_seen") === "true";
+    if (!hasSeenWelcome) {
+      setShowWelcome(true);
+    }
+    setWelcomeChecked(true);
+  }, []);
+
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+  };
+
+  const handleWelcomeComplete = () => {
+    localStorage.setItem("osmosify_welcome_seen", "true");
+    setShowWelcome(false);
+  };
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
+        {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+        {!showSplash && welcomeChecked && showWelcome && (
+          <WelcomeCarousel onComplete={handleWelcomeComplete} />
+        )}
         <Toaster />
         <Router />
       </TooltipProvider>
