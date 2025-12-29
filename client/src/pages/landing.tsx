@@ -12,7 +12,7 @@ export default function Landing() {
           <span className="text-2xl font-bold">Osmosify</span>
         </div>
         <Button asChild data-testid="button-sign-in">
-          <Link href="/login">Sign In</Link>
+          <a href="/api/login">Sign In</a>
         </Button>
       </header>
 
@@ -27,10 +27,10 @@ export default function Landing() {
             Osmosify quietly prepares your child's vocabulary so when it's time to read, the book finally clicks.
           </p>
           <Button size="lg" asChild data-testid="button-get-started">
-            <Link href="/login" className="gap-2">
+            <a href="/api/login" className="gap-2">
               Prepare the Words
               <ArrowRight className="h-5 w-5" />
-            </Link>
+            </a>
           </Button>
           <p className="mt-4 text-sm text-muted-foreground">
             Free to start. No credit card required.

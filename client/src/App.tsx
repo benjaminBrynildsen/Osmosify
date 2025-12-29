@@ -8,7 +8,6 @@ import { useAuth } from "@/hooks/use-auth";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Landing from "@/pages/landing";
-import PhoneLogin from "@/pages/phone-login";
 import RoleSelection from "@/pages/role-selection";
 import ChildDashboard from "@/pages/child-dashboard";
 import UploadSession from "@/pages/upload-session";
@@ -47,7 +46,7 @@ function AuthWrapper() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeChecked, setWelcomeChecked] = useState(false);
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -71,15 +70,6 @@ function AuthWrapper() {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
-  }
-
-  // Allow access to phone login page even when not authenticated
-  if (location === "/login") {
-    if (isAuthenticated) {
-      setLocation("/");
-      return null;
-    }
-    return <PhoneLogin />;
   }
 
   if (!isAuthenticated) {
