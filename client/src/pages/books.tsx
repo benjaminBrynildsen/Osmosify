@@ -29,6 +29,7 @@ import {
   Trash2,
   Library,
   FlaskConical,
+  Sparkles,
 } from "lucide-react";
 import type { Child, BookReadiness } from "@shared/schema";
 
@@ -286,6 +287,7 @@ export default function Books() {
               <BookCard
                 key={item.book.id}
                 item={item}
+                childId={childId!}
                 onDelete={() => deleteBookMutation.mutate(item.book.id)}
                 isDeleting={deleteBookMutation.isPending}
               />
@@ -309,13 +311,17 @@ export default function Books() {
 
 function BookCard({
   item,
+  childId,
   onDelete,
   isDeleting,
 }: {
   item: BookReadiness;
+  childId: string;
   onDelete: () => void;
   isDeleting: boolean;
 }) {
+  const [, setLocation] = useLocation();
+  
   const getCardStyle = () => {
     if (item.percent >= 90) return "border-green-500/50 bg-green-500/5";
     if (item.percent >= 70) return "border-amber-500/50 bg-amber-500/5";
@@ -333,6 +339,8 @@ function BookCard({
     if (item.percent >= 70) return "bg-amber-500 text-white";
     return "";
   };
+
+  const unmasteredCount = item.totalCount - item.masteredCount;
 
   return (
     <Card className={getCardStyle()}>
@@ -379,16 +387,28 @@ function BookCard({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div
               className={`h-full transition-all ${getProgressColor() || "bg-primary"}`}
               style={{ width: `${item.percent}%` }}
             />
           </div>
-          <p className="text-sm text-muted-foreground">
-            {item.masteredCount} of {item.totalCount} words mastered
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm text-muted-foreground">
+              {item.masteredCount} of {item.totalCount} words mastered
+            </p>
+            {unmasteredCount > 0 && (
+              <Button
+                size="sm"
+                onClick={() => setLocation(`/child/${childId}/flashcards?bookId=${item.book.id}`)}
+                data-testid={`button-practice-book-${item.book.id}`}
+              >
+                <Sparkles className="h-3 w-3 mr-1" />
+                Practice
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

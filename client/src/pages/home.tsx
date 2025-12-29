@@ -51,7 +51,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader title="Reading Tracker" />
+      <AppHeader title="Osmosify" />
       
       <main className="container mx-auto max-w-2xl p-4">
         <div className="flex items-center justify-between mb-6">

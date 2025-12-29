@@ -110,15 +110,6 @@ export default function ChildDashboard() {
         <div className="grid grid-cols-2 gap-3">
           <Button
             size="lg"
-            className="h-auto py-4 flex-col gap-2"
-            onClick={() => setLocation(`/child/${childId}/upload`)}
-            data-testid="button-new-session"
-          >
-            <Camera className="h-6 w-6" />
-            <span>New Session</span>
-          </Button>
-          <Button
-            size="lg"
             variant="secondary"
             className="h-auto py-4 flex-col gap-2"
             onClick={() => setLocation(`/child/${childId}/flashcards`)}
@@ -132,22 +123,11 @@ export default function ChildDashboard() {
             size="lg"
             variant="outline"
             className="h-auto py-4 flex-col gap-2"
-            onClick={() => setLocation(`/child/${childId}/history-test`)}
-            disabled={masteredWords.length + learningWords.length === 0}
-            data-testid="button-history-test"
+            onClick={() => setLocation(`/child/${childId}/books`)}
+            data-testid="button-books"
           >
-            <History className="h-6 w-6" />
-            <span>History Test</span>
-          </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            className="h-auto py-4 flex-col gap-2"
-            onClick={() => setLocation(`/child/${childId}/library`)}
-            data-testid="button-word-library"
-          >
-            <Library className="h-6 w-6" />
-            <span>Word Library</span>
+            <BookMarked className="h-6 w-6" />
+            <span>Book Library</span>
           </Button>
           <Button
             size="lg"
@@ -163,11 +143,31 @@ export default function ChildDashboard() {
             size="lg"
             variant="outline"
             className="h-auto py-4 flex-col gap-2"
-            onClick={() => setLocation(`/child/${childId}/books`)}
-            data-testid="button-books"
+            onClick={() => setLocation(`/child/${childId}/library`)}
+            data-testid="button-word-library"
           >
-            <BookMarked className="h-6 w-6" />
-            <span>Book Library</span>
+            <Library className="h-6 w-6" />
+            <span>Word Library</span>
+          </Button>
+          <Button
+            size="lg"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/child/${childId}/upload`)}
+            data-testid="button-new-session"
+          >
+            <Camera className="h-6 w-6" />
+            <span>Upload Book</span>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/child/${childId}/history-test`)}
+            disabled={masteredWords.length + learningWords.length === 0}
+            data-testid="button-history-test"
+          >
+            <History className="h-6 w-6" />
+            <span>History Test</span>
           </Button>
         </div>
 

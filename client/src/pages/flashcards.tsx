@@ -1,16 +1,19 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, useSearch } from "wouter";
 import { AppHeader } from "@/components/AppHeader";
 import { FlashcardDisplay } from "@/components/FlashcardDisplay";
 import { LoadingScreen } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Child, Word } from "@shared/schema";
+import type { Child, Word, Book } from "@shared/schema";
 
 export default function Flashcards() {
   const params = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const bookId = searchParams.get("bookId");
   const childId = params.id;
   const { toast } = useToast();
 
@@ -18,10 +21,17 @@ export default function Flashcards() {
     queryKey: ["/api/children", childId],
   });
 
-  const { data: words, isLoading } = useQuery<Word[]>({
+  const { data: words, isLoading: wordsLoading } = useQuery<Word[]>({
     queryKey: ["/api/children", childId, "words"],
     enabled: !!childId,
   });
+
+  const { data: book, isLoading: bookLoading } = useQuery<Book>({
+    queryKey: ["/api/books", bookId],
+    enabled: !!bookId,
+  });
+
+  const isLoading = wordsLoading || (bookId && bookLoading);
 
   const masterWordMutation = useMutation({
     mutationFn: async (wordId: string) => {
@@ -46,17 +56,24 @@ export default function Flashcards() {
     return <LoadingScreen message="Loading flashcards..." />;
   }
 
-  const deckWords = words?.filter((w) => w.status === "new" || w.status === "learning") || [];
+  let deckWords = words?.filter((w) => w.status === "new" || w.status === "learning") || [];
+  
+  if (book && book.words) {
+    const bookWordsSet = new Set(book.words.map(w => w.toLowerCase()));
+    deckWords = deckWords.filter(w => bookWordsSet.has(w.word.toLowerCase()));
+  }
+  
   const deckSize = child?.deckSize || 7;
   const masteryThreshold = child?.masteryThreshold || 7;
   const limitedDeck = deckWords.slice(0, deckSize);
+  const headerTitle = book ? `Practice: ${book.title}` : "Flashcards";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader
-        title="Flashcards"
+        title={headerTitle}
         showBack
-        backPath={`/child/${childId}`}
+        backPath={bookId ? `/child/${childId}/books` : `/child/${childId}`}
       />
 
       <main className="flex-1 flex flex-col">
