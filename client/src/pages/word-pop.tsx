@@ -287,9 +287,14 @@ export default function WordPop() {
 
       {gameState === "playing" && targetWord && (
         <div className="p-4 text-center bg-muted/50">
-          <p className="text-sm text-muted-foreground mb-1">Tap the word:</p>
+          <p className="text-sm text-muted-foreground mb-1">Listen and tap the word:</p>
           <div className="flex items-center justify-center gap-2">
-            <span className="text-2xl font-bold" data-testid="target-word">{targetWord}</span>
+            <span 
+              className="text-2xl font-bold blur-sm select-none" 
+              data-testid="target-word"
+            >
+              {targetWord}
+            </span>
             <Button
               variant="ghost"
               size="icon"
