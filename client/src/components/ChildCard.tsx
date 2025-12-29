@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { User, BookOpen, ChevronRight, Settings } from "lucide-react";
 import type { Child } from "@shared/schema";
 import { useLocation } from "wouter";
+import { getGradeLevelLabel } from "@/lib/gradeLevels";
 
 interface ChildCardProps {
   child: Child;
@@ -32,7 +33,7 @@ export function ChildCard({ child, wordCount = 0, onSettings }: ChildCardProps) 
               </h3>
               {child.gradeLevel && (
                 <Badge variant="secondary" className="w-fit text-xs">
-                  {child.gradeLevel}
+                  {getGradeLevelLabel(child.gradeLevel)}
                 </Badge>
               )}
               <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">

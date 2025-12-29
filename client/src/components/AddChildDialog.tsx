@@ -18,7 +18,15 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { UserPlus } from "lucide-react";
+import { GRADE_LEVELS } from "@/lib/gradeLevels";
 
 const addChildSchema = z.object({
   name: z.string().min(1, "Name is required").max(50, "Name is too long"),
@@ -86,13 +94,20 @@ export function AddChildDialog({ open, onOpenChange, onAdd, isAdding = false }: 
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Grade Level (optional)</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="e.g., 2nd Grade, K, Pre-K"
-                      data-testid="input-new-child-grade"
-                    />
-                  </FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-new-child-grade">
+                        <SelectValue placeholder="Select grade level" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {GRADE_LEVELS.map((grade) => (
+                        <SelectItem key={grade.value} value={grade.value}>
+                          {grade.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

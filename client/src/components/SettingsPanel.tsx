@@ -13,9 +13,17 @@ import {
   FormItem,
   FormLabel,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Save } from "lucide-react";
 import type { Child } from "@shared/schema";
+import { GRADE_LEVELS } from "@/lib/gradeLevels";
 
 const settingsSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -75,9 +83,20 @@ export function SettingsPanel({ child, onSave, isSaving = false }: SettingsPanel
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Grade Level (optional)</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="e.g., 2nd Grade" data-testid="input-grade-level" />
-                  </FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-grade-level">
+                        <SelectValue placeholder="Select grade level" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {GRADE_LEVELS.map((grade) => (
+                        <SelectItem key={grade.value} value={grade.value}>
+                          {grade.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </FormItem>
               )}
             />
