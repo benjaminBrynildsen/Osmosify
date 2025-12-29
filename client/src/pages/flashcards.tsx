@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation, useSearch } from "wouter";
 import { AppHeader } from "@/components/AppHeader";
@@ -16,12 +17,13 @@ export default function Flashcards() {
   const bookId = searchParams.get("bookId");
   const childId = params.id;
   const { toast } = useToast();
+  const [wordsImported, setWordsImported] = useState(false);
 
   const { data: child } = useQuery<Child>({
     queryKey: ["/api/children", childId],
   });
 
-  const { data: words, isLoading: wordsLoading } = useQuery<Word[]>({
+  const { data: words, isLoading: wordsLoading, refetch: refetchWords } = useQuery<Word[]>({
     queryKey: ["/api/children", childId, "words"],
     enabled: !!childId,
   });
@@ -31,7 +33,44 @@ export default function Flashcards() {
     enabled: !!bookId,
   });
 
-  const isLoading = wordsLoading || (bookId && bookLoading);
+  const importBookWordsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/children/${childId}/import-book-words`, {
+        bookId,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setWordsImported(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "words"] });
+      if (data.added > 0) {
+        toast({
+          title: "Words added",
+          description: `Added ${data.added} new words from "${data.bookTitle}" to practice.`,
+        });
+      }
+    },
+    onError: () => {
+      setWordsImported(true);
+      toast({
+        title: "Error",
+        description: "Failed to load book words. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  useEffect(() => {
+    setWordsImported(false);
+  }, [bookId]);
+
+  useEffect(() => {
+    if (bookId && book && !wordsImported && !importBookWordsMutation.isPending) {
+      importBookWordsMutation.mutate();
+    }
+  }, [bookId, book, wordsImported]);
+
+  const isLoading = wordsLoading || (bookId && bookLoading) || (bookId && !wordsImported);
 
   const masterWordMutation = useMutation({
     mutationFn: async (wordId: string) => {
@@ -53,7 +92,7 @@ export default function Flashcards() {
   };
 
   if (isLoading) {
-    return <LoadingScreen message="Loading flashcards..." />;
+    return <LoadingScreen message={bookId ? "Loading book words..." : "Loading flashcards..."} />;
   }
 
   let deckWords = words?.filter((w) => w.status === "new" || w.status === "learning") || [];

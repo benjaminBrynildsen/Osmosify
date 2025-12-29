@@ -405,6 +405,63 @@ export async function registerRoutes(
     }
   });
 
+  // Import book words to a child's word library
+  const importBookWordsSchema = z.object({
+    bookId: z.string().min(1),
+  });
+
+  app.post("/api/children/:id/import-book-words", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const childId = req.params.id;
+      const parsed = importBookWordsSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request: bookId required" });
+      }
+      const { bookId } = parsed.data;
+
+      const child = await storage.getChildByUser(childId, userId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
+
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+
+      // Verify ownership for non-preset books
+      if (!book.isPreset && book.childId) {
+        const bookOwner = await storage.getChildByUser(book.childId, userId);
+        if (!bookOwner) {
+          return res.status(403).json({ error: "Not authorized" });
+        }
+      }
+
+      if (!book.words || book.words.length === 0) {
+        return res.json({
+          added: 0,
+          total: 0,
+          bookTitle: book.title,
+        });
+      }
+
+      const { newWords, totalWords } = await storage.bulkUpsertWords(childId, book.words);
+
+      res.json({
+        added: newWords.length,
+        total: totalWords,
+        bookTitle: book.title,
+      });
+    } catch (error) {
+      console.error("Error importing book words:", error);
+      res.status(500).json({ error: "Failed to import book words" });
+    }
+  });
+
   // Books endpoints (protected with user scoping)
   app.get("/api/books", isAuthenticated, async (req, res) => {
     try {
