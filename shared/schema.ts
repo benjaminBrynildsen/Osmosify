@@ -11,10 +11,10 @@ export const children = pgTable("children", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   gradeLevel: text("grade_level"),
-  stopWordsEnabled: boolean("stop_words_enabled").notNull().default(true),
+  stopWordsEnabled: boolean("stop_words_enabled").notNull().default(false),
   gradeLevelFilterEnabled: boolean("grade_level_filter_enabled").notNull().default(false),
-  masteryThreshold: integer("mastery_threshold").notNull().default(10),
-  deckSize: integer("deck_size").notNull().default(10),
+  masteryThreshold: integer("mastery_threshold").notNull().default(7),
+  deckSize: integer("deck_size").notNull().default(7),
   demoteOnMiss: boolean("demote_on_miss").notNull().default(true),
 });
 

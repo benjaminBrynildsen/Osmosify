@@ -173,7 +173,7 @@ export function processText(
     filterByGradeLevel?: boolean;
   } = {}
 ): ProcessedText {
-  const { filterStopWords = true, filterByGradeLevel = false } = options;
+  const { filterStopWords = false, filterByGradeLevel = false } = options;
 
   // Step 1: Normalize unicode characters
   let cleanedText = rawText
