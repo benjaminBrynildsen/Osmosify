@@ -12,15 +12,18 @@ import {
   type ChildBookProgress,
   type InsertChildBookProgress,
   type BookReadiness,
+  type User,
+  type UserRole,
   children,
   readingSessions,
   words,
   presetWordLists,
   books,
   childBookProgress,
+  users,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, isNull } from "drizzle-orm";
 
 export interface PresetBookData {
   title: string;
@@ -32,7 +35,18 @@ export interface PresetBookData {
 }
 
 export interface IStorage {
-  // Children
+  // User management
+  updateUserRole(userId: string, role: UserRole): Promise<User>;
+
+  // Children (user-scoped)
+  getChildrenByUser(userId: string): Promise<Child[]>;
+  getChildByUser(childId: string, userId: string): Promise<Child | undefined>;
+  createChildForUser(userId: string, child: InsertChild): Promise<Child>;
+  updateChildForUser(childId: string, userId: string, data: Partial<InsertChild>): Promise<Child | undefined>;
+  deleteChildForUser(childId: string, userId: string): Promise<void>;
+  getChildWordCountsByUser(userId: string): Promise<Record<string, number>>;
+
+  // Children (legacy - for internal use)
   getChildren(): Promise<Child[]>;
   getChild(id: string): Promise<Child | undefined>;
   createChild(child: InsertChild): Promise<Child>;
@@ -61,6 +75,7 @@ export interface IStorage {
 
   // Books
   getBooks(): Promise<Book[]>;
+  getBooksByUser(userId: string): Promise<Book[]>;
   getPresetBooks(): Promise<Book[]>;
   getCustomBooks(): Promise<Book[]>;
   getBook(id: string): Promise<Book | undefined>;
@@ -80,7 +95,71 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // Children
+  // User management
+  async updateUserRole(userId: string, role: UserRole): Promise<User> {
+    const [updated] = await db
+      .update(users)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  // Children (user-scoped)
+  async getChildrenByUser(userId: string): Promise<Child[]> {
+    return db.select().from(children).where(eq(children.userId, userId)).orderBy(children.name);
+  }
+
+  async getChildByUser(childId: string, userId: string): Promise<Child | undefined> {
+    const [child] = await db
+      .select()
+      .from(children)
+      .where(and(eq(children.id, childId), eq(children.userId, userId)));
+    return child;
+  }
+
+  async createChildForUser(userId: string, child: InsertChild): Promise<Child> {
+    const [created] = await db.insert(children).values({ ...child, userId }).returning();
+    return created;
+  }
+
+  async updateChildForUser(childId: string, userId: string, data: Partial<InsertChild>): Promise<Child | undefined> {
+    const [updated] = await db
+      .update(children)
+      .set(data)
+      .where(and(eq(children.id, childId), eq(children.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteChildForUser(childId: string, userId: string): Promise<void> {
+    await db.delete(children).where(and(eq(children.id, childId), eq(children.userId, userId)));
+  }
+
+  async getChildWordCountsByUser(userId: string): Promise<Record<string, number>> {
+    const userChildren = await this.getChildrenByUser(userId);
+    const childIds = userChildren.map(c => c.id);
+    
+    if (childIds.length === 0) {
+      return {};
+    }
+
+    const result = await db
+      .select({
+        childId: words.childId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(words)
+      .where(inArray(words.childId, childIds))
+      .groupBy(words.childId);
+
+    return result.reduce((acc, row) => {
+      acc[row.childId] = row.count;
+      return acc;
+    }, {} as Record<string, number>);
+  }
+
+  // Children (legacy)
   async getChildren(): Promise<Child[]> {
     return db.select().from(children).orderBy(children.name);
   }
@@ -252,6 +331,30 @@ export class DatabaseStorage implements IStorage {
   // Books
   async getBooks(): Promise<Book[]> {
     return db.select().from(books).orderBy(books.title);
+  }
+
+  async getBooksByUser(userId: string): Promise<Book[]> {
+    const userChildren = await this.getChildrenByUser(userId);
+    const childIds = userChildren.map(c => c.id);
+    
+    const presetBooks = await this.getPresetBooks();
+    
+    if (childIds.length === 0) {
+      return presetBooks;
+    }
+    
+    const userBooks = await db
+      .select()
+      .from(books)
+      .where(
+        and(
+          eq(books.isPreset, false),
+          inArray(books.childId, childIds)
+        )
+      )
+      .orderBy(books.title);
+    
+    return [...presetBooks, ...userBooks];
   }
 
   async getPresetBooks(): Promise<Book[]> {

@@ -3,12 +3,19 @@ import { pgTable, text, varchar, integer, timestamp, boolean, jsonb } from "driz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Re-export auth models
+export * from "./models/auth";
+
 // Word status enum
 export type WordStatus = "new" | "learning" | "mastered";
+
+// Import users table for foreign key reference
+import { users } from "./models/auth";
 
 // Children profiles
 export const children = pgTable("children", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   gradeLevel: text("grade_level"),
   stopWordsEnabled: boolean("stop_words_enabled").notNull().default(false),

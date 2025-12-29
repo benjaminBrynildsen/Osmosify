@@ -7,13 +7,38 @@ import { insertChildSchema, insertBookSchema } from "@shared/schema";
 import { presetWordLists as presetData } from "./presetData";
 import { presetBooks as presetBooksData } from "./presetBooks";
 import { z } from "zod";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+
+// Helper to get userId from authenticated request
+function getUserId(req: any): string {
+  return req.user?.claims?.sub;
+}
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // OCR endpoint - extract text from images using Gemini Vision
-  app.post("/api/ocr", async (req, res) => {
+  // Setup authentication FIRST (before other routes)
+  await setupAuth(app);
+  registerAuthRoutes(app);
+
+  // User role update endpoint (for onboarding)
+  app.patch("/api/auth/user/role", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { role } = req.body;
+      if (!role || !["parent", "teacher"].includes(role)) {
+        return res.status(400).json({ error: "Role must be 'parent' or 'teacher'" });
+      }
+      const user = await storage.updateUserRole(userId, role);
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ error: "Failed to update role" });
+    }
+  });
+  // OCR endpoint - extract text from images using Gemini Vision (protected)
+  app.post("/api/ocr", isAuthenticated, async (req, res) => {
     try {
       const { images } = req.body;
       
@@ -29,10 +54,11 @@ export async function registerRoutes(
     }
   });
 
-  // Children endpoints
-  app.get("/api/children", async (req, res) => {
+  // Children endpoints (protected)
+  app.get("/api/children", isAuthenticated, async (req, res) => {
     try {
-      const children = await storage.getChildren();
+      const userId = getUserId(req);
+      const children = await storage.getChildrenByUser(userId);
       res.json(children);
     } catch (error) {
       console.error("Error fetching children:", error);
@@ -40,9 +66,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/children/word-counts", async (req, res) => {
+  app.get("/api/children/word-counts", isAuthenticated, async (req, res) => {
     try {
-      const wordCounts = await storage.getChildWordCounts();
+      const userId = getUserId(req);
+      const wordCounts = await storage.getChildWordCountsByUser(userId);
       res.json(wordCounts);
     } catch (error) {
       console.error("Error fetching word counts:", error);
@@ -50,9 +77,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/children/:id", async (req, res) => {
+  app.get("/api/children/:id", isAuthenticated, async (req, res) => {
     try {
-      const child = await storage.getChild(req.params.id);
+      const userId = getUserId(req);
+      const child = await storage.getChildByUser(req.params.id, userId);
       if (!child) {
         return res.status(404).json({ error: "Child not found" });
       }
@@ -63,13 +91,14 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/children", async (req, res) => {
+  app.post("/api/children", isAuthenticated, async (req, res) => {
     try {
+      const userId = getUserId(req);
       const parsed = insertChildSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.message });
       }
-      const child = await storage.createChild(parsed.data);
+      const child = await storage.createChildForUser(userId, parsed.data);
       res.status(201).json(child);
     } catch (error) {
       console.error("Error creating child:", error);
@@ -77,9 +106,10 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/children/:id", async (req, res) => {
+  app.patch("/api/children/:id", isAuthenticated, async (req, res) => {
     try {
-      const child = await storage.updateChild(req.params.id, req.body);
+      const userId = getUserId(req);
+      const child = await storage.updateChildForUser(req.params.id, userId, req.body);
       if (!child) {
         return res.status(404).json({ error: "Child not found" });
       }
@@ -90,9 +120,10 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/children/:id", async (req, res) => {
+  app.delete("/api/children/:id", isAuthenticated, async (req, res) => {
     try {
-      await storage.deleteChild(req.params.id);
+      const userId = getUserId(req);
+      await storage.deleteChildForUser(req.params.id, userId);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting child:", error);
@@ -100,9 +131,14 @@ export async function registerRoutes(
     }
   });
 
-  // Sessions endpoints
-  app.get("/api/children/:id/sessions", async (req, res) => {
+  // Sessions endpoints (protected)
+  app.get("/api/children/:id/sessions", isAuthenticated, async (req, res) => {
     try {
+      const userId = getUserId(req);
+      const child = await storage.getChildByUser(req.params.id, userId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
       const sessions = await storage.getSessionsByChild(req.params.id);
       res.json(sessions);
     } catch (error) {
@@ -111,8 +147,9 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/children/:id/sessions", async (req, res) => {
+  app.post("/api/children/:id/sessions", isAuthenticated, async (req, res) => {
     try {
+      const userId = getUserId(req);
       const childId = req.params.id;
       const { bookTitle, extractedText } = req.body;
 
@@ -120,7 +157,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "extractedText is required" });
       }
 
-      const child = await storage.getChild(childId);
+      const child = await storage.getChildByUser(childId, userId);
       if (!child) {
         return res.status(404).json({ error: "Child not found" });
       }
@@ -164,15 +201,16 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/sessions/:id", async (req, res) => {
+  app.get("/api/sessions/:id", isAuthenticated, async (req, res) => {
     try {
+      const userId = getUserId(req);
       const session = await storage.getSession(req.params.id);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
       }
 
-      // Get session-specific insights
-      const child = await storage.getChild(session.childId);
+      // Verify ownership via child
+      const child = await storage.getChildByUser(session.childId, userId);
       if (!child) {
         return res.status(404).json({ error: "Child not found" });
       }
@@ -204,9 +242,14 @@ export async function registerRoutes(
     }
   });
 
-  // Words endpoints
-  app.get("/api/children/:id/words", async (req, res) => {
+  // Words endpoints (protected)
+  app.get("/api/children/:id/words", isAuthenticated, async (req, res) => {
     try {
+      const userId = getUserId(req);
+      const child = await storage.getChildByUser(req.params.id, userId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
       const words = await storage.getWordsByChild(req.params.id);
       res.json(words);
     } catch (error) {
@@ -215,8 +258,9 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/words/:id/result", async (req, res) => {
+  app.patch("/api/words/:id/result", isAuthenticated, async (req, res) => {
     try {
+      const userId = getUserId(req);
       const { isCorrect, isHistoryTest } = req.body;
       const word = await storage.getWord(req.params.id);
 
@@ -224,7 +268,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Word not found" });
       }
 
-      const child = await storage.getChild(word.childId);
+      // Verify ownership via child
+      const child = await storage.getChildByUser(word.childId, userId);
       if (!child) {
         return res.status(404).json({ error: "Child not found" });
       }
@@ -269,15 +314,17 @@ export async function registerRoutes(
   });
 
   // Mark word as mastered (called when 7 correct in session)
-  app.patch("/api/words/:id/master", async (req, res) => {
+  app.patch("/api/words/:id/master", isAuthenticated, async (req, res) => {
     try {
+      const userId = getUserId(req);
       const word = await storage.getWord(req.params.id);
 
       if (!word) {
         return res.status(404).json({ error: "Word not found" });
       }
 
-      const child = await storage.getChild(word.childId);
+      // Verify ownership via child
+      const child = await storage.getChildByUser(word.childId, userId);
       if (!child) {
         return res.status(404).json({ error: "Child not found" });
       }
@@ -296,8 +343,8 @@ export async function registerRoutes(
     }
   });
 
-  // Preset Word Lists endpoints
-  app.get("/api/presets", async (req, res) => {
+  // Preset Word Lists endpoints (protected)
+  app.get("/api/presets", isAuthenticated, async (req, res) => {
     try {
       const presets = await storage.getPresetWordLists();
       res.json(presets);
@@ -307,7 +354,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/presets/:id", async (req, res) => {
+  app.get("/api/presets/:id", isAuthenticated, async (req, res) => {
     try {
       const preset = await storage.getPresetWordList(req.params.id);
       if (!preset) {
@@ -325,8 +372,9 @@ export async function registerRoutes(
     presetId: z.string().min(1),
   });
 
-  app.post("/api/children/:id/add-preset", async (req, res) => {
+  app.post("/api/children/:id/add-preset", isAuthenticated, async (req, res) => {
     try {
+      const userId = getUserId(req);
       const childId = req.params.id;
       const parsed = addPresetSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -334,7 +382,7 @@ export async function registerRoutes(
       }
       const { presetId } = parsed.data;
 
-      const child = await storage.getChild(childId);
+      const child = await storage.getChildByUser(childId, userId);
       if (!child) {
         return res.status(404).json({ error: "Child not found" });
       }
@@ -357,10 +405,14 @@ export async function registerRoutes(
     }
   });
 
-  // Books endpoints
-  app.get("/api/books", async (req, res) => {
+  // Books endpoints (protected with user scoping)
+  app.get("/api/books", isAuthenticated, async (req, res) => {
     try {
-      const books = await storage.getBooks();
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const books = await storage.getBooksByUser(userId);
       res.json(books);
     } catch (error) {
       console.error("Error fetching books:", error);
@@ -368,11 +420,22 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/books/:id", async (req, res) => {
+  app.get("/api/books/:id", isAuthenticated, async (req, res) => {
     try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
       const book = await storage.getBook(req.params.id);
       if (!book) {
         return res.status(404).json({ error: "Book not found" });
+      }
+      // Allow access to preset books or books owned by user's children
+      if (!book.isPreset && book.childId) {
+        const child = await storage.getChildByUser(book.childId, userId);
+        if (!child) {
+          return res.status(403).json({ error: "Not authorized" });
+        }
       }
       res.json(book);
     } catch (error) {
@@ -381,11 +444,22 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/books", async (req, res) => {
+  app.post("/api/books", isAuthenticated, async (req, res) => {
     try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
       const parsed = insertBookSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.message });
+      }
+      // If creating a book for a child, verify ownership
+      if (parsed.data.childId) {
+        const child = await storage.getChildByUser(parsed.data.childId, userId);
+        if (!child) {
+          return res.status(403).json({ error: "Not authorized" });
+        }
       }
       const book = await storage.createBook(parsed.data);
       res.status(201).json(book);
@@ -395,12 +469,21 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/books/:id", async (req, res) => {
+  app.patch("/api/books/:id", isAuthenticated, async (req, res) => {
     try {
-      const book = await storage.updateBook(req.params.id, req.body);
-      if (!book) {
+      const userId = getUserId(req);
+      const existingBook = await storage.getBook(req.params.id);
+      if (!existingBook) {
         return res.status(404).json({ error: "Book not found" });
       }
+      // Verify ownership for non-preset books
+      if (!existingBook.isPreset && existingBook.childId) {
+        const child = await storage.getChildByUser(existingBook.childId, userId);
+        if (!child) {
+          return res.status(403).json({ error: "Not authorized" });
+        }
+      }
+      const book = await storage.updateBook(req.params.id, req.body);
       res.json(book);
     } catch (error) {
       console.error("Error updating book:", error);
@@ -408,8 +491,20 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/books/:id", async (req, res) => {
+  app.delete("/api/books/:id", isAuthenticated, async (req, res) => {
     try {
+      const userId = getUserId(req);
+      const existingBook = await storage.getBook(req.params.id);
+      if (!existingBook) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      // Verify ownership for non-preset books
+      if (!existingBook.isPreset && existingBook.childId) {
+        const child = await storage.getChildByUser(existingBook.childId, userId);
+        if (!child) {
+          return res.status(403).json({ error: "Not authorized" });
+        }
+      }
       await storage.deleteBook(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -419,14 +514,21 @@ export async function registerRoutes(
   });
 
   // Append words to an existing book (with ownership validation)
-  app.post("/api/books/:id/append-words", async (req, res) => {
+  app.post("/api/books/:id/append-words", isAuthenticated, async (req, res) => {
     try {
+      const userId = getUserId(req);
       const { words, childId } = req.body;
       if (!words || !Array.isArray(words) || words.length === 0) {
         return res.status(400).json({ error: "words array is required" });
       }
       if (!childId) {
         return res.status(400).json({ error: "childId is required" });
+      }
+
+      // Verify the child belongs to the user
+      const child = await storage.getChildByUser(childId, userId);
+      if (!child) {
+        return res.status(403).json({ error: "Not authorized" });
       }
 
       const existingBook = await storage.getBook(req.params.id);
@@ -453,11 +555,12 @@ export async function registerRoutes(
     }
   });
 
-  // Book readiness endpoints
-  app.get("/api/children/:id/book-readiness", async (req, res) => {
+  // Book readiness endpoints (protected)
+  app.get("/api/children/:id/book-readiness", isAuthenticated, async (req, res) => {
     try {
+      const userId = getUserId(req);
       const childId = req.params.id;
-      const child = await storage.getChild(childId);
+      const child = await storage.getChildByUser(childId, userId);
       if (!child) {
         return res.status(404).json({ error: "Child not found" });
       }
@@ -470,8 +573,8 @@ export async function registerRoutes(
     }
   });
 
-  // Preset books endpoints
-  app.get("/api/preset-books", async (req, res) => {
+  // Preset books endpoints (protected)
+  app.get("/api/preset-books", isAuthenticated, async (req, res) => {
     try {
       const presetBooks = await storage.getPresetBooks();
       res.json(presetBooks);

@@ -4,8 +4,11 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/use-auth";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
+import Landing from "@/pages/landing";
+import RoleSelection from "@/pages/role-selection";
 import ChildDashboard from "@/pages/child-dashboard";
 import UploadSession from "@/pages/upload-session";
 import SessionDetails from "@/pages/session-details";
@@ -18,8 +21,9 @@ import Books from "@/pages/books";
 import WordPop from "@/pages/word-pop";
 import SplashScreen from "@/components/SplashScreen";
 import { WelcomeCarousel } from "@/components/WelcomeCarousel";
+import { Loader2 } from "lucide-react";
 
-function Router() {
+function AuthenticatedRouter() {
   return (
     <Switch>
       <Route path="/" component={Home} />
@@ -38,23 +42,21 @@ function Router() {
   );
 }
 
-function App() {
-  const [showSplash, setShowSplash] = useState(true);
+function AuthWrapper() {
+  const { user, isLoading, isAuthenticated } = useAuth();
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeChecked, setWelcomeChecked] = useState(false);
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    const hasSeenWelcome = localStorage.getItem("osmosify_welcome_seen") === "true";
-    if (!hasSeenWelcome) {
-      setShowWelcome(true);
+    if (isAuthenticated) {
+      const hasSeenWelcome = localStorage.getItem("osmosify_welcome_seen") === "true";
+      if (!hasSeenWelcome) {
+        setShowWelcome(true);
+      }
     }
     setWelcomeChecked(true);
-  }, []);
-
-  const handleSplashComplete = () => {
-    setShowSplash(false);
-  };
+  }, [isAuthenticated]);
 
   const handleWelcomeComplete = () => {
     localStorage.setItem("osmosify_welcome_seen", "true");
@@ -62,15 +64,42 @@ function App() {
     setLocation("/");
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Landing />;
+  }
+
+  if (!user?.role) {
+    return <RoleSelection user={user!} />;
+  }
+
+  if (welcomeChecked && showWelcome) {
+    return <WelcomeCarousel onComplete={handleWelcomeComplete} />;
+  }
+
+  return <AuthenticatedRouter />;
+}
+
+function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+  };
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
-        {!showSplash && welcomeChecked && showWelcome && (
-          <WelcomeCarousel onComplete={handleWelcomeComplete} />
-        )}
+        {!showSplash && <AuthWrapper />}
         <Toaster />
-        <Router />
       </TooltipProvider>
     </QueryClientProvider>
   );
