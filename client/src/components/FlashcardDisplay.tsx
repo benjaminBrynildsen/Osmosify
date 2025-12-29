@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -40,6 +40,9 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
   const [totalCorrect, setTotalCorrect] = useState(0);
   const [totalAttempts, setTotalAttempts] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  const prevWordIdsRef = useRef<string>("");
 
   const initializeSession = useCallback(() => {
     const progress = new Map<string, WordProgress>();
@@ -59,11 +62,17 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     setTotalCorrect(0);
     setTotalAttempts(0);
     setIsComplete(false);
+    setIsInitialized(true);
   }, [words]);
 
   useEffect(() => {
-    initializeSession();
-  }, [initializeSession]);
+    const currentWordIds = words.map(w => w.id).sort().join(",");
+    
+    if (currentWordIds !== prevWordIdsRef.current) {
+      prevWordIdsRef.current = currentWordIds;
+      initializeSession();
+    }
+  }, [words, initializeSession]);
 
   const currentWordId = queue[0];
   const currentProgress = currentWordId ? wordProgress.get(currentWordId) : null;
@@ -112,7 +121,9 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
           setQueue(newQueue);
         }
       } else {
-        if (wordProg.sessionCorrectCount >= masteryThreshold) {
+        const wordJustMastered = wordProg.sessionCorrectCount >= masteryThreshold;
+        
+        if (wordJustMastered) {
           const newMasteredIds = [...masteredIds, currentWordId];
           setMasteredIds(newMasteredIds);
           props.onWordMastered(currentWordId);
@@ -120,26 +131,34 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
           if (newMasteredIds.length >= totalWords) {
             setIsComplete(true);
             props.onComplete(newMasteredIds);
+          } else if (newQueue.length === 0) {
+            const remainingWordIds = Array.from(updatedProgress.keys())
+              .filter(id => !newMasteredIds.includes(id));
+            
+            if (remainingWordIds.length === 0) {
+              setIsComplete(true);
+              props.onComplete(newMasteredIds);
+            } else {
+              const shuffled = remainingWordIds.sort(() => Math.random() - 0.5);
+              setQueue(shuffled);
+            }
           } else {
             setQueue(newQueue);
           }
         } else {
           if (newQueue.length === 0) {
-            const remainingWords = Array.from(updatedProgress.entries())
-              .filter(([id]) => !masteredIds.includes(id) && id !== currentWordId)
-              .map(([id]) => id);
+            const remainingWordIds = Array.from(updatedProgress.keys())
+              .filter(id => !masteredIds.includes(id));
             
-            const allRemaining = [...remainingWords, currentWordId];
-            
-            if (allRemaining.length === 0) {
+            if (remainingWordIds.length === 0) {
               setIsComplete(true);
               props.onComplete(masteredIds);
             } else {
-              const shuffled = allRemaining.sort(() => Math.random() - 0.5);
+              const shuffled = remainingWordIds.sort(() => Math.random() - 0.5);
               setQueue(shuffled);
             }
           } else {
-            const minPosition = 2;
+            const minPosition = Math.min(2, newQueue.length);
             const maxPosition = Math.min(4, newQueue.length);
             const insertPosition = Math.floor(Math.random() * (maxPosition - minPosition + 1)) + minPosition;
             newQueue.splice(insertPosition, 0, currentWordId);
@@ -159,6 +178,14 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
             ? "All words have been mastered! Try a History Test to review."
             : "No words available for review."}
         </p>
+      </div>
+    );
+  }
+
+  if (!isInitialized) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-96 p-4">
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
