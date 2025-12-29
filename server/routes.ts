@@ -261,5 +261,33 @@ export async function registerRoutes(
     }
   });
 
+  // Mark word as mastered (called when 7 correct in session)
+  app.patch("/api/words/:id/master", async (req, res) => {
+    try {
+      const word = await storage.getWord(req.params.id);
+
+      if (!word) {
+        return res.status(404).json({ error: "Word not found" });
+      }
+
+      const child = await storage.getChild(word.childId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
+
+      const updates = {
+        status: "mastered" as const,
+        masteryCorrectCount: child.masteryThreshold,
+        lastTested: new Date(),
+      };
+
+      const updated = await storage.updateWord(word.id, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error mastering word:", error);
+      res.status(500).json({ error: "Failed to master word" });
+    }
+  });
+
   return httpServer;
 }

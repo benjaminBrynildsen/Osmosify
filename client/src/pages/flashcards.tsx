@@ -23,25 +23,22 @@ export default function Flashcards() {
     enabled: !!childId,
   });
 
-  const updateWordMutation = useMutation({
-    mutationFn: async ({ wordId, isCorrect }: { wordId: string; isCorrect: boolean }) => {
-      const response = await apiRequest("PATCH", `/api/words/${wordId}/result`, { isCorrect });
+  const masterWordMutation = useMutation({
+    mutationFn: async (wordId: string) => {
+      const response = await apiRequest("PATCH", `/api/words/${wordId}/master`);
       return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "words"] });
     },
   });
 
-  const handleResult = (wordId: string, isCorrect: boolean) => {
-    updateWordMutation.mutate({ wordId, isCorrect });
+  const handleWordMastered = (wordId: string) => {
+    masterWordMutation.mutate(wordId);
   };
 
-  const handleComplete = (results: { wordId: string; isCorrect: boolean }[]) => {
-    const correctCount = results.filter((r) => r.isCorrect).length;
+  const handleComplete = (masteredWordIds: string[]) => {
+    queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "words"] });
     toast({
       title: "Session Complete!",
-      description: `You got ${correctCount} out of ${results.length} correct.`,
+      description: `Mastered ${masteredWordIds.length} words in this session.`,
     });
   };
 
@@ -50,7 +47,8 @@ export default function Flashcards() {
   }
 
   const deckWords = words?.filter((w) => w.status === "new" || w.status === "learning") || [];
-  const deckSize = child?.deckSize || 10;
+  const deckSize = child?.deckSize || 7;
+  const masteryThreshold = child?.masteryThreshold || 7;
   const limitedDeck = deckWords.slice(0, deckSize);
 
   return (
@@ -65,9 +63,10 @@ export default function Flashcards() {
         {limitedDeck.length > 0 ? (
           <FlashcardDisplay
             words={limitedDeck}
-            onResult={handleResult}
+            onWordMastered={handleWordMastered}
             onComplete={handleComplete}
             mode="mastery"
+            masteryThreshold={masteryThreshold}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center p-4">

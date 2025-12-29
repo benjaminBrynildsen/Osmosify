@@ -1,62 +1,156 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Check, X, RotateCcw } from "lucide-react";
 import type { Word } from "@shared/schema";
 
-interface FlashcardDisplayProps {
-  words: Word[];
-  onResult: (wordId: string, isCorrect: boolean) => void;
-  onComplete: (results: { wordId: string; isCorrect: boolean }[]) => void;
-  mode: "mastery" | "history";
+interface MasteryModeProps {
+  mode: "mastery";
+  onWordMastered: (wordId: string) => void;
+  onComplete: (masteredWordIds: string[]) => void;
+  masteryThreshold?: number;
 }
 
-export function FlashcardDisplay({ words, onResult, onComplete, mode }: FlashcardDisplayProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [results, setResults] = useState<{ wordId: string; isCorrect: boolean }[]>([]);
-  const [showFeedback, setShowFeedback] = useState<"correct" | "incorrect" | null>(null);
-  const [deck, setDeck] = useState<Word[]>([]);
+interface HistoryModeProps {
+  mode: "history";
+  onResult: (wordId: string, isCorrect: boolean) => void;
+  onComplete: (results: { wordId: string; isCorrect: boolean }[]) => void;
+}
 
-  useEffect(() => {
-    const shuffled = [...words].sort(() => Math.random() - 0.5);
-    setDeck(shuffled);
-    setCurrentIndex(0);
-    setResults([]);
+type FlashcardDisplayProps = {
+  words: Word[];
+} & (MasteryModeProps | HistoryModeProps);
+
+interface WordProgress {
+  word: Word;
+  sessionCorrectCount: number;
+  totalAttempts: number;
+}
+
+export function FlashcardDisplay(props: FlashcardDisplayProps) {
+  const { words, mode } = props;
+  const masteryThreshold = mode === "mastery" ? (props.masteryThreshold ?? 7) : 1;
+
+  const [wordProgress, setWordProgress] = useState<Map<string, WordProgress>>(new Map());
+  const [queue, setQueue] = useState<string[]>([]);
+  const [masteredIds, setMasteredIds] = useState<string[]>([]);
+  const [historyResults, setHistoryResults] = useState<{ wordId: string; isCorrect: boolean }[]>([]);
+  const [showFeedback, setShowFeedback] = useState<"correct" | "incorrect" | null>(null);
+  const [totalCorrect, setTotalCorrect] = useState(0);
+  const [totalAttempts, setTotalAttempts] = useState(0);
+  const [isComplete, setIsComplete] = useState(false);
+
+  const initializeSession = useCallback(() => {
+    const progress = new Map<string, WordProgress>();
+    words.forEach(word => {
+      progress.set(word.id, {
+        word,
+        sessionCorrectCount: 0,
+        totalAttempts: 0,
+      });
+    });
+    setWordProgress(progress);
+    
+    const shuffledIds = words.map(w => w.id).sort(() => Math.random() - 0.5);
+    setQueue(shuffledIds);
+    setMasteredIds([]);
+    setHistoryResults([]);
+    setTotalCorrect(0);
+    setTotalAttempts(0);
+    setIsComplete(false);
   }, [words]);
 
-  const currentWord = deck[currentIndex];
-  const progress = ((currentIndex) / deck.length) * 100;
-  const isComplete = currentIndex >= deck.length;
+  useEffect(() => {
+    initializeSession();
+  }, [initializeSession]);
+
+  const currentWordId = queue[0];
+  const currentProgress = currentWordId ? wordProgress.get(currentWordId) : null;
+  const currentWord = currentProgress?.word;
+
+  const totalWords = words.length;
+  const masteredCount = mode === "mastery" ? masteredIds.length : historyResults.length;
+  const progressPercent = totalWords > 0 ? (masteredCount / totalWords) * 100 : 0;
 
   const handleAnswer = (isCorrect: boolean) => {
-    if (!currentWord) return;
+    if (!currentWordId || !currentProgress) return;
 
     setShowFeedback(isCorrect ? "correct" : "incorrect");
+    setTotalAttempts(prev => prev + 1);
     
-    const newResult = { wordId: currentWord.id, isCorrect };
-    const newResults = [...results, newResult];
-    setResults(newResults);
-    onResult(currentWord.id, isCorrect);
+    if (isCorrect) {
+      setTotalCorrect(prev => prev + 1);
+    }
+
+    const newQueue = [...queue];
+    newQueue.shift();
+
+    const updatedProgress = new Map(wordProgress);
+    const wordProg = { ...currentProgress };
+    wordProg.totalAttempts++;
+    
+    if (isCorrect) {
+      wordProg.sessionCorrectCount++;
+    }
+    updatedProgress.set(currentWordId, wordProg);
+    setWordProgress(updatedProgress);
 
     setTimeout(() => {
       setShowFeedback(null);
-      if (currentIndex + 1 >= deck.length) {
-        onComplete(newResults);
+
+      if (mode === "history") {
+        const result = { wordId: currentWordId, isCorrect };
+        const newResults = [...historyResults, result];
+        setHistoryResults(newResults);
+        props.onResult(currentWordId, isCorrect);
+
+        if (newQueue.length === 0) {
+          setIsComplete(true);
+          props.onComplete(newResults);
+        } else {
+          setQueue(newQueue);
+        }
       } else {
-        setCurrentIndex(currentIndex + 1);
+        if (wordProg.sessionCorrectCount >= masteryThreshold) {
+          const newMasteredIds = [...masteredIds, currentWordId];
+          setMasteredIds(newMasteredIds);
+          props.onWordMastered(currentWordId);
+          
+          if (newMasteredIds.length >= totalWords) {
+            setIsComplete(true);
+            props.onComplete(newMasteredIds);
+          } else {
+            setQueue(newQueue);
+          }
+        } else {
+          if (newQueue.length === 0) {
+            const remainingWords = Array.from(updatedProgress.entries())
+              .filter(([id]) => !masteredIds.includes(id) && id !== currentWordId)
+              .map(([id]) => id);
+            
+            const allRemaining = [...remainingWords, currentWordId];
+            
+            if (allRemaining.length === 0) {
+              setIsComplete(true);
+              props.onComplete(masteredIds);
+            } else {
+              const shuffled = allRemaining.sort(() => Math.random() - 0.5);
+              setQueue(shuffled);
+            }
+          } else {
+            const minPosition = 2;
+            const maxPosition = Math.min(4, newQueue.length);
+            const insertPosition = Math.floor(Math.random() * (maxPosition - minPosition + 1)) + minPosition;
+            newQueue.splice(insertPosition, 0, currentWordId);
+            setQueue(newQueue);
+          }
+        }
       }
-    }, 300);
+    }, 400);
   };
 
-  const handleRestart = () => {
-    const shuffled = [...words].sort(() => Math.random() - 0.5);
-    setDeck(shuffled);
-    setCurrentIndex(0);
-    setResults([]);
-  };
-
-  if (deck.length === 0) {
+  if (words.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-96 p-4" data-testid="flashcard-empty">
         <p className="text-lg font-medium text-foreground mb-2">No words to practice</p>
@@ -70,21 +164,43 @@ export function FlashcardDisplay({ words, onResult, onComplete, mode }: Flashcar
   }
 
   if (isComplete) {
-    const correctCount = results.filter((r) => r.isCorrect).length;
-    const percentage = Math.round((correctCount / results.length) * 100);
+    if (mode === "history") {
+      const correctCount = historyResults.filter(r => r.isCorrect).length;
+      const percentage = Math.round((correctCount / historyResults.length) * 100);
+
+      return (
+        <div className="flex flex-col items-center justify-center min-h-96 p-4 space-y-6" data-testid="flashcard-complete">
+          <div className="text-center">
+            <p className="text-5xl font-bold text-primary mb-2">{percentage}%</p>
+            <p className="text-lg font-medium text-foreground">
+              {correctCount} of {historyResults.length} correct
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {percentage >= 80 ? "Great job!" : percentage >= 60 ? "Keep practicing!" : "Don't give up!"}
+            </p>
+          </div>
+          <Button onClick={initializeSession} className="gap-2" data-testid="button-restart-flashcards">
+            <RotateCcw className="h-4 w-4" />
+            Practice Again
+          </Button>
+        </div>
+      );
+    }
 
     return (
       <div className="flex flex-col items-center justify-center min-h-96 p-4 space-y-6" data-testid="flashcard-complete">
         <div className="text-center">
-          <p className="text-5xl font-bold text-primary mb-2">{percentage}%</p>
-          <p className="text-lg font-medium text-foreground">
-            {correctCount} of {results.length} correct
+          <p className="text-5xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
+            {masteredIds.length} / {totalWords}
           </p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {percentage >= 80 ? "Great job!" : percentage >= 60 ? "Keep practicing!" : "Don't give up!"}
+          <p className="text-lg font-medium text-foreground">
+            Words Mastered!
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            {totalCorrect} correct out of {totalAttempts} total attempts
           </p>
         </div>
-        <Button onClick={handleRestart} className="gap-2" data-testid="button-restart-flashcards">
+        <Button onClick={initializeSession} className="gap-2" data-testid="button-restart-flashcards">
           <RotateCcw className="h-4 w-4" />
           Practice Again
         </Button>
@@ -92,14 +208,33 @@ export function FlashcardDisplay({ words, onResult, onComplete, mode }: Flashcar
     );
   }
 
+  if (!currentWord || !currentProgress) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-96 p-4">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full" data-testid="flashcard-active">
       <div className="px-4 py-3 border-b">
-        <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
-          <span>{currentIndex + 1} of {deck.length}</span>
-          <span>{mode === "mastery" ? "Mastery Mode" : "History Test"}</span>
+        <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground mb-2">
+          {mode === "mastery" ? (
+            <>
+              <span>{masteredIds.length} of {totalWords} mastered</span>
+              <span className="text-xs">
+                This word: {currentProgress.sessionCorrectCount} / {masteryThreshold}
+              </span>
+            </>
+          ) : (
+            <>
+              <span>{historyResults.length + 1} of {totalWords}</span>
+              <span className="text-xs">History Test</span>
+            </>
+          )}
         </div>
-        <Progress value={progress} className="h-2" />
+        <Progress value={progressPercent} className="h-2" />
       </div>
 
       <div className="flex-1 flex items-center justify-center p-4">
@@ -118,8 +253,22 @@ export function FlashcardDisplay({ words, onResult, onComplete, mode }: Flashcar
               className="text-5xl md:text-6xl font-bold text-foreground break-words"
               data-testid="text-flashcard-word"
             >
-              {currentWord?.word}
+              {currentWord.word}
             </p>
+            {mode === "mastery" && (
+              <div className="mt-6 flex justify-center gap-1">
+                {Array.from({ length: masteryThreshold }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-3 h-3 rounded-full transition-colors ${
+                      i < currentProgress.sessionCorrectCount
+                        ? "bg-emerald-500"
+                        : "bg-muted"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -129,7 +278,7 @@ export function FlashcardDisplay({ words, onResult, onComplete, mode }: Flashcar
           <Button
             size="lg"
             variant="outline"
-            className="h-16 text-lg font-semibold border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10"
+            className="h-16 text-lg font-semibold border-red-500/30 text-red-600 dark:text-red-400"
             onClick={() => handleAnswer(false)}
             disabled={showFeedback !== null}
             data-testid="button-incorrect"
@@ -139,7 +288,7 @@ export function FlashcardDisplay({ words, onResult, onComplete, mode }: Flashcar
           </Button>
           <Button
             size="lg"
-            className="h-16 text-lg font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="h-16 text-lg font-semibold bg-emerald-600 text-white"
             onClick={() => handleAnswer(true)}
             disabled={showFeedback !== null}
             data-testid="button-correct"
