@@ -349,7 +349,7 @@ function BookCard({
   const getBadgeStyle = () => {
     if (item.percent >= 90) return "bg-green-500 text-white";
     if (item.percent >= 70) return "bg-amber-500 text-white";
-    return "";
+    return "bg-white dark:bg-background text-foreground border border-foreground";
   };
 
   const unmasteredCount = item.totalCount - item.masteredCount;
