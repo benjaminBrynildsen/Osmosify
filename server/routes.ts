@@ -5,6 +5,7 @@ import { processText, getTopRepeatedWords } from "./textProcessor";
 import { extractTextFromImages } from "./ocrService";
 import { insertChildSchema, insertBookSchema } from "@shared/schema";
 import { presetWordLists as presetData } from "./presetData";
+import { presetBooks as presetBooksData } from "./presetBooks";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -429,8 +430,20 @@ export async function registerRoutes(
     }
   });
 
+  // Preset books endpoints
+  app.get("/api/preset-books", async (req, res) => {
+    try {
+      const presetBooks = await storage.getPresetBooks();
+      res.json(presetBooks);
+    } catch (error) {
+      console.error("Error fetching preset books:", error);
+      res.status(500).json({ error: "Failed to fetch preset books" });
+    }
+  });
+
   // Seed presets on startup
   await storage.seedPresetWordLists(presetData);
+  await storage.seedPresetBooks(presetBooksData);
 
   return httpServer;
 }

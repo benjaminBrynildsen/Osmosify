@@ -27,8 +27,12 @@ import {
   Star,
   Loader2,
   Trash2,
+  Library,
+  FlaskConical,
 } from "lucide-react";
 import type { Child, BookReadiness } from "@shared/schema";
+
+type FilterType = "all" | "ready" | "almost" | "progress" | "custom";
 
 export default function Books() {
   const params = useParams<{ id: string }>();
@@ -39,6 +43,7 @@ export default function Books() {
   const [newTitle, setNewTitle] = useState("");
   const [newAuthor, setNewAuthor] = useState("");
   const [newWords, setNewWords] = useState("");
+  const [filter, setFilter] = useState<FilterType>("all");
 
   const { data: child, isLoading: childLoading } = useQuery<Child>({
     queryKey: ["/api/children", childId],
@@ -119,9 +124,26 @@ export default function Books() {
     );
   }
 
-  const readyBooks = readiness?.filter(r => r.isReady) || [];
-  const inProgressBooks = readiness?.filter(r => !r.isReady && r.percent > 0) || [];
-  const notStartedBooks = readiness?.filter(r => r.percent === 0) || [];
+  const filterBooks = (items: BookReadiness[]) => {
+    switch (filter) {
+      case "ready":
+        return items.filter(r => r.percent >= 90);
+      case "almost":
+        return items.filter(r => r.percent >= 70 && r.percent < 90);
+      case "progress":
+        return items.filter(r => r.percent < 70);
+      case "custom":
+        return items.filter(r => !r.book.isPreset);
+      default:
+        return items;
+    }
+  };
+
+  const filteredBooks = filterBooks(readiness || []);
+  const readyCount = (readiness || []).filter(r => r.percent >= 90).length;
+  const almostCount = (readiness || []).filter(r => r.percent >= 70 && r.percent < 90).length;
+  const progressCount = (readiness || []).filter(r => r.percent < 70).length;
+  const customCount = (readiness || []).filter(r => !r.book.isPreset).length;
 
   return (
     <div className="min-h-screen bg-background pb-8">
@@ -138,7 +160,7 @@ export default function Books() {
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Add a Book</DialogTitle>
+                <DialogTitle>Add a Custom Book</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div>
@@ -194,72 +216,90 @@ export default function Books() {
         }
       />
 
-      <main className="container mx-auto max-w-2xl p-4 space-y-6">
-        <p className="text-muted-foreground">
-          Track which books {child.name} is ready to read. Books become "ready" when 80% or more of their words are mastered.
+      <main className="container mx-auto max-w-2xl p-4 space-y-4">
+        <Button
+          variant="outline"
+          className="w-full justify-start gap-2"
+          onClick={() => setLocation(`/child/${childId}/preset-books`)}
+          data-testid="button-browse-preset-books"
+        >
+          <Library className="h-5 w-5" />
+          Browse Preset Book Library
+          <Badge variant="secondary" className="ml-auto">
+            30+ Books
+          </Badge>
+        </Button>
+
+        <p className="text-muted-foreground text-sm">
+          Books become "Ready" when 90% or more words are mastered.
         </p>
 
-        {readyBooks.length > 0 && (
-          <div>
-            <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <Star className="h-5 w-5 text-yellow-500" />
-              Ready to Read ({readyBooks.length})
-            </h2>
-            <div className="space-y-3">
-              {readyBooks.map(item => (
-                <BookCard
-                  key={item.book.id}
-                  item={item}
-                  onDelete={() => deleteBookMutation.mutate(item.book.id)}
-                  isDeleting={deleteBookMutation.isPending}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant={filter === "all" ? "default" : "outline"}
+            onClick={() => setFilter("all")}
+            data-testid="filter-all"
+          >
+            All ({(readiness || []).length})
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === "ready" ? "default" : "outline"}
+            onClick={() => setFilter("ready")}
+            className={filter === "ready" ? "bg-green-500 hover:bg-green-600" : ""}
+            data-testid="filter-ready"
+          >
+            <Star className="h-3 w-3 mr-1" />
+            Ready ({readyCount})
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === "almost" ? "default" : "outline"}
+            onClick={() => setFilter("almost")}
+            className={filter === "almost" ? "bg-amber-500 hover:bg-amber-600" : ""}
+            data-testid="filter-almost"
+          >
+            Almost ({almostCount})
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === "progress" ? "default" : "outline"}
+            onClick={() => setFilter("progress")}
+            data-testid="filter-progress"
+          >
+            In Progress ({progressCount})
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === "custom" ? "default" : "outline"}
+            onClick={() => setFilter("custom")}
+            data-testid="filter-custom"
+          >
+            Custom ({customCount})
+          </Button>
+        </div>
 
-        {inProgressBooks.length > 0 && (
-          <div>
-            <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <BookOpen className="h-5 w-5" />
-              In Progress ({inProgressBooks.length})
-            </h2>
-            <div className="space-y-3">
-              {inProgressBooks.map(item => (
-                <BookCard
-                  key={item.book.id}
-                  item={item}
-                  onDelete={() => deleteBookMutation.mutate(item.book.id)}
-                  isDeleting={deleteBookMutation.isPending}
-                />
-              ))}
-            </div>
+        {filteredBooks.length > 0 ? (
+          <div className="space-y-3">
+            {filteredBooks.map(item => (
+              <BookCard
+                key={item.book.id}
+                item={item}
+                onDelete={() => deleteBookMutation.mutate(item.book.id)}
+                isDeleting={deleteBookMutation.isPending}
+              />
+            ))}
           </div>
-        )}
-
-        {notStartedBooks.length > 0 && (
-          <div>
-            <h2 className="text-lg font-semibold mb-3 text-muted-foreground">
-              Not Started ({notStartedBooks.length})
-            </h2>
-            <div className="space-y-3">
-              {notStartedBooks.map(item => (
-                <BookCard
-                  key={item.book.id}
-                  item={item}
-                  onDelete={() => deleteBookMutation.mutate(item.book.id)}
-                  isDeleting={deleteBookMutation.isPending}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {(!readiness || readiness.length === 0) && (
+        ) : (
           <EmptyState
             type="sessions"
-            title="No books yet"
-            description="Add books to track which ones your child is ready to read."
+            title={filter === "all" ? "No books yet" : `No ${filter} books`}
+            description={
+              filter === "all"
+                ? "Browse the preset library or add your own books to track reading readiness."
+                : "Try a different filter or add more books."
+            }
           />
         )}
       </main>
@@ -276,14 +316,43 @@ function BookCard({
   onDelete: () => void;
   isDeleting: boolean;
 }) {
+  const getCardStyle = () => {
+    if (item.percent >= 90) return "border-green-500/50 bg-green-500/5";
+    if (item.percent >= 70) return "border-amber-500/50 bg-amber-500/5";
+    return "";
+  };
+
+  const getProgressColor = () => {
+    if (item.percent >= 90) return "bg-green-500";
+    if (item.percent >= 70) return "bg-amber-500";
+    return "";
+  };
+
+  const getBadgeStyle = () => {
+    if (item.percent >= 90) return "bg-green-500 text-white";
+    if (item.percent >= 70) return "bg-amber-500 text-white";
+    return "";
+  };
+
   return (
-    <Card className={item.isReady ? "border-yellow-500/50 bg-yellow-500/5" : ""}>
+    <Card className={getCardStyle()}>
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-base flex items-center gap-2">
-              {item.isReady && <Check className="h-4 w-4 text-green-500 flex-shrink-0" />}
+            <CardTitle className="text-base flex items-center gap-2 flex-wrap">
+              {item.percent >= 90 && <Star className="h-4 w-4 text-green-500 flex-shrink-0" />}
               <span className="truncate">{item.book.title}</span>
+              {item.book.isBeta && (
+                <Badge variant="outline" className="text-xs flex-shrink-0">
+                  <FlaskConical className="h-3 w-3 mr-1" />
+                  Beta
+                </Badge>
+              )}
+              {!item.book.isPreset && (
+                <Badge variant="outline" className="text-xs flex-shrink-0">
+                  Custom
+                </Badge>
+              )}
             </CardTitle>
             {item.book.author && (
               <CardDescription className="mt-1">
@@ -292,24 +361,31 @@ function BookCard({
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Badge variant={item.isReady ? "default" : "secondary"}>
+            <Badge className={getBadgeStyle()}>
               {item.percent}%
             </Badge>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={onDelete}
-              disabled={isDeleting}
-              data-testid={`button-delete-book-${item.book.id}`}
-            >
-              <Trash2 className="h-4 w-4 text-muted-foreground" />
-            </Button>
+            {!item.book.isPreset && (
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={onDelete}
+                disabled={isDeleting}
+                data-testid={`button-delete-book-${item.book.id}`}
+              >
+                <Trash2 className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          <Progress value={item.percent} className="h-2" />
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className={`h-full transition-all ${getProgressColor() || "bg-primary"}`}
+              style={{ width: `${item.percent}%` }}
+            />
+          </div>
           <p className="text-sm text-muted-foreground">
             {item.masteredCount} of {item.totalCount} words mastered
           </p>

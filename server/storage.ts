@@ -22,6 +22,15 @@ import {
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 
+export interface PresetBookData {
+  title: string;
+  author?: string | null;
+  gradeLevel?: string | null;
+  words?: string[];
+  isPreset: true;
+  isBeta: boolean;
+}
+
 export interface IStorage {
   // Children
   getChildren(): Promise<Child[]>;
@@ -52,10 +61,14 @@ export interface IStorage {
 
   // Books
   getBooks(): Promise<Book[]>;
+  getPresetBooks(): Promise<Book[]>;
+  getCustomBooks(): Promise<Book[]>;
   getBook(id: string): Promise<Book | undefined>;
   createBook(book: InsertBook): Promise<Book>;
+  createPresetBook(book: PresetBookData): Promise<Book>;
   updateBook(id: string, data: Partial<InsertBook>): Promise<Book | undefined>;
   deleteBook(id: string): Promise<void>;
+  seedPresetBooks(bookList: PresetBookData[]): Promise<void>;
 
   // Book Progress & Readiness
   getChildBookProgress(childId: string): Promise<ChildBookProgress[]>;
@@ -189,7 +202,7 @@ export class DatabaseStorage implements IStorage {
           })
           .where(eq(words.id, existingWord.id));
       } else {
-        await db.insert(words).values([{
+        await db.insert(words).values({
           childId,
           word: lowerWord,
           status: "new",
@@ -197,7 +210,7 @@ export class DatabaseStorage implements IStorage {
           sessionsSeenCount: 1,
           masteryCorrectCount: 0,
           incorrectCount: 0,
-        }]);
+        });
         newWords.push(lowerWord);
         existingWordSet.add(lowerWord);
       }
@@ -238,6 +251,14 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(books).orderBy(books.title);
   }
 
+  async getPresetBooks(): Promise<Book[]> {
+    return db.select().from(books).where(eq(books.isPreset, true)).orderBy(books.title);
+  }
+
+  async getCustomBooks(): Promise<Book[]> {
+    return db.select().from(books).where(eq(books.isPreset, false)).orderBy(books.title);
+  }
+
   async getBook(id: string): Promise<Book | undefined> {
     const [book] = await db.select().from(books).where(eq(books.id, id));
     return book;
@@ -251,6 +272,24 @@ export class DatabaseStorage implements IStorage {
       ...book,
       words: uniqueWords,
       wordCount: uniqueWords.length,
+      isPreset: false,
+      isBeta: false,
+    }).returning();
+    return created;
+  }
+
+  async createPresetBook(book: PresetBookData): Promise<Book> {
+    const wordList = book.words || [];
+    const normalizedWords = wordList.map(w => w.toLowerCase().trim()).filter(w => w.length > 0);
+    const uniqueWords = Array.from(new Set(normalizedWords));
+    const [created] = await db.insert(books).values({
+      title: book.title,
+      author: book.author,
+      gradeLevel: book.gradeLevel,
+      words: uniqueWords,
+      wordCount: uniqueWords.length,
+      isPreset: true,
+      isBeta: book.isBeta,
     }).returning();
     return created;
   }
@@ -273,6 +312,15 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBook(id: string): Promise<void> {
     await db.delete(books).where(eq(books.id, id));
+  }
+
+  async seedPresetBooks(bookList: PresetBookData[]): Promise<void> {
+    const existing = await this.getPresetBooks();
+    if (existing.length === 0) {
+      for (const book of bookList) {
+        await this.createPresetBook(book);
+      }
+    }
   }
 
   // Book Progress & Readiness
@@ -307,7 +355,7 @@ export class DatabaseStorage implements IStorage {
       }
 
       const percent = totalCount > 0 ? Math.round((masteredCount / totalCount) * 100) : 0;
-      const isReady = percent >= 80;
+      const isReady = percent >= 90;
 
       readiness.push({
         book,

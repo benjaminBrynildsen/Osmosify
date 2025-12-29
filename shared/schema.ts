@@ -118,6 +118,8 @@ export const books = pgTable("books", {
   gradeLevel: text("grade_level"),
   words: text("words").array().notNull().default(sql`ARRAY[]::text[]`),
   wordCount: integer("word_count").notNull().default(0),
+  isPreset: boolean("is_preset").notNull().default(false),
+  isBeta: boolean("is_beta").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -125,6 +127,8 @@ export const insertBookSchema = createInsertSchema(books).omit({
   id: true,
   createdAt: true,
   wordCount: true,
+  isPreset: true,
+  isBeta: true,
 });
 
 export type InsertBook = z.infer<typeof insertBookSchema>;
