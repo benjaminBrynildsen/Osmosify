@@ -31,7 +31,7 @@ import {
   FlaskConical,
   Sparkles,
 } from "lucide-react";
-import type { Child, BookReadiness } from "@shared/schema";
+import type { Child, BookReadiness, Word, Book } from "@shared/schema";
 
 type FilterType = "all" | "ready" | "almost" | "progress" | "custom" | "beta";
 
@@ -41,6 +41,7 @@ export default function Books() {
   const childId = params.id;
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [newAuthor, setNewAuthor] = useState("");
   const [newWords, setNewWords] = useState("");
@@ -54,6 +55,17 @@ export default function Books() {
     queryKey: ["/api/children", childId, "book-readiness"],
     enabled: !!childId,
   });
+
+  const { data: childWords } = useQuery<Word[]>({
+    queryKey: ["/api/children", childId, "words"],
+    enabled: !!childId,
+  });
+
+  const masteredWordSet = new Set(
+    (childWords || [])
+      .filter(w => w.status === "mastered")
+      .map(w => w.word.toLowerCase())
+  );
 
   const createBookMutation = useMutation({
     mutationFn: async () => {
@@ -301,6 +313,7 @@ export default function Books() {
                 item={item}
                 childId={childId!}
                 onDelete={() => deleteBookMutation.mutate(item.book.id)}
+                onCardClick={() => setSelectedBook(item.book)}
                 isDeleting={deleteBookMutation.isPending}
               />
             ))}
@@ -317,6 +330,69 @@ export default function Books() {
           />
         )}
       </main>
+
+      <Dialog open={!!selectedBook} onOpenChange={() => setSelectedBook(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          {selectedBook && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 flex-wrap">
+                  <BookOpen className="h-5 w-5" />
+                  {selectedBook.title}
+                  {selectedBook.isBeta && (
+                    <Badge variant="outline" className="text-xs">
+                      <FlaskConical className="h-3 w-3 mr-1" />
+                      Beta
+                    </Badge>
+                  )}
+                  {!selectedBook.isPreset && (
+                    <Badge variant="outline" className="text-xs">
+                      Custom
+                    </Badge>
+                  )}
+                </DialogTitle>
+                {selectedBook.author && (
+                  <p className="text-sm text-muted-foreground">by {selectedBook.author}</p>
+                )}
+              </DialogHeader>
+
+              <div className="mt-4">
+                <h4 className="text-sm font-medium mb-3">
+                  Words in this book ({selectedBook.words.length})
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {selectedBook.words.map((word, index) => {
+                    const isMastered = masteredWordSet.has(word.toLowerCase());
+                    return (
+                      <span
+                        key={`${word}-${index}`}
+                        className={`px-2 py-1 rounded-md text-sm ${
+                          isMastered
+                            ? "bg-green-500/10 text-green-600 dark:text-green-400 line-through"
+                            : "bg-muted text-foreground"
+                        }`}
+                        data-testid={`word-${word}-${isMastered ? "mastered" : "not-mastered"}`}
+                      >
+                        {isMastered && <Check className="inline h-3 w-3 mr-1" />}
+                        {word}
+                      </span>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 pt-4 border-t">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Mastered words</span>
+                    <span className="font-medium">
+                      {selectedBook.words.filter(w => masteredWordSet.has(w.toLowerCase())).length} / {selectedBook.words.length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -325,11 +401,13 @@ function BookCard({
   item,
   childId,
   onDelete,
+  onCardClick,
   isDeleting,
 }: {
   item: BookReadiness;
   childId: string;
   onDelete: () => void;
+  onCardClick: () => void;
   isDeleting: boolean;
 }) {
   const [, setLocation] = useLocation();
@@ -356,7 +434,11 @@ function BookCard({
 
   return (
     <Card className={getCardStyle()}>
-      <CardHeader className="pb-2">
+      <CardHeader 
+        className="pb-2 cursor-pointer hover-elevate" 
+        onClick={onCardClick}
+        data-testid={`card-book-${item.book.id}`}
+      >
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <CardTitle className="text-base flex items-center gap-2 flex-wrap">
@@ -388,7 +470,7 @@ function BookCard({
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={onDelete}
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
                 disabled={isDeleting}
                 data-testid={`button-delete-book-${item.book.id}`}
               >
