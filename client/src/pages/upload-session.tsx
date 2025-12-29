@@ -10,10 +10,11 @@ import { AppHeader } from "@/components/AppHeader";
 import { ImageUploader } from "@/components/ImageUploader";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Camera, FileText, Wand2, Check, AlertCircle } from "lucide-react";
+import { Camera, FileText, Wand2, Check, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Child } from "@shared/schema";
+import { cleanOcrText, getCleaningStats } from "@shared/ocrCleaning";
 
 export default function UploadSession() {
   const params = useParams<{ id: string }>();
@@ -23,7 +24,10 @@ export default function UploadSession() {
 
   const [images, setImages] = useState<File[]>([]);
   const [bookTitle, setBookTitle] = useState("");
-  const [extractedText, setExtractedText] = useState("");
+  const [rawText, setRawText] = useState("");
+  const [cleanedText, setCleanedText] = useState("");
+  const [showRaw, setShowRaw] = useState(false);
+  const [cleaningStats, setCleaningStats] = useState<{ rawWordCount: number; cleanedWordCount: number; percentageKept: number } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [ocrComplete, setOcrComplete] = useState(false);
   const [activeTab, setActiveTab] = useState("upload");
@@ -80,12 +84,23 @@ export default function UploadSession() {
       }
 
       await worker.terminate();
-      setExtractedText(fullText.trim());
+      
+      const rawResult = fullText.trim();
+      setRawText(rawResult);
+      
+      // Clean the OCR text to remove garbage
+      const cleaned = cleanOcrText(rawResult);
+      setCleanedText(cleaned);
+      
+      // Calculate stats for user feedback
+      const stats = getCleaningStats(rawResult, cleaned);
+      setCleaningStats(stats);
+      
       setOcrComplete(true);
       setActiveTab("review");
       toast({
-        title: "Text extracted!",
-        description: "Review and edit the text before saving.",
+        title: "Text extracted and cleaned!",
+        description: `Kept ${stats.cleanedWordCount} words (${stats.percentageKept}% of raw text).`,
       });
     } catch (error) {
       console.error("OCR error:", error);
@@ -100,7 +115,8 @@ export default function UploadSession() {
   };
 
   const handleSave = () => {
-    if (!extractedText.trim()) {
+    const textToSave = showRaw ? rawText : cleanedText;
+    if (!textToSave.trim()) {
       toast({
         title: "No text",
         description: "Please extract or enter some text first.",
@@ -110,8 +126,17 @@ export default function UploadSession() {
     }
     processSessionMutation.mutate({
       bookTitle: bookTitle || "Reading Session",
-      extractedText: extractedText.trim(),
+      extractedText: textToSave.trim(),
     });
+  };
+  
+  const displayText = showRaw ? rawText : cleanedText;
+  const setDisplayText = (text: string) => {
+    if (showRaw) {
+      setRawText(text);
+    } else {
+      setCleanedText(text);
+    }
   };
 
   return (
@@ -178,7 +203,7 @@ export default function UploadSession() {
           </TabsContent>
 
           <TabsContent value="review" className="mt-4 space-y-4">
-            {!extractedText && !ocrComplete ? (
+            {!cleanedText && !ocrComplete ? (
               <Card>
                 <CardContent className="py-12 text-center">
                   <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -189,16 +214,46 @@ export default function UploadSession() {
               </Card>
             ) : (
               <>
+                {cleaningStats && (
+                  <Card className="bg-muted/50">
+                    <CardContent className="py-3 px-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          Cleaned: {cleaningStats.cleanedWordCount} words kept ({cleaningStats.percentageKept}%)
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowRaw(!showRaw)}
+                          data-testid="button-toggle-raw"
+                        >
+                          {showRaw ? (
+                            <>
+                              <Eye className="h-4 w-4 mr-1" />
+                              Show Clean
+                            </>
+                          ) : (
+                            <>
+                              <EyeOff className="h-4 w-4 mr-1" />
+                              Show Raw
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <Label>Extracted Text</Label>
+                    <Label>{showRaw ? "Raw OCR Text" : "Cleaned Text"}</Label>
                     <span className="text-xs text-muted-foreground">
-                      Edit to remove any errors
+                      {showRaw ? "Unprocessed OCR output" : "Edit to add or remove words"}
                     </span>
                   </div>
                   <Textarea
-                    value={extractedText}
-                    onChange={(e) => setExtractedText(e.target.value)}
+                    value={displayText}
+                    onChange={(e) => setDisplayText(e.target.value)}
                     placeholder="Extracted text will appear here..."
                     className="min-h-64 font-mono text-sm"
                     data-testid="textarea-extracted-text"
@@ -208,7 +263,7 @@ export default function UploadSession() {
                 <Button
                   className="w-full h-12"
                   onClick={handleSave}
-                  disabled={!extractedText.trim() || processSessionMutation.isPending}
+                  disabled={!displayText.trim() || processSessionMutation.isPending}
                   data-testid="button-save-session"
                 >
                   {processSessionMutation.isPending ? (
