@@ -40,6 +40,16 @@ const STOP_WORDS = new Set([
 
 // Basic English dictionary - common words for children's reading
 const ENGLISH_WORDS = new Set([
+  // Space and science words
+  "space", "planet", "planets", "earth", "mars", "jupiter", "saturn", "venus",
+  "mercury", "neptune", "uranus", "pluto", "sun", "moon", "star", "stars", "galaxy",
+  "orbit", "solar", "system", "rocket", "astronaut", "alien", "comet", "asteroid",
+  "gravity", "atmosphere", "universe", "cosmic", "crater", "telescope", "satellite",
+  "dusty", "cold", "dry", "giant", "ball", "gases", "gas", "swirling", "surface",
+  "solid", "ground", "air", "smells", "bad", "rotten", "eggs", "visit", "smallest",
+  "largest", "sideways", "spins", "colored", "dark", "miss", "headed", "fly", "past",
+  "round", "hear", "something", "fun", "friends", "friend", "thing", "things", "one", "two",
+  "seussian", "literally", "called", "only", "know", "place", "life", "around",
   // Common nouns
   "cat", "dog", "bird", "fish", "bear", "rabbit", "mouse", "horse", "cow", "pig",
   "duck", "chicken", "sheep", "goat", "deer", "fox", "wolf", "lion", "tiger", "elephant",
@@ -135,12 +145,11 @@ function isValidWordPattern(word: string): boolean {
   // Must have at least one vowel
   if (!/[aeiouy]/.test(lower)) return false;
   
-  // No more than 3 consonants in a row (except common patterns)
-  if (/[bcdfghjklmnpqrstvwxz]{5,}/.test(lower)) return false;
+  // No more than 5 consonants in a row
+  if (/[bcdfghjklmnpqrstvwxz]{6,}/.test(lower)) return false;
   
-  // Reject patterns that are clearly garbage
-  if (/^[bcdfghjklmnpqrstvwxz]+$/.test(lower)) return false; // All consonants
-  if (/^[aeiou]+$/.test(lower) && lower.length > 3) return false; // All vowels (except short ones)
+  // Reject patterns that are clearly garbage (all consonants, 4+ chars)
+  if (/^[bcdfghjklmnpqrstvwxz]+$/.test(lower) && lower.length > 3) return false;
   
   return true;
 }
@@ -184,13 +193,15 @@ export function processText(
   cleanedText = fixOcrMistakes(cleanedText);
 
   // Step 4: Remove lines with low letter density (likely headers/footers/page numbers)
+  // But be less aggressive - keep lines that have at least some readable content
   cleanedText = cleanedText
     .split('\n')
     .filter((line) => {
       const letters = (line.match(/[a-zA-Z]/g) || []).length;
       const total = line.trim().length;
-      // Keep lines where at least 60% are letters, or very short lines
-      return total < 5 || (total > 0 && letters / total >= 0.6);
+      // Keep lines that have at least 5 letters regardless of density
+      // Or lines where at least 40% are letters
+      return letters >= 5 || (total > 0 && letters / total >= 0.4);
     })
     .join('\n');
 
@@ -219,12 +230,9 @@ export function processText(
     // For grade level filtering, only include known grade-level words
     if (filterByGradeLevel && !isKnownWord(lower)) continue;
     
-    // If not filtering by grade level, still require either:
-    // 1. Word is in dictionary, OR
-    // 2. Word passes heuristic checks and is long enough to be meaningful
-    if (!filterByGradeLevel) {
-      if (!isKnownWord(lower) && lower.length < 4) continue;
-    }
+    // If not filtering by grade level, accept any word that passes pattern check
+    // Known words are always accepted, unknown words need to be at least 3 chars
+    // (which is already enforced by isValidWordPattern)
     
     wordFrequencies.set(lower, (wordFrequencies.get(lower) || 0) + 1);
   }
