@@ -106,7 +106,7 @@ export default function WordPop() {
     return selected.sort(() => Math.random() - 0.5);
   }, [playableWords]);
 
-  const spawnBubbles = useCallback((target: string, currentLevel: number) => {
+  const spawnBubbles = useCallback((target: string, currentLevel: number, roundNum?: number) => {
     if (!gameAreaRef.current) return;
     
     const areaWidth = gameAreaRef.current.offsetWidth;
@@ -116,7 +116,8 @@ export default function WordPop() {
     const bubbleCount = Math.min(baseBubbleCount + extraBubbles, playableWords.length);
     const selectedWords = getRandomWords(bubbleCount, target);
     
-    const baseSpeed = 0.5 + (currentLevel - 1) * 0.15;
+    const round = roundNum ?? 0;
+    const baseSpeed = 0.8 + (currentLevel - 1) * 0.25 + round * 0.1;
     const speedVariation = 0.3;
     
     const newBubbles: Bubble[] = selectedWords.map((word, index) => {
@@ -137,19 +138,20 @@ export default function WordPop() {
     setBubbles(newBubbles);
   }, [playableWords, getRandomWords]);
 
-  const nextRound = useCallback((currentLevel?: number) => {
+  const nextRound = useCallback((currentLevel?: number, currentRound?: number) => {
     if (playableWords.length < 2) return;
     
     const lvl = currentLevel ?? level;
+    const round = currentRound ?? roundsInLevel;
     const randomWord = playableWords[Math.floor(Math.random() * playableWords.length)];
     setTargetWord(randomWord.word);
     setWordsPlayed(prev => prev + 1);
-    spawnBubbles(randomWord.word, lvl);
+    spawnBubbles(randomWord.word, lvl, round);
     
     setTimeout(() => {
       speak(randomWord.word);
     }, 500);
-  }, [playableWords, spawnBubbles, speak, level]);
+  }, [playableWords, spawnBubbles, speak, level, roundsInLevel]);
 
   const startGame = useCallback(() => {
     setGameState("playing");
@@ -160,7 +162,7 @@ export default function WordPop() {
     setRoundsInLevel(0);
     setWordsPlayed(0);
     setBestStreak(0);
-    nextRound(1);
+    nextRound(1, 0);
   }, [nextRound]);
 
   const handleBubbleTap = useCallback((bubble: Bubble) => {
@@ -186,7 +188,7 @@ export default function WordPop() {
             speak(`Level ${newLevel}!`);
             setTimeout(() => {
               setFeedback(null);
-              nextRound(newLevel);
+              nextRound(newLevel, 0);
             }, 1200);
             return newLevel;
           });
@@ -195,7 +197,7 @@ export default function WordPop() {
           speak("Great!");
           setTimeout(() => {
             setFeedback(null);
-            nextRound();
+            nextRound(undefined, newRounds);
           }, 800);
           return newRounds;
         }
