@@ -168,67 +168,14 @@ export default function Books() {
         showBack
         backPath={`/child/${childId}`}
         rightAction={
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="icon" variant="ghost" data-testid="button-add-book">
-                <Plus className="h-5 w-5" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Add a Custom Book</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 mt-4">
-                <div>
-                  <Label htmlFor="title">Book Title</Label>
-                  <Input
-                    id="title"
-                    value={newTitle}
-                    onChange={e => setNewTitle(e.target.value)}
-                    placeholder="Enter book title"
-                    data-testid="input-book-title"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="author">Author (optional)</Label>
-                  <Input
-                    id="author"
-                    value={newAuthor}
-                    onChange={e => setNewAuthor(e.target.value)}
-                    placeholder="Enter author name"
-                    data-testid="input-book-author"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="words">Words in this book</Label>
-                  <Textarea
-                    id="words"
-                    value={newWords}
-                    onChange={e => setNewWords(e.target.value)}
-                    placeholder="Enter words separated by spaces or commas"
-                    rows={4}
-                    data-testid="input-book-words"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Enter all unique words from the book
-                  </p>
-                </div>
-                <Button
-                  className="w-full"
-                  onClick={() => createBookMutation.mutate()}
-                  disabled={!newTitle.trim() || !newWords.trim() || createBookMutation.isPending}
-                  data-testid="button-save-book"
-                >
-                  {createBookMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4 mr-2" />
-                  )}
-                  Add Book
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            onClick={() => setLocation(`/child/${childId}/upload`)}
+            data-testid="button-add-book"
+          >
+            <Plus className="h-5 w-5" />
+          </Button>
         }
       />
 
