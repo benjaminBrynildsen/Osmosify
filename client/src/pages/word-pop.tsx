@@ -30,13 +30,18 @@ export default function WordPop() {
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [lives, setLives] = useState(3);
+  const [level, setLevel] = useState(1);
+  const [roundsInLevel, setRoundsInLevel] = useState(0);
   const [targetWord, setTargetWord] = useState<string>("");
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
   const [wordsPlayed, setWordsPlayed] = useState(0);
+  const [preferredVoice, setPreferredVoice] = useState<SpeechSynthesisVoice | null>(null);
   const gameAreaRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
   const bubbleIdRef = useRef(0);
+  
+  const ROUNDS_PER_LEVEL = 5;
 
   const { data: child } = useQuery<Child>({
     queryKey: ["/api/children", childId],
@@ -61,15 +66,37 @@ export default function WordPop() {
     return words.filter(w => w.word.length >= 2 && w.word.length <= 12);
   }, [words, book]);
 
+  useEffect(() => {
+    if ('speechSynthesis' in window) {
+      const loadVoices = () => {
+        const voices = window.speechSynthesis.getVoices();
+        const englishVoices = voices.filter(v => v.lang.startsWith('en'));
+        const preferredNames = ['Samantha', 'Karen', 'Victoria', 'Google US English', 'Microsoft Zira', 'Google UK English Female'];
+        const found = englishVoices.find(v => preferredNames.some(name => v.name.includes(name)));
+        setPreferredVoice(found || englishVoices[0] || voices[0] || null);
+      };
+      
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+      
+      return () => {
+        window.speechSynthesis.onvoiceschanged = null;
+      };
+    }
+  }, []);
+
   const speak = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.8;
-      utterance.pitch = 1.1;
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+      utterance.rate = 0.85;
+      utterance.pitch = 1.0;
       window.speechSynthesis.speak(utterance);
     }
-  }, []);
+  }, [preferredVoice]);
 
   const getRandomWords = useCallback((count: number, mustInclude: string): string[] => {
     const available = playableWords.filter(w => w.word !== mustInclude).map(w => w.word);
@@ -79,13 +106,18 @@ export default function WordPop() {
     return selected.sort(() => Math.random() - 0.5);
   }, [playableWords]);
 
-  const spawnBubbles = useCallback((target: string) => {
+  const spawnBubbles = useCallback((target: string, currentLevel: number) => {
     if (!gameAreaRef.current) return;
     
     const areaWidth = gameAreaRef.current.offsetWidth;
     const areaHeight = gameAreaRef.current.offsetHeight;
-    const bubbleCount = Math.min(4, playableWords.length);
+    const baseBubbleCount = 4;
+    const extraBubbles = Math.min(Math.floor((currentLevel - 1) / 2), 2);
+    const bubbleCount = Math.min(baseBubbleCount + extraBubbles, playableWords.length);
     const selectedWords = getRandomWords(bubbleCount, target);
+    
+    const baseSpeed = 0.5 + (currentLevel - 1) * 0.15;
+    const speedVariation = 0.3;
     
     const newBubbles: Bubble[] = selectedWords.map((word, index) => {
       const size = 80 + word.length * 4;
@@ -97,7 +129,7 @@ export default function WordPop() {
         word,
         x: Math.max(10, Math.min(areaWidth - size - 10, x)),
         y: areaHeight + 50,
-        speed: 0.5 + Math.random() * 0.5,
+        speed: baseSpeed + Math.random() * speedVariation,
         size,
       };
     });
@@ -105,27 +137,30 @@ export default function WordPop() {
     setBubbles(newBubbles);
   }, [playableWords, getRandomWords]);
 
-  const nextRound = useCallback(() => {
+  const nextRound = useCallback((currentLevel?: number) => {
     if (playableWords.length < 2) return;
     
+    const lvl = currentLevel ?? level;
     const randomWord = playableWords[Math.floor(Math.random() * playableWords.length)];
     setTargetWord(randomWord.word);
     setWordsPlayed(prev => prev + 1);
-    spawnBubbles(randomWord.word);
+    spawnBubbles(randomWord.word, lvl);
     
     setTimeout(() => {
       speak(randomWord.word);
     }, 500);
-  }, [playableWords, spawnBubbles, speak]);
+  }, [playableWords, spawnBubbles, speak, level]);
 
   const startGame = useCallback(() => {
     setGameState("playing");
     setScore(0);
     setStreak(0);
     setLives(3);
+    setLevel(1);
+    setRoundsInLevel(0);
     setWordsPlayed(0);
     setBestStreak(0);
-    nextRound();
+    nextRound(1);
   }, [nextRound]);
 
   const handleBubbleTap = useCallback((bubble: Bubble) => {
@@ -133,7 +168,8 @@ export default function WordPop() {
     
     if (bubble.word === targetWord) {
       setBubbles([]);
-      const points = 10 + streak * 2;
+      const levelBonus = level * 5;
+      const points = 10 + streak * 2 + levelBonus;
       setScore(prev => prev + points);
       setStreak(prev => {
         const newStreak = prev + 1;
@@ -141,12 +177,29 @@ export default function WordPop() {
         return newStreak;
       });
       setFeedback("correct");
-      speak("Great!");
       
-      setTimeout(() => {
-        setFeedback(null);
-        nextRound();
-      }, 800);
+      setRoundsInLevel(prev => {
+        const newRounds = prev + 1;
+        if (newRounds >= ROUNDS_PER_LEVEL) {
+          setLevel(lvl => {
+            const newLevel = lvl + 1;
+            speak(`Level ${newLevel}!`);
+            setTimeout(() => {
+              setFeedback(null);
+              nextRound(newLevel);
+            }, 1200);
+            return newLevel;
+          });
+          return 0;
+        } else {
+          speak("Great!");
+          setTimeout(() => {
+            setFeedback(null);
+            nextRound();
+          }, 800);
+          return newRounds;
+        }
+      });
     } else {
       setStreak(0);
       setLives(prev => {
@@ -260,6 +313,10 @@ export default function WordPop() {
         </Button>
         
         <div className="flex items-center gap-3">
+          <Badge variant="outline" className="gap-1" data-testid="badge-level">
+            Lv.{level}
+          </Badge>
+          
           <Badge variant="secondary" className="gap-1" data-testid="badge-score">
             <Star className="w-3 h-3" />
             {score}
@@ -358,16 +415,16 @@ export default function WordPop() {
                 <p className="text-sm text-muted-foreground">Points</p>
               </div>
               <div>
+                <p className="text-3xl font-bold text-purple-500" data-testid="final-level">{level}</p>
+                <p className="text-sm text-muted-foreground">Level Reached</p>
+              </div>
+              <div>
                 <p className="text-3xl font-bold text-orange-500" data-testid="best-streak">{bestStreak}</p>
                 <p className="text-sm text-muted-foreground">Best Streak</p>
               </div>
               <div>
                 <p className="text-3xl font-bold" data-testid="words-played">{wordsPlayed}</p>
                 <p className="text-sm text-muted-foreground">Words</p>
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-green-500">{Math.round((score / Math.max(wordsPlayed * 10, 1)) * 100)}%</p>
-                <p className="text-sm text-muted-foreground">Accuracy</p>
               </div>
             </div>
             
