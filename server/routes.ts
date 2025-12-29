@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { processText, getTopRepeatedWords } from "./textProcessor";
+import { extractTextFromImages } from "./ocrService";
 import { insertChildSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -9,6 +10,23 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // OCR endpoint - extract text from images using Gemini Vision
+  app.post("/api/ocr", async (req, res) => {
+    try {
+      const { images } = req.body;
+      
+      if (!images || !Array.isArray(images) || images.length === 0) {
+        return res.status(400).json({ error: "No images provided" });
+      }
+      
+      const extractedText = await extractTextFromImages(images);
+      res.json({ text: extractedText });
+    } catch (error) {
+      console.error("OCR error:", error);
+      res.status(500).json({ error: "Failed to extract text from images" });
+    }
+  });
+
   // Children endpoints
   app.get("/api/children", async (req, res) => {
     try {

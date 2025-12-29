@@ -16,6 +16,21 @@ import { useToast } from "@/hooks/use-toast";
 import type { Child } from "@shared/schema";
 import { cleanOcrText, getCleaningStats } from "@shared/ocrCleaning";
 
+// Convert file to base64
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function UploadSession() {
   const params = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
@@ -72,41 +87,44 @@ export default function UploadSession() {
 
     setIsProcessing(true);
     try {
-      const { createWorker } = await import("tesseract.js");
-      const worker = await createWorker("eng");
+      // Convert images to base64 for server-side processing
+      const imageData = await Promise.all(
+        images.map(async (file) => ({
+          base64: await fileToBase64(file),
+          mimeType: file.type || "image/jpeg",
+        }))
+      );
 
-      let fullText = "";
-      for (let i = 0; i < images.length; i++) {
-        const imageUrl = URL.createObjectURL(images[i]);
-        const result = await worker.recognize(imageUrl);
-        fullText += result.data.text + "\n\n";
-        URL.revokeObjectURL(imageUrl);
+      // Send to server for Gemini-powered OCR
+      const response = await apiRequest("POST", "/api/ocr", { images: imageData });
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || "OCR failed");
       }
 
-      await worker.terminate();
+      const extractedText = result.text || "";
+      setRawText(extractedText);
       
-      const rawResult = fullText.trim();
-      setRawText(rawResult);
-      
-      // Clean the OCR text to remove garbage
-      const cleaned = cleanOcrText(rawResult);
-      setCleanedText(cleaned);
+      // The Gemini OCR is much cleaner, but still apply light cleaning
+      const cleaned = cleanOcrText(extractedText);
+      setCleanedText(cleaned || extractedText); // Use raw if cleaning removes everything
       
       // Calculate stats for user feedback
-      const stats = getCleaningStats(rawResult, cleaned);
+      const stats = getCleaningStats(extractedText, cleaned || extractedText);
       setCleaningStats(stats);
       
       setOcrComplete(true);
       setActiveTab("review");
       toast({
-        title: "Text extracted and cleaned!",
-        description: `Kept ${stats.cleanedWordCount} words (${stats.percentageKept}% of raw text).`,
+        title: "Text extracted!",
+        description: `Found ${(cleaned || extractedText).split(/\s+/).filter((w: string) => w.length > 0).length} words.`,
       });
     } catch (error) {
       console.error("OCR error:", error);
       toast({
         title: "OCR failed",
-        description: "Could not extract text from images.",
+        description: "Could not extract text from images. Please try again.",
         variant: "destructive",
       });
     } finally {
