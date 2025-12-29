@@ -19,6 +19,7 @@ import {
   TrendingUp,
   ListPlus,
   BookMarked,
+  Gamepad2,
 } from "lucide-react";
 import type { Child, ReadingSession, Word } from "@shared/schema";
 
@@ -168,6 +169,17 @@ export default function ChildDashboard() {
           >
             <History className="h-6 w-6" />
             <span>History Test</span>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30"
+            onClick={() => setLocation(`/child/${childId}/word-pop`)}
+            disabled={(words?.length || 0) < 4}
+            data-testid="button-word-pop"
+          >
+            <Gamepad2 className="h-6 w-6 text-purple-500" />
+            <span>Word Pop</span>
           </Button>
         </div>
 

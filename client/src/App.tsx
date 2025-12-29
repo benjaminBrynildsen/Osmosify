@@ -16,6 +16,7 @@ import ChildSettings from "@/pages/child-settings";
 import Presets from "@/pages/presets";
 import Books from "@/pages/books";
 import PresetBooks from "@/pages/preset-books";
+import WordPop from "@/pages/word-pop";
 import SplashScreen from "@/components/SplashScreen";
 import { WelcomeCarousel } from "@/components/WelcomeCarousel";
 
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/child/:id/presets" component={Presets} />
       <Route path="/child/:id/books" component={Books} />
       <Route path="/child/:id/preset-books" component={PresetBooks} />
+      <Route path="/child/:id/word-pop" component={WordPop} />
       <Route path="/session/:id" component={SessionDetails} />
       <Route component={NotFound} />
     </Switch>
