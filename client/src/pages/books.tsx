@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import type { Child, BookReadiness } from "@shared/schema";
 
-type FilterType = "all" | "ready" | "almost" | "progress" | "custom";
+type FilterType = "all" | "ready" | "almost" | "progress" | "custom" | "beta";
 
 export default function Books() {
   const params = useParams<{ id: string }>();
@@ -135,6 +135,8 @@ export default function Books() {
         return items.filter(r => r.percent < 70);
       case "custom":
         return items.filter(r => !r.book.isPreset);
+      case "beta":
+        return items.filter(r => r.book.isBeta);
       default:
         return items;
     }
@@ -145,6 +147,7 @@ export default function Books() {
   const almostCount = (readiness || []).filter(r => r.percent >= 70 && r.percent < 90).length;
   const progressCount = (readiness || []).filter(r => r.percent < 70).length;
   const customCount = (readiness || []).filter(r => !r.book.isPreset).length;
+  const betaCount = (readiness || []).filter(r => r.book.isBeta).length;
 
   return (
     <div className="min-h-screen bg-background pb-8">
@@ -278,6 +281,15 @@ export default function Books() {
             data-testid="filter-custom"
           >
             Custom ({customCount})
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === "beta" ? "default" : "outline"}
+            onClick={() => setFilter("beta")}
+            data-testid="filter-beta"
+          >
+            <FlaskConical className="h-3 w-3 mr-1" />
+            Beta ({betaCount})
           </Button>
         </div>
 
