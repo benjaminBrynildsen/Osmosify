@@ -335,14 +335,6 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
                 {showFeedback === "correct" && (
                   <>
                     <motion.div
-                      className="absolute -top-4 left-1/2 -translate-x-1/2"
-                      initial={{ opacity: 0, y: 20, scale: 0.5 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <p className="text-2xl font-black text-white drop-shadow-lg">WOW!</p>
-                    </motion.div>
-                    <motion.div
                       className="absolute top-2 left-4"
                       initial={{ opacity: 0, scale: 0, rotate: -30 }}
                       animate={{ opacity: 1, scale: 1, rotate: 0 }}
