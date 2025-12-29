@@ -38,28 +38,118 @@ const STOP_WORDS = new Set([
   "fall", "fell", "cut", "reach", "reached", "kill", "killed", "remain", "remained"
 ]);
 
-// Grade-level appropriate words (simplified - words common in children's books)
-const GRADE_LEVEL_WORDS = new Set([
-  // Common children's book vocabulary
-  "happy", "sad", "big", "small", "little", "good", "bad", "fast", "slow",
-  "friend", "family", "home", "school", "play", "game", "story", "book",
-  "animal", "dog", "cat", "bird", "fish", "bear", "rabbit", "mouse",
-  "tree", "flower", "sun", "moon", "star", "rain", "snow", "wind",
-  "red", "blue", "green", "yellow", "orange", "purple", "pink", "brown",
-  "mom", "dad", "brother", "sister", "baby", "boy", "girl", "child",
-  "food", "water", "milk", "bread", "fruit", "apple", "banana",
-  "car", "bus", "train", "plane", "boat", "bike", "truck",
-  "house", "room", "door", "window", "bed", "chair", "table",
-  "morning", "night", "day", "week", "year", "time", "today",
+// Basic English dictionary - common words for children's reading
+const ENGLISH_WORDS = new Set([
+  // Common nouns
+  "cat", "dog", "bird", "fish", "bear", "rabbit", "mouse", "horse", "cow", "pig",
+  "duck", "chicken", "sheep", "goat", "deer", "fox", "wolf", "lion", "tiger", "elephant",
+  "monkey", "snake", "frog", "turtle", "butterfly", "bee", "ant", "spider",
+  "tree", "flower", "grass", "leaf", "branch", "root", "seed", "plant", "garden", "forest",
+  "sun", "moon", "star", "sky", "cloud", "rain", "snow", "wind", "storm", "rainbow",
+  "water", "river", "lake", "ocean", "sea", "beach", "sand", "rock", "mountain", "hill",
+  "house", "home", "room", "door", "window", "wall", "floor", "roof", "bed", "chair",
+  "table", "desk", "lamp", "book", "page", "story", "picture", "game", "toy", "ball",
+  "mom", "dad", "mother", "father", "brother", "sister", "baby", "family", "friend", "boy",
+  "girl", "child", "children", "man", "woman", "people", "person", "teacher", "doctor",
+  "food", "bread", "milk", "water", "juice", "apple", "banana", "orange", "grape", "berry",
+  "cake", "cookie", "candy", "ice", "cream", "cheese", "egg", "meat", "fish", "chicken",
+  "car", "bus", "train", "plane", "boat", "bike", "truck", "wheel", "road", "street",
+  "school", "class", "lesson", "test", "paper", "pencil", "pen", "crayon", "color",
+  "red", "blue", "green", "yellow", "orange", "purple", "pink", "brown", "black", "white",
+  "gray", "gold", "silver", "light", "dark", "bright", "color", "colors",
   "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
-  "first", "last", "next", "new", "old", "young",
-  "laugh", "cry", "smile", "dance", "sing", "jump", "climb", "swim",
-  "eat", "drink", "sleep", "wake", "talk", "listen", "learn", "teach",
-  "kind", "brave", "strong", "gentle", "quiet", "loud", "silly", "funny",
-  "birthday", "party", "present", "cake", "candy", "toy", "ball",
-  "princess", "prince", "king", "queen", "castle", "dragon", "magic",
-  "adventure", "treasure", "secret", "dream", "wish", "hope", "love"
+  "first", "second", "third", "last", "next", "number", "count", "many", "few",
+  "morning", "afternoon", "evening", "night", "day", "week", "month", "year", "today",
+  "yesterday", "tomorrow", "time", "hour", "minute", "clock", "watch",
+  // Common verbs
+  "eat", "drink", "sleep", "wake", "walk", "run", "jump", "climb", "swim", "fly",
+  "sit", "stand", "lie", "fall", "rise", "push", "pull", "throw", "catch", "kick",
+  "hit", "cut", "break", "fix", "build", "draw", "paint", "write", "read", "spell",
+  "count", "add", "sing", "dance", "play", "laugh", "cry", "smile", "frown", "talk",
+  "listen", "hear", "see", "look", "watch", "smell", "taste", "touch", "feel", "think",
+  "learn", "teach", "try", "work", "rest", "clean", "wash", "cook", "bake", "grow",
+  "plant", "water", "feed", "care", "love", "like", "want", "need", "wish", "hope",
+  "dream", "imagine", "pretend", "believe", "remember", "forget", "start", "stop", "finish",
+  // Common adjectives
+  "big", "small", "little", "large", "tiny", "huge", "tall", "short", "long", "wide",
+  "thin", "thick", "fat", "skinny", "round", "square", "flat", "soft", "hard", "smooth",
+  "rough", "wet", "dry", "hot", "cold", "warm", "cool", "new", "old", "young",
+  "fast", "slow", "quick", "loud", "quiet", "noisy", "silent", "happy", "sad", "angry",
+  "scared", "brave", "shy", "kind", "mean", "nice", "good", "bad", "best", "worst",
+  "pretty", "beautiful", "ugly", "clean", "dirty", "neat", "messy", "full", "empty", "hungry",
+  "thirsty", "tired", "sleepy", "awake", "sick", "healthy", "strong", "weak", "smart", "silly",
+  "funny", "serious", "true", "false", "real", "fake", "same", "different", "special", "normal",
+  // Common adverbs and prepositions
+  "always", "never", "sometimes", "often", "usually", "today", "tomorrow", "yesterday",
+  "soon", "later", "now", "then", "here", "there", "where", "everywhere", "somewhere",
+  "inside", "outside", "above", "below", "beside", "behind", "between", "under", "over",
+  "near", "far", "close", "away", "together", "alone", "apart",
+  // Story words
+  "once", "upon", "time", "long", "ago", "lived", "ever", "after", "end", "beginning",
+  "middle", "chapter", "title", "author", "character", "hero", "villain", "princess", "prince",
+  "king", "queen", "castle", "kingdom", "dragon", "magic", "spell", "wish", "adventure",
+  "treasure", "secret", "mystery", "problem", "answer", "question", "idea", "plan",
+  // Nature and seasons
+  "spring", "summer", "fall", "autumn", "winter", "season", "weather", "sunny", "cloudy",
+  "rainy", "snowy", "windy", "foggy", "stormy", "thunder", "lightning",
+  // Body parts
+  "head", "hair", "face", "eye", "eyes", "ear", "ears", "nose", "mouth", "teeth", "tooth",
+  "tongue", "neck", "shoulder", "arm", "arms", "hand", "hands", "finger", "fingers",
+  "leg", "legs", "foot", "feet", "toe", "toes", "body", "heart", "brain",
+  // Clothing
+  "shirt", "pants", "dress", "skirt", "shoes", "socks", "hat", "coat", "jacket", "sweater",
+  // More common words
+  "thing", "things", "something", "nothing", "everything", "anything", "someone", "anyone",
+  "everyone", "nobody", "place", "way", "world", "life", "part", "name", "word", "words",
+  "sentence", "letter", "letters", "sound", "voice", "music", "song", "movie", "show",
+  "party", "birthday", "present", "gift", "surprise", "holiday", "christmas", "easter",
+  "halloween", "thanksgiving", "valentine", "summer", "vacation", "trip", "visit"
 ]);
+
+// Fix common OCR digit-to-letter mistakes
+function fixOcrMistakes(text: string): string {
+  return text
+    // Fix common digit substitutions when surrounded by letters
+    .replace(/([a-zA-Z])0([a-zA-Z])/g, '$1o$2')
+    .replace(/([a-zA-Z])1([a-zA-Z])/g, '$1l$2')
+    .replace(/([a-zA-Z])5([a-zA-Z])/g, '$1s$2')
+    .replace(/([a-zA-Z])8([a-zA-Z])/g, '$1b$2')
+    // Fix standalone replacements at word boundaries
+    .replace(/\bl\b/gi, 'I')
+    .replace(/\b0\b/g, 'O');
+}
+
+// Check if a word looks like a valid English word (heuristic check)
+function isValidWordPattern(word: string): boolean {
+  const lower = word.toLowerCase();
+  
+  // Must be 3-18 characters
+  if (lower.length < 3 || lower.length > 18) return false;
+  
+  // Must be all letters
+  if (!/^[a-z]+$/.test(lower)) return false;
+  
+  // No triple identical characters (like "aaaa" or "llll")
+  if (/(.)\1\1/.test(lower)) return false;
+  
+  // Must have at least one vowel
+  if (!/[aeiouy]/.test(lower)) return false;
+  
+  // No more than 3 consonants in a row (except common patterns)
+  if (/[bcdfghjklmnpqrstvwxz]{5,}/.test(lower)) return false;
+  
+  // Reject patterns that are clearly garbage
+  if (/^[bcdfghjklmnpqrstvwxz]+$/.test(lower)) return false; // All consonants
+  if (/^[aeiou]+$/.test(lower) && lower.length > 3) return false; // All vowels (except short ones)
+  
+  return true;
+}
+
+// Check if word is in our dictionary
+function isKnownWord(word: string): boolean {
+  const lower = word.toLowerCase();
+  return ENGLISH_WORDS.has(lower) || STOP_WORDS.has(lower);
+}
 
 export interface ProcessedText {
   cleanedText: string;
@@ -76,45 +166,71 @@ export function processText(
 ): ProcessedText {
   const { filterStopWords = true, filterByGradeLevel = false } = options;
 
-  // Clean up the text
+  // Step 1: Normalize unicode characters
   let cleanedText = rawText
-    // Remove common OCR artifacts
-    .replace(/[|\\/_~`@#$%^&*()+=\[\]{}:;"'<>]/g, " ")
-    // Remove page numbers (common pattern)
-    .replace(/^\d+$/gm, "")
-    .replace(/^page\s*\d+$/gim, "")
-    // Normalize whitespace
-    .replace(/\s+/g, " ")
-    // Remove very short lines (likely headers/footers)
-    .split("\n")
-    .filter((line) => line.trim().length > 3)
-    .join("\n")
+    .normalize('NFKD')
+    // Convert curly quotes to straight quotes
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    // Convert em/en dashes to hyphens
+    .replace(/[\u2013\u2014]/g, '-')
+    // Remove control characters and non-printable chars
+    .replace(/[\x00-\x1F\x7F-\x9F]/g, ' ');
+
+  // Step 2: Fix hyphenated line breaks (word-\nbreak -> wordbreak)
+  cleanedText = cleanedText.replace(/(\w)-\s*\n\s*(\w)/g, '$1$2');
+
+  // Step 3: Fix common OCR digit mistakes
+  cleanedText = fixOcrMistakes(cleanedText);
+
+  // Step 4: Remove lines with low letter density (likely headers/footers/page numbers)
+  cleanedText = cleanedText
+    .split('\n')
+    .filter((line) => {
+      const letters = (line.match(/[a-zA-Z]/g) || []).length;
+      const total = line.trim().length;
+      // Keep lines where at least 60% are letters, or very short lines
+      return total < 5 || (total > 0 && letters / total >= 0.6);
+    })
+    .join('\n');
+
+  // Step 5: Remove remaining special characters and numbers
+  cleanedText = cleanedText
+    .replace(/[^a-zA-Z\s\n.,!?'-]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 
-  // Extract words
-  const wordPattern = /[a-zA-Z]{2,}/g;
+  // Step 6: Extract words (only pure letter sequences)
+  const wordPattern = /[a-zA-Z]+/g;
   const allWords = cleanedText.match(wordPattern) || [];
 
-  // Calculate frequencies
+  // Step 7: Filter and normalize words
   const wordFrequencies = new Map<string, number>();
+  
   for (const word of allWords) {
     const lower = word.toLowerCase();
+    
+    // Skip if doesn't pass basic pattern check
+    if (!isValidWordPattern(lower)) continue;
+    
+    // Skip if it's a stop word (when filtering enabled) 
+    if (filterStopWords && STOP_WORDS.has(lower)) continue;
+    
+    // For grade level filtering, only include known grade-level words
+    if (filterByGradeLevel && !isKnownWord(lower)) continue;
+    
+    // If not filtering by grade level, still require either:
+    // 1. Word is in dictionary, OR
+    // 2. Word passes heuristic checks and is long enough to be meaningful
+    if (!filterByGradeLevel) {
+      if (!isKnownWord(lower) && lower.length < 4) continue;
+    }
+    
     wordFrequencies.set(lower, (wordFrequencies.get(lower) || 0) + 1);
   }
 
-  // Filter words
-  let filteredWords = Array.from(wordFrequencies.keys());
-
-  if (filterStopWords) {
-    filteredWords = filteredWords.filter((word) => !STOP_WORDS.has(word));
-  }
-
-  if (filterByGradeLevel) {
-    filteredWords = filteredWords.filter((word) => GRADE_LEVEL_WORDS.has(word));
-  }
-
-  // Remove very short words (less than 3 characters)
-  filteredWords = filteredWords.filter((word) => word.length >= 3);
+  // Get unique filtered words
+  const filteredWords = Array.from(wordFrequencies.keys());
 
   return {
     cleanedText,
