@@ -113,6 +113,7 @@ export type PresetWordList = typeof presetWordLists.$inferSelect;
 // Books with word lists for readiness tracking
 export const books = pgTable("books", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  childId: varchar("child_id").references(() => children.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   author: text("author"),
   gradeLevel: text("grade_level"),

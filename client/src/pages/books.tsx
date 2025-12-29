@@ -31,10 +31,14 @@ import {
   FlaskConical,
   Sparkles,
   Gamepad2,
+  PlusCircle,
+  Camera,
+  Type,
+  Upload,
 } from "lucide-react";
 import type { Child, BookReadiness, Word, Book } from "@shared/schema";
 
-type FilterType = "all" | "ready" | "almost" | "progress" | "custom" | "beta";
+type FilterType = "all" | "ready" | "almost" | "progress" | "mybooks" | "beta";
 
 export default function Books() {
   const params = useParams<{ id: string }>();
@@ -43,6 +47,9 @@ export default function Books() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [addWordsBook, setAddWordsBook] = useState<Book | null>(null);
+  const [addWordsMode, setAddWordsMode] = useState<"manual" | "upload" | null>(null);
+  const [manualWords, setManualWords] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [newAuthor, setNewAuthor] = useState("");
   const [newWords, setNewWords] = useState("");
@@ -123,6 +130,31 @@ export default function Books() {
     },
   });
 
+  const appendWordsMutation = useMutation({
+    mutationFn: async ({ bookId, words }: { bookId: string; words: string[] }) => {
+      const response = await apiRequest("POST", `/api/books/${bookId}/append-words`, { words, childId });
+      return response.json();
+    },
+    onSuccess: (book) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "book-readiness"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+      setAddWordsBook(null);
+      setAddWordsMode(null);
+      setManualWords("");
+      toast({
+        title: "Words Added",
+        description: `Book now has ${book.wordCount} words`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add words to book",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (childLoading || readinessLoading) {
     return <LoadingScreen message="Loading books..." />;
   }
@@ -146,7 +178,7 @@ export default function Books() {
         return items.filter(r => r.percent >= 70 && r.percent < 90);
       case "progress":
         return items.filter(r => r.percent < 70);
-      case "custom":
+      case "mybooks":
         return items.filter(r => !r.book.isPreset);
       case "beta":
         return items.filter(r => r.book.isBeta);
@@ -159,8 +191,19 @@ export default function Books() {
   const readyCount = (readiness || []).filter(r => r.percent >= 90).length;
   const almostCount = (readiness || []).filter(r => r.percent >= 70 && r.percent < 90).length;
   const progressCount = (readiness || []).filter(r => r.percent < 70).length;
-  const customCount = (readiness || []).filter(r => !r.book.isPreset).length;
+  const myBooksCount = (readiness || []).filter(r => !r.book.isPreset).length;
   const betaCount = (readiness || []).filter(r => r.book.isBeta).length;
+
+  const handleAddManualWords = () => {
+    if (!addWordsBook || !manualWords.trim()) return;
+    const wordList = manualWords
+      .split(/[\s,]+/)
+      .map(w => w.trim().toLowerCase())
+      .filter(w => w.length > 0);
+    if (wordList.length > 0) {
+      appendWordsMutation.mutate({ bookId: addWordsBook.id, words: wordList });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-8">
@@ -236,11 +279,12 @@ export default function Books() {
           </Button>
           <Button
             size="sm"
-            variant={filter === "custom" ? "default" : "outline"}
-            onClick={() => setFilter("custom")}
-            data-testid="filter-custom"
+            variant={filter === "mybooks" ? "default" : "outline"}
+            onClick={() => setFilter("mybooks")}
+            data-testid="filter-mybooks"
           >
-            Custom ({customCount})
+            <Upload className="h-3 w-3 mr-1" />
+            My Books ({myBooksCount})
           </Button>
           <Button
             size="sm"
@@ -294,8 +338,9 @@ export default function Books() {
                     </Badge>
                   )}
                   {!selectedBook.isPreset && (
-                    <Badge variant="outline" className="text-xs">
-                      Custom
+                    <Badge variant="secondary" className="text-xs">
+                      <Upload className="h-3 w-3 mr-1" />
+                      My Book
                     </Badge>
                   )}
                 </DialogTitle>
@@ -362,8 +407,108 @@ export default function Books() {
                     <Gamepad2 className="h-4 w-4 text-purple-500" />
                     Play Word Pop
                   </Button>
+                  {!selectedBook.isPreset && (
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={() => {
+                        setAddWordsBook(selectedBook);
+                        setSelectedBook(null);
+                      }}
+                      data-testid="button-add-words-to-book"
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                      Add More Words
+                    </Button>
+                  )}
                 </div>
               </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!addWordsBook} onOpenChange={() => { setAddWordsBook(null); setAddWordsMode(null); setManualWords(""); }}>
+        <DialogContent className="max-w-lg">
+          {addWordsBook && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <PlusCircle className="h-5 w-5" />
+                  Add Words to "{addWordsBook.title}"
+                </DialogTitle>
+              </DialogHeader>
+
+              {!addWordsMode ? (
+                <div className="mt-4 space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    How would you like to add more words?
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 justify-start"
+                    onClick={() => setAddWordsMode("manual")}
+                    data-testid="button-add-words-manual"
+                  >
+                    <Type className="h-4 w-4" />
+                    Type words manually
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 justify-start"
+                    onClick={() => {
+                      setAddWordsBook(null);
+                      setAddWordsMode(null);
+                      setLocation(`/child/${childId}/upload?bookId=${addWordsBook.id}&bookTitle=${encodeURIComponent(addWordsBook.title)}`);
+                    }}
+                    data-testid="button-add-words-upload"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Upload more photos
+                  </Button>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <Label htmlFor="manualWords">Enter words (separated by spaces or commas)</Label>
+                    <Textarea
+                      id="manualWords"
+                      value={manualWords}
+                      onChange={(e) => setManualWords(e.target.value)}
+                      placeholder="cat dog house tree..."
+                      className="mt-2 min-h-32"
+                      data-testid="textarea-manual-words"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setAddWordsMode(null)}
+                      data-testid="button-back"
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      onClick={handleAddManualWords}
+                      disabled={!manualWords.trim() || appendWordsMutation.isPending}
+                      data-testid="button-save-words"
+                    >
+                      {appendWordsMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="h-4 w-4 mr-2" />
+                          Add Words
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </DialogContent>
@@ -426,8 +571,9 @@ function BookCard({
                 </Badge>
               )}
               {!item.book.isPreset && (
-                <Badge variant="outline" className="text-xs flex-shrink-0">
-                  Custom
+                <Badge variant="secondary" className="text-xs flex-shrink-0">
+                  <Upload className="h-3 w-3 mr-1" />
+                  My Book
                 </Badge>
               )}
             </CardTitle>

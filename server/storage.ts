@@ -64,11 +64,14 @@ export interface IStorage {
   getPresetBooks(): Promise<Book[]>;
   getCustomBooks(): Promise<Book[]>;
   getBook(id: string): Promise<Book | undefined>;
+  getBookByTitle(title: string, childId?: string): Promise<Book | undefined>;
   createBook(book: InsertBook): Promise<Book>;
   createPresetBook(book: PresetBookData): Promise<Book>;
   updateBook(id: string, data: Partial<InsertBook>): Promise<Book | undefined>;
+  appendWordsToBook(id: string, newWords: string[]): Promise<Book | undefined>;
   deleteBook(id: string): Promise<void>;
   seedPresetBooks(bookList: PresetBookData[]): Promise<void>;
+  findOrCreateBookByTitle(title: string, words: string[], childId: string): Promise<Book>;
 
   // Book Progress & Readiness
   getChildBookProgress(childId: string): Promise<ChildBookProgress[]>;
@@ -264,6 +267,18 @@ export class DatabaseStorage implements IStorage {
     return book;
   }
 
+  async getBookByTitle(title: string, childId?: string): Promise<Book | undefined> {
+    const normalizedTitle = title.toLowerCase().trim();
+    if (childId) {
+      const childBooks = await db.select().from(books).where(
+        and(eq(books.isPreset, false), eq(books.childId, childId))
+      );
+      return childBooks.find(b => b.title.toLowerCase().trim() === normalizedTitle);
+    }
+    const allBooks = await db.select().from(books).where(eq(books.isPreset, false));
+    return allBooks.find(b => b.title.toLowerCase().trim() === normalizedTitle);
+  }
+
   async createBook(book: InsertBook): Promise<Book> {
     const wordList = book.words || [];
     const normalizedWords = wordList.map(w => w.toLowerCase().trim()).filter(w => w.length > 0);
@@ -310,8 +325,36 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async appendWordsToBook(id: string, newWords: string[]): Promise<Book | undefined> {
+    const book = await this.getBook(id);
+    if (!book) return undefined;
+
+    const normalizedNewWords = newWords.map(w => w.toLowerCase().trim()).filter(w => w.length > 0);
+    const existingWords = book.words || [];
+    const combinedWords = Array.from(new Set([...existingWords, ...normalizedNewWords]));
+    
+    const [updated] = await db
+      .update(books)
+      .set({
+        words: combinedWords,
+        wordCount: combinedWords.length,
+      })
+      .where(eq(books.id, id))
+      .returning();
+    return updated;
+  }
+
   async deleteBook(id: string): Promise<void> {
     await db.delete(books).where(eq(books.id, id));
+  }
+
+  async findOrCreateBookByTitle(title: string, words: string[], childId: string): Promise<Book> {
+    const existingBook = await this.getBookByTitle(title, childId);
+    if (existingBook) {
+      const updated = await this.appendWordsToBook(existingBook.id, words);
+      return updated || existingBook;
+    }
+    return this.createBook({ title, words, childId });
   }
 
   async seedPresetBooks(bookList: PresetBookData[]): Promise<void> {

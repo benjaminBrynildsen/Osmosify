@@ -148,6 +148,11 @@ export async function registerRoutes(
         totalWordsCount: totalWords,
       });
 
+      // If a book title is provided, also create/update the book in the library (scoped to child)
+      if (bookTitle && bookTitle.trim()) {
+        await storage.findOrCreateBookByTitle(bookTitle.trim(), processed.words, childId);
+      }
+
       res.status(201).json({
         ...session,
         newWords,
@@ -410,6 +415,41 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting book:", error);
       res.status(500).json({ error: "Failed to delete book" });
+    }
+  });
+
+  // Append words to an existing book (with ownership validation)
+  app.post("/api/books/:id/append-words", async (req, res) => {
+    try {
+      const { words, childId } = req.body;
+      if (!words || !Array.isArray(words) || words.length === 0) {
+        return res.status(400).json({ error: "words array is required" });
+      }
+      if (!childId) {
+        return res.status(400).json({ error: "childId is required" });
+      }
+
+      const existingBook = await storage.getBook(req.params.id);
+      if (!existingBook) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+
+      // Only allow appending to non-preset books owned by the child
+      if (existingBook.isPreset) {
+        return res.status(403).json({ error: "Cannot modify preset books" });
+      }
+      if (existingBook.childId && existingBook.childId !== childId) {
+        return res.status(403).json({ error: "Book belongs to another child" });
+      }
+
+      const book = await storage.appendWordsToBook(req.params.id, words);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      res.json(book);
+    } catch (error) {
+      console.error("Error appending words to book:", error);
+      res.status(500).json({ error: "Failed to append words to book" });
     }
   });
 

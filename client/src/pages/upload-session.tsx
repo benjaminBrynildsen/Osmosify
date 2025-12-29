@@ -35,8 +35,13 @@ export default function UploadSession() {
   const childId = params.id;
   const { toast } = useToast();
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const existingBookId = urlParams.get("bookId");
+  const existingBookTitle = urlParams.get("bookTitle");
+  const isAddingToBook = !!existingBookId;
+
   const [images, setImages] = useState<File[]>([]);
-  const [bookTitle, setBookTitle] = useState("");
+  const [bookTitle, setBookTitle] = useState(existingBookTitle || "");
   const [extractedText, setExtractedText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [ocrComplete, setOcrComplete] = useState(false);
@@ -55,11 +60,17 @@ export default function UploadSession() {
       queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "sessions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "words"] });
       queryClient.invalidateQueries({ queryKey: ["/api/children/word-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "book-readiness"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
       toast({
-        title: "Session saved!",
+        title: isAddingToBook ? "Pages added!" : "Session saved!",
         description: `Found ${session.newWordsCount} new words.`,
       });
-      setLocation(`/session/${session.id}`);
+      if (isAddingToBook) {
+        setLocation(`/child/${childId}/books`);
+      } else {
+        setLocation(`/session/${session.id}`);
+      }
     },
     onError: () => {
       toast({
@@ -131,7 +142,7 @@ export default function UploadSession() {
       return;
     }
     processSessionMutation.mutate({
-      bookTitle: bookTitle || "Reading Session",
+      bookTitle: existingBookTitle || bookTitle || "Reading Session",
       extractedText: extractedText.trim(),
     });
   };
@@ -139,25 +150,38 @@ export default function UploadSession() {
   return (
     <div className="min-h-screen bg-background pb-24">
       <AppHeader
-        title="New Session"
+        title={isAddingToBook ? "Add Pages" : "New Session"}
         showBack
-        backPath={`/child/${childId}`}
+        backPath={isAddingToBook ? `/child/${childId}/books` : `/child/${childId}`}
       />
 
       <main className="container mx-auto max-w-2xl p-4 space-y-6">
-        <Card>
-          <CardContent className="pt-6">
-            <Label htmlFor="bookTitle">Book Title (optional)</Label>
-            <Input
-              id="bookTitle"
-              value={bookTitle}
-              onChange={(e) => setBookTitle(e.target.value)}
-              placeholder="Enter the book name..."
-              className="mt-2"
-              data-testid="input-book-title"
-            />
-          </CardContent>
-        </Card>
+        {isAddingToBook && (
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground">
+                Adding more pages to:
+              </p>
+              <p className="font-medium text-lg">{existingBookTitle}</p>
+            </CardContent>
+          </Card>
+        )}
+        
+        {!isAddingToBook && (
+          <Card>
+            <CardContent className="pt-6">
+              <Label htmlFor="bookTitle">Book Title (optional)</Label>
+              <Input
+                id="bookTitle"
+                value={bookTitle}
+                onChange={(e) => setBookTitle(e.target.value)}
+                placeholder="Enter the book name..."
+                className="mt-2"
+                data-testid="input-book-title"
+              />
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
@@ -241,7 +265,7 @@ export default function UploadSession() {
                   ) : (
                     <>
                       <Check className="h-4 w-4 mr-2" />
-                      Save Session
+                      {isAddingToBook ? "Add to Book" : "Save Session"}
                     </>
                   )}
                 </Button>
