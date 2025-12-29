@@ -52,14 +52,13 @@ export default function WordPop() {
   });
 
   const playableWords = useMemo(() => {
-    let filtered = words.filter(w => w.word.length >= 2 && w.word.length <= 12);
-    
     if (book && book.words) {
-      const bookWordSet = new Set(book.words.map(w => w.toLowerCase()));
-      filtered = filtered.filter(w => bookWordSet.has(w.word.toLowerCase()));
+      return book.words
+        .filter(w => w.length >= 2 && w.length <= 12)
+        .map((word, index) => ({ id: index, word: word.toLowerCase(), status: "new" as const }));
     }
     
-    return filtered;
+    return words.filter(w => w.word.length >= 2 && w.word.length <= 12);
   }, [words, book]);
 
   const speak = useCallback((text: string) => {
