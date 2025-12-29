@@ -23,7 +23,7 @@ export default function WordPop() {
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
   const bookId = searchParams.get("bookId");
-  const childId = parseInt(id || "0");
+  const childId = id || "";
 
   const [gameState, setGameState] = useState<"ready" | "playing" | "gameover">("ready");
   const [score, setScore] = useState(0);
