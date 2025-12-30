@@ -26,6 +26,7 @@ interface GuestData {
   words: GuestWord[];
   sessions: GuestSession[];
   flashcardSessionCompleted: boolean;
+  popGameCompleted: boolean;
 }
 
 const GUEST_DATA_KEY = "osmosify_guest_data";
@@ -36,6 +37,7 @@ const defaultGuestData: GuestData = {
   words: [],
   sessions: [],
   flashcardSessionCompleted: false,
+  popGameCompleted: false,
 };
 
 function loadGuestData(): GuestData {
@@ -122,8 +124,23 @@ export function useGuestMode() {
   }, [guestData.child]);
 
   const markFlashcardSessionCompleted = useCallback(() => {
-    setGuestData(prev => ({ ...prev, flashcardSessionCompleted: true }));
-    setShowLoginPrompt(true);
+    setGuestData(prev => {
+      const updated = { ...prev, flashcardSessionCompleted: true };
+      if (updated.popGameCompleted) {
+        setShowLoginPrompt(true);
+      }
+      return updated;
+    });
+  }, []);
+
+  const markPopGameCompleted = useCallback(() => {
+    setGuestData(prev => {
+      const updated = { ...prev, popGameCompleted: true };
+      if (updated.flashcardSessionCompleted) {
+        setShowLoginPrompt(true);
+      }
+      return updated;
+    });
   }, []);
 
   const updateGuestWordStatus = useCallback((wordId: string, correctCount: number, status: "new" | "learning" | "mastered") => {
@@ -150,6 +167,7 @@ export function useGuestMode() {
     addGuestWords,
     addGuestSession,
     markFlashcardSessionCompleted,
+    markPopGameCompleted,
     updateGuestWordStatus,
     getGuestDataForMigration,
   };

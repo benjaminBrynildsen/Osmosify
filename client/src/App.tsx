@@ -25,6 +25,8 @@ import PresetBooks from "@/pages/preset-books";
 import Moderation from "@/pages/moderation";
 import GuestOnboarding from "@/pages/guest-onboarding";
 import GuestFlashcards from "@/pages/guest-flashcards";
+import GuestDashboard from "@/pages/guest-dashboard";
+import GuestWordPop from "@/pages/guest-word-pop";
 import SplashScreen from "@/components/SplashScreen";
 import { WelcomeCarousel } from "@/components/WelcomeCarousel";
 import { Loader2 } from "lucide-react";
@@ -55,6 +57,8 @@ function GuestRouter() {
     <Switch>
       <Route path="/guest/onboarding" component={GuestOnboarding} />
       <Route path="/guest/child/:id/flashcards" component={GuestFlashcards} />
+      <Route path="/guest/child/:id/word-pop" component={GuestWordPop} />
+      <Route path="/guest/child/:id" component={GuestDashboard} />
       <Route component={GuestOnboarding} />
     </Switch>
   );

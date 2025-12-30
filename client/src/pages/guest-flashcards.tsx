@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Home } from "lucide-react";
+import { ArrowLeft, Home, PartyPopper } from "lucide-react";
 import { FlashcardDisplay } from "@/components/FlashcardDisplay";
 import { useGuestModeContext } from "@/hooks/use-guest-mode";
 import type { Word } from "@shared/schema";
 
 export default function GuestFlashcards() {
+  const params = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const { guestData, markFlashcardSessionCompleted, updateGuestWordStatus } = useGuestModeContext();
   const [isComplete, setIsComplete] = useState(false);
+  const childId = params.id || guestData.child?.id || "";
 
   const words: Word[] = guestData.words.map(w => ({
     id: w.id,
@@ -38,7 +40,7 @@ export default function GuestFlashcards() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
         <p className="text-muted-foreground mb-4">No words to practice yet.</p>
-        <Button onClick={() => setLocation("/guest/onboarding")}>
+        <Button onClick={() => setLocation(`/guest/child/${childId}`)}>
           <Home className="h-4 w-4 mr-2" />
           Go Back
         </Button>
@@ -49,14 +51,12 @@ export default function GuestFlashcards() {
   if (isComplete) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center">
-        <div className="text-6xl mb-4">
-          <span role="img" aria-label="celebration">&#127881;</span>
-        </div>
+        <PartyPopper className="h-16 w-16 text-primary mb-4" />
         <h1 className="text-2xl font-bold mb-2">Great job, {guestData.child?.name}!</h1>
         <p className="text-muted-foreground mb-6">
           You completed the practice session!
         </p>
-        <Button onClick={() => setLocation("/guest/onboarding")} data-testid="button-done">
+        <Button onClick={() => setLocation(`/guest/child/${childId}`)} data-testid="button-done">
           Done
         </Button>
       </div>
@@ -66,7 +66,7 @@ export default function GuestFlashcards() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header className="p-4 flex items-center gap-2 border-b">
-        <Button variant="ghost" size="icon" onClick={() => setLocation("/guest/onboarding")} data-testid="button-back">
+        <Button variant="ghost" size="icon" onClick={() => setLocation(`/guest/child/${childId}`)} data-testid="button-back">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-lg font-semibold">Practice Words</h1>
