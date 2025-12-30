@@ -1,56 +1,79 @@
-declare global {
-  interface Window {
-    responsiveVoice?: {
-      speak: (text: string, voice?: string, options?: { rate?: number; pitch?: number; onend?: () => void }) => void;
-      cancel: () => void;
-      voiceSupport: () => boolean;
-      isPlaying: () => boolean;
-    };
+let cachedVoice: SpeechSynthesisVoice | null = null;
+let voicesLoaded = false;
+
+const PREFERRED_VOICE_NAMES = [
+  'Google UK English Female',
+  'Google US English', 
+  'Samantha',
+  'Karen',
+  'Victoria',
+  'Microsoft Zira',
+  'Alex'
+];
+
+function loadVoices(): SpeechSynthesisVoice | null {
+  if (!('speechSynthesis' in window)) return null;
+  
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length === 0) return null;
+  
+  voicesLoaded = true;
+  
+  const englishVoices = voices.filter(v => v.lang.startsWith('en'));
+  
+  for (const preferred of PREFERRED_VOICE_NAMES) {
+    const found = englishVoices.find(v => v.name.includes(preferred));
+    if (found) {
+      cachedVoice = found;
+      return found;
+    }
   }
+  
+  cachedVoice = englishVoices[0] || voices[0] || null;
+  return cachedVoice;
 }
 
-const PREFERRED_VOICE = "UK English Female";
-const FALLBACK_VOICE = "US English Female";
+if ('speechSynthesis' in window) {
+  loadVoices();
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+}
 
 export function speak(text: string, options?: { rate?: number; onEnd?: () => void }): void {
-  const rate = options?.rate ?? 0.9;
+  if (!('speechSynthesis' in window)) return;
   
-  if (window.responsiveVoice && window.responsiveVoice.voiceSupport()) {
-    window.responsiveVoice.cancel();
-    window.responsiveVoice.speak(text, PREFERRED_VOICE, {
-      rate,
-      pitch: 1.0,
-      onend: options?.onEnd,
-    });
-  } else if ('speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = rate;
-    utterance.pitch = 1.0;
-    
-    const voices = window.speechSynthesis.getVoices();
-    const englishVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
-    if (englishVoice) {
-      utterance.voice = englishVoice;
-    }
-    
-    if (options?.onEnd) {
-      utterance.onend = options.onEnd;
-    }
-    
-    window.speechSynthesis.speak(utterance);
+  const rate = options?.rate ?? 0.85;
+  
+  window.speechSynthesis.cancel();
+  
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = rate;
+  utterance.pitch = 1.0;
+  
+  if (!voicesLoaded) {
+    loadVoices();
   }
+  
+  if (cachedVoice) {
+    utterance.voice = cachedVoice;
+  }
+  
+  if (options?.onEnd) {
+    utterance.onend = options.onEnd;
+  }
+  
+  window.speechSynthesis.speak(utterance);
 }
 
 export function cancelSpeech(): void {
-  if (window.responsiveVoice) {
-    window.responsiveVoice.cancel();
-  }
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
   }
 }
 
 export function isVoiceAvailable(): boolean {
-  return !!(window.responsiveVoice?.voiceSupport() || 'speechSynthesis' in window);
+  return 'speechSynthesis' in window;
+}
+
+export function getVoiceName(): string | null {
+  return cachedVoice?.name || null;
 }
