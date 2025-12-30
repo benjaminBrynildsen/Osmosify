@@ -21,7 +21,7 @@ export type UserRole = "parent" | "teacher" | null;
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
-  phoneNumber: varchar("phone_number").unique(),
+  phoneNumber: varchar("phone_number"),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),

@@ -11,6 +11,8 @@ import { AppHeader } from "@/components/AppHeader";
 import { LoadingScreen } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
 import { Badge } from "@/components/ui/badge";
+import { BookCoverCard } from "@/components/BookCoverCard";
+import { BookCoverUpload } from "@/components/BookCoverUpload";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
@@ -35,10 +37,13 @@ import {
   Camera,
   Type,
   Upload,
+  Grid3X3,
+  List,
 } from "lucide-react";
 import type { Child, BookReadiness, Word, Book } from "@shared/schema";
 
 type FilterType = "all" | "ready" | "almost" | "progress" | "mybooks" | "beta";
+type ViewMode = "grid" | "list";
 
 export default function Books() {
   const params = useParams<{ id: string }>();
@@ -54,6 +59,7 @@ export default function Books() {
   const [newAuthor, setNewAuthor] = useState("");
   const [newWords, setNewWords] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const { data: child, isLoading: childLoading } = useQuery<Child>({
     queryKey: ["/api/children", childId],
@@ -223,7 +229,7 @@ export default function Books() {
         }
       />
 
-      <main className="container mx-auto max-w-2xl p-4 space-y-4">
+      <main className="container mx-auto max-w-4xl p-4 space-y-4">
         <Button
           variant="outline"
           className="w-full justify-start gap-2"
@@ -241,7 +247,7 @@ export default function Books() {
           Books become "Ready" when 90% or more words are unlocked.
         </p>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           <Button
             size="sm"
             variant={filter === "all" ? "default" : "outline"}
@@ -295,21 +301,54 @@ export default function Books() {
             <FlaskConical className="h-3 w-3 mr-1" />
             Beta ({betaCount})
           </Button>
+          <div className="ml-auto flex gap-1">
+            <Button
+              size="icon"
+              variant={viewMode === "grid" ? "default" : "outline"}
+              onClick={() => setViewMode("grid")}
+              data-testid="button-view-grid"
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant={viewMode === "list" ? "default" : "outline"}
+              onClick={() => setViewMode("list")}
+              data-testid="button-view-list"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {filteredBooks.length > 0 ? (
-          <div className="space-y-3">
-            {filteredBooks.map(item => (
-              <BookCard
-                key={item.book.id}
-                item={item}
-                childId={childId!}
-                onDelete={() => deleteBookMutation.mutate(item.book.id)}
-                onCardClick={() => setSelectedBook(item.book)}
-                isDeleting={deleteBookMutation.isPending}
-              />
-            ))}
-          </div>
+          viewMode === "grid" ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {filteredBooks.map(item => (
+                <BookCoverCard
+                  key={item.book.id}
+                  book={item.book}
+                  readinessPercent={item.percent}
+                  masteredCount={item.masteredCount}
+                  totalCount={item.totalCount}
+                  onClick={() => setSelectedBook(item.book)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredBooks.map(item => (
+                <BookCard
+                  key={item.book.id}
+                  item={item}
+                  childId={childId!}
+                  onDelete={() => deleteBookMutation.mutate(item.book.id)}
+                  onCardClick={() => setSelectedBook(item.book)}
+                  isDeleting={deleteBookMutation.isPending}
+                />
+              ))}
+            </div>
+          )
         ) : (
           <EmptyState
             type="sessions"
@@ -408,18 +447,25 @@ export default function Books() {
                     Play Word Pop
                   </Button>
                   {!selectedBook.isPreset && (
-                    <Button
-                      variant="outline"
-                      className="w-full gap-2"
-                      onClick={() => {
-                        setAddWordsBook(selectedBook);
-                        setSelectedBook(null);
-                      }}
-                      data-testid="button-add-words-to-book"
-                    >
-                      <PlusCircle className="h-4 w-4" />
-                      Add More Words
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        className="w-full gap-2"
+                        onClick={() => {
+                          setAddWordsBook(selectedBook);
+                          setSelectedBook(null);
+                        }}
+                        data-testid="button-add-words-to-book"
+                      >
+                        <PlusCircle className="h-4 w-4" />
+                        Add More Words
+                      </Button>
+                      <BookCoverUpload 
+                        book={selectedBook} 
+                        childId={childId!}
+                        onSuccess={() => setSelectedBook(null)}
+                      />
+                    </>
                   )}
                 </div>
               </div>

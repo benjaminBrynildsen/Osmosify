@@ -247,7 +247,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createWord(word: InsertWord): Promise<Word> {
-    const [created] = await db.insert(words).values(word).returning();
+    const [created] = await db.insert(words).values(word as typeof words.$inferInsert).returning();
     return created;
   }
 
@@ -386,13 +386,21 @@ export class DatabaseStorage implements IStorage {
     const wordList = book.words || [];
     const normalizedWords = wordList.map(w => w.toLowerCase().trim()).filter(w => w.length > 0);
     const uniqueWords = Array.from(new Set(normalizedWords));
-    const [created] = await db.insert(books).values({
-      ...book,
+    const insertData = {
+      title: book.title,
+      childId: book.childId,
+      gradeLevel: book.gradeLevel,
+      author: book.author,
+      description: book.description,
+      coverImageUrl: book.coverImageUrl,
+      customCoverUrl: book.customCoverUrl,
+      isbn: book.isbn,
       words: uniqueWords,
       wordCount: uniqueWords.length,
       isPreset: false,
       isBeta: false,
-    }).returning();
+    };
+    const [created] = await db.insert(books).values(insertData).returning();
     return created;
   }
 
@@ -413,16 +421,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBook(id: string, data: Partial<InsertBook>): Promise<Book | undefined> {
-    const updateData: Partial<Book> = { ...data };
-    if (data.words) {
-      const normalizedWords = data.words.map(w => w.toLowerCase().trim()).filter(w => w.length > 0);
+    const { words, ...rest } = data;
+    const updateData: Record<string, unknown> = { ...rest };
+    
+    if (words) {
+      const normalizedWords = words.map(w => w.toLowerCase().trim()).filter(w => w.length > 0);
       const uniqueWords = Array.from(new Set(normalizedWords));
       updateData.words = uniqueWords;
       updateData.wordCount = uniqueWords.length;
     }
     const [updated] = await db
       .update(books)
-      .set(updateData)
+      .set(updateData as Partial<Book>)
       .where(eq(books.id, id))
       .returning();
     return updated;

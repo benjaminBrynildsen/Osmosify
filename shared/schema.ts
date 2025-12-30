@@ -117,6 +117,12 @@ export const insertPresetWordListSchema = createInsertSchema(presetWordLists).om
 export type InsertPresetWordList = z.infer<typeof insertPresetWordListSchema>;
 export type PresetWordList = typeof presetWordLists.$inferSelect;
 
+// Source type for books
+export type BookSourceType = "curated" | "teacher" | "parent" | "public_domain" | "community";
+
+// Approval status for community contributions
+export type BookApprovalStatus = "pending" | "approved" | "rejected";
+
 // Books with word lists for readiness tracking
 export const books = pgTable("books", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -124,12 +130,32 @@ export const books = pgTable("books", {
   title: text("title").notNull(),
   author: text("author"),
   gradeLevel: text("grade_level"),
+  description: text("description"),
   words: text("words").array().notNull().default(sql`ARRAY[]::text[]`),
   wordCount: integer("word_count").notNull().default(0),
   isPreset: boolean("is_preset").notNull().default(false),
   isBeta: boolean("is_beta").notNull().default(false),
+  coverImageUrl: text("cover_image_url"),
+  customCoverUrl: text("custom_cover_url"),
+  isbn: text("isbn"),
+  sourceType: text("source_type").notNull().default("parent").$type<BookSourceType>(),
+  popularityCount: integer("popularity_count").notNull().default(0),
+  approvalStatus: text("approval_status").default("approved").$type<BookApprovalStatus>(),
+  contributedBy: varchar("contributed_by").references(() => users.id),
+  contributorLabel: text("contributor_label"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const booksRelations = relations(books, ({ one }) => ({
+  child: one(children, {
+    fields: [books.childId],
+    references: [children.id],
+  }),
+  contributor: one(users, {
+    fields: [books.contributedBy],
+    references: [users.id],
+  }),
+}));
 
 export const insertBookSchema = createInsertSchema(books).omit({
   id: true,
@@ -137,6 +163,8 @@ export const insertBookSchema = createInsertSchema(books).omit({
   wordCount: true,
   isPreset: true,
   isBeta: true,
+  popularityCount: true,
+  approvalStatus: true,
 });
 
 export type InsertBook = z.infer<typeof insertBookSchema>;

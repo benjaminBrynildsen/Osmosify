@@ -8,6 +8,7 @@ import { presetWordLists as presetData } from "./presetData";
 import { presetBooks as presetBooksData } from "./presetBooks";
 import { z } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { searchBooksForDisplay, fetchCoverForBook } from "./openLibrary";
 
 // Helper to get userId from authenticated request
 function getUserId(req: any): string {
@@ -548,6 +549,37 @@ export async function registerRoutes(
     }
   });
 
+  // Update book cover with uploaded image path
+  app.patch("/api/books/:id/cover", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { coverUrl } = req.body;
+      
+      if (!coverUrl) {
+        return res.status(400).json({ error: "coverUrl is required" });
+      }
+      
+      const existingBook = await storage.getBook(req.params.id);
+      if (!existingBook) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Verify ownership for non-preset books
+      if (!existingBook.isPreset && existingBook.childId) {
+        const child = await storage.getChildByUser(existingBook.childId, userId);
+        if (!child) {
+          return res.status(403).json({ error: "Not authorized" });
+        }
+      }
+      
+      const book = await storage.updateBook(req.params.id, { customCoverUrl: coverUrl });
+      res.json(book);
+    } catch (error) {
+      console.error("Error updating book cover:", error);
+      res.status(500).json({ error: "Failed to update book cover" });
+    }
+  });
+
   app.delete("/api/books/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
@@ -638,6 +670,42 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching preset books:", error);
       res.status(500).json({ error: "Failed to fetch preset books" });
+    }
+  });
+
+  // Open Library search endpoints (protected)
+  app.get("/api/open-library/search", isAuthenticated, async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      if (!query || query.trim().length < 2) {
+        return res.status(400).json({ error: "Search query must be at least 2 characters" });
+      }
+      
+      const results = await searchBooksForDisplay(query, limit);
+      res.json(results);
+    } catch (error) {
+      console.error("Open Library search error:", error);
+      res.status(500).json({ error: "Failed to search Open Library" });
+    }
+  });
+
+  app.get("/api/open-library/cover", isAuthenticated, async (req, res) => {
+    try {
+      const title = req.query.title as string;
+      const author = req.query.author as string | undefined;
+      const isbn = req.query.isbn as string | undefined;
+      
+      if (!title) {
+        return res.status(400).json({ error: "Title is required" });
+      }
+      
+      const result = await fetchCoverForBook(title, author, isbn);
+      res.json(result);
+    } catch (error) {
+      console.error("Open Library cover fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch cover" });
     }
   });
 
