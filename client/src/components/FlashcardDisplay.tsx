@@ -195,6 +195,9 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
       setSpokenText("");
       processingRef.current = false;
 
+      const wordProg = wordProgressRef.current.get(wordId);
+      if (!wordProg) return;
+
       if (mode === "history") {
         const result = { wordId, isCorrect };
         const newResults = [...historyResults, result];
@@ -208,7 +211,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
           setQueue(newQueue);
         }
       } else {
-        const wordJustMastered = updatedWordProg.sessionCorrectCount >= masteryThreshold;
+        const wordJustMastered = wordProg.sessionCorrectCount >= masteryThreshold;
         
         if (wordJustMastered) {
           const newMasteredIds = [...masteredIds, wordId];
@@ -241,7 +244,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
             setIsComplete(true);
             (props as MasteryModeProps).onComplete(newMasteredIds);
           } else if (filteredQueue.length === 0) {
-            const remainingWordIds = Array.from(updatedProgress.keys())
+            const remainingWordIds = Array.from(wordProgressRef.current.keys())
               .filter(id => !newMasteredIds.includes(id));
             
             if (remainingWordIds.length === 0) {
@@ -256,7 +259,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
           }
         } else {
           if (newQueue.length === 0) {
-            const remainingWordIds = Array.from(updatedProgress.keys())
+            const remainingWordIds = Array.from(wordProgressRef.current.keys())
               .filter(id => !masteredIds.includes(id));
             
             if (remainingWordIds.length === 0) {
