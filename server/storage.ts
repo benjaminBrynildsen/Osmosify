@@ -386,7 +386,7 @@ export class DatabaseStorage implements IStorage {
     const wordList = book.words || [];
     const normalizedWords = wordList.map(w => w.toLowerCase().trim()).filter(w => w.length > 0);
     const uniqueWords = Array.from(new Set(normalizedWords));
-    const insertData = {
+    const insertData: typeof books.$inferInsert = {
       title: book.title,
       childId: book.childId,
       gradeLevel: book.gradeLevel,
@@ -395,6 +395,9 @@ export class DatabaseStorage implements IStorage {
       coverImageUrl: book.coverImageUrl,
       customCoverUrl: book.customCoverUrl,
       isbn: book.isbn,
+      sourceType: (book.sourceType || "parent") as "curated" | "teacher" | "parent" | "public_domain" | "community",
+      contributedBy: book.contributedBy,
+      contributorLabel: book.contributorLabel,
       words: uniqueWords,
       wordCount: uniqueWords.length,
       isPreset: false,
@@ -414,6 +417,8 @@ export class DatabaseStorage implements IStorage {
       gradeLevel: book.gradeLevel,
       words: uniqueWords,
       wordCount: uniqueWords.length,
+      sourceType: "curated",
+      approvalStatus: "approved",
       isPreset: true,
       isBeta: book.isBeta,
     }).returning();
