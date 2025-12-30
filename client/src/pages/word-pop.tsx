@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Volume2, Trophy, Flame, Play, RotateCcw, Star, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { speak } from "@/lib/voice";
 import type { Word, Child, Book, PresetWordList } from "@shared/schema";
 
 interface Bubble {
@@ -38,7 +39,6 @@ export default function WordPop() {
   const [feedback, setFeedback] = useState<"correct" | "wrong" | "levelup" | null>(null);
   const [celebrateWord, setCelebrateWord] = useState<string>("");
   const [wordsPlayed, setWordsPlayed] = useState(0);
-  const [preferredVoice, setPreferredVoice] = useState<SpeechSynthesisVoice | null>(null);
   const gameAreaRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
   const bubbleIdRef = useRef(0);
@@ -78,38 +78,6 @@ export default function WordPop() {
     
     return words.filter(w => w.word.length >= 2 && w.word.length <= 12);
   }, [words, book, preset]);
-
-  useEffect(() => {
-    if ('speechSynthesis' in window) {
-      const loadVoices = () => {
-        const voices = window.speechSynthesis.getVoices();
-        const englishVoices = voices.filter(v => v.lang.startsWith('en'));
-        const preferredNames = ['Samantha', 'Karen', 'Victoria', 'Google US English', 'Microsoft Zira', 'Google UK English Female'];
-        const found = englishVoices.find(v => preferredNames.some(name => v.name.includes(name)));
-        setPreferredVoice(found || englishVoices[0] || voices[0] || null);
-      };
-      
-      loadVoices();
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-      
-      return () => {
-        window.speechSynthesis.onvoiceschanged = null;
-      };
-    }
-  }, []);
-
-  const speak = useCallback((text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
-      }
-      utterance.rate = 0.85;
-      utterance.pitch = 1.0;
-      window.speechSynthesis.speak(utterance);
-    }
-  }, [preferredVoice]);
 
   const getRandomWords = useCallback((count: number, mustInclude: string): string[] => {
     const available = playableWords.filter(w => w.word !== mustInclude).map(w => w.word);
@@ -164,7 +132,7 @@ export default function WordPop() {
     setTimeout(() => {
       speak(randomWord.word);
     }, 500);
-  }, [playableWords, spawnBubbles, speak, level, roundsInLevel]);
+  }, [playableWords, spawnBubbles, level, roundsInLevel]);
 
   const startGame = useCallback(() => {
     setGameState("playing");
@@ -234,7 +202,7 @@ export default function WordPop() {
         setFeedback(null);
       }, 500);
     }
-  }, [gameState, targetWord, streak, nextRound, speak]);
+  }, [gameState, targetWord, streak, nextRound, level]);
 
   useEffect(() => {
     if (gameState !== "playing") {
