@@ -33,6 +33,16 @@ export default function RoleSelection({ user }: RoleSelectionProps) {
           words: wordsToAdd,
         });
       }
+
+      // If there were guest sessions, we should probably migrate those too
+      if (guestData.sessions.length > 0) {
+        for (const session of guestData.sessions) {
+          await apiRequest("POST", `/api/children/${newChild.id}/sessions`, {
+            bookTitle: session.bookTitle,
+            extractedText: session.words.join(" "),
+          });
+        }
+      }
       
       exitGuestMode();
       return newChild;
