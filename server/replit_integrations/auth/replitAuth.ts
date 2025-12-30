@@ -125,7 +125,7 @@ export async function setupAuth(app: Express) {
   });
 
   // Simple email login (no verification required)
-  app.post("/api/auth/email-login", async (req, res) => {
+  app.post("/api/auth/email-login", async (req: any, res) => {
     try {
       const { email } = req.body;
       
@@ -142,14 +142,11 @@ export async function setupAuth(app: Express) {
       // Create or get user by email
       const user = await authStorage.createOrUpdateUserByEmail(email);
 
-      // Log the user in by setting up the session
-      req.login({ id: user.id, email: user.email }, (err) => {
-        if (err) {
-          console.error("Login error:", err);
-          return res.status(500).json({ message: "Login failed" });
-        }
-        res.json({ success: true, user: { id: user.id, email: user.email } });
-      });
+      // Set up the session directly (like phone auth does)
+      req.session.userId = user.id;
+      req.session.authMethod = "email";
+      
+      res.json({ success: true, user: { id: user.id, email: user.email } });
     } catch (error) {
       console.error("Email login error:", error);
       res.status(500).json({ message: "Login failed" });

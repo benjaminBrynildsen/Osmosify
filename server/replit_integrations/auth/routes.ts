@@ -63,8 +63,8 @@ function checkRateLimit(phoneNumber: string): { allowed: boolean; message?: stri
 // Internal function to get user from session/Replit auth (for /api/auth/user route)
 async function handleGetAuthUser(req: any, res: any): Promise<void> {
   try {
-    // Check for phone auth session first (doesn't need token refresh)
-    if (req.session?.userId && req.session?.authMethod === "phone") {
+    // Check for phone or email auth session first (doesn't need token refresh)
+    if (req.session?.userId && (req.session?.authMethod === "phone" || req.session?.authMethod === "email")) {
       const user = await authStorage.getUser(req.session.userId);
       if (user) {
         return res.json(user);
@@ -91,11 +91,11 @@ async function handleGetAuthUser(req: any, res: any): Promise<void> {
 
 // Register auth-specific routes
 export function registerAuthRoutes(app: Express): void {
-  // Get current authenticated user - supports both Replit auth and phone auth
+  // Get current authenticated user - supports Replit auth, phone auth, and email auth
   // Always runs isAuthenticated first to handle Replit token refresh
   app.get("/api/auth/user", (req: any, res, next) => {
-    // Check phone auth first (no token refresh needed)
-    if (req.session?.userId && req.session?.authMethod === "phone") {
+    // Check phone or email auth first (no token refresh needed)
+    if (req.session?.userId && (req.session?.authMethod === "phone" || req.session?.authMethod === "email")) {
       return handleGetAuthUser(req, res);
     }
     
@@ -202,16 +202,16 @@ export function registerAuthRoutes(app: Express): void {
   });
 }
 
-// Middleware to ensure user is authenticated (phone OR Replit auth)
-// For phone auth: stores userId in req.phoneUserId without touching req.user
+// Middleware to ensure user is authenticated (phone, email, OR Replit auth)
+// For phone/email auth: stores userId in req.phoneUserId without touching req.user
 // For Replit auth: uses isAuthenticated which handles token refresh
 export const ensureAuthenticated: RequestHandler = async (req: any, res, next) => {
-  // Check phone auth session first (doesn't require token refresh)
-  if (req.session?.userId && req.session?.authMethod === "phone") {
+  // Check phone or email auth session first (doesn't require token refresh)
+  if (req.session?.userId && (req.session?.authMethod === "phone" || req.session?.authMethod === "email")) {
     const user = await authStorage.getUser(req.session.userId);
     if (user) {
-      // Store phone user context separately (don't touch req.user)
-      // Also set a unified field that works for both auth types
+      // Store user context separately (don't touch req.user)
+      // Also set a unified field that works for all auth types
       req.phoneUserId = user.id;
       req.authenticatedUserId = user.id;
       return next();

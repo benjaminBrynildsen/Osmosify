@@ -7,13 +7,18 @@ import { insertChildSchema, insertBookSchema } from "@shared/schema";
 import { presetWordLists as presetData } from "./presetData";
 import { presetBooks as presetBooksData } from "./presetBooks";
 import { z } from "zod";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes, ensureAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { searchBooksForDisplay, fetchCoverForBook } from "./openLibrary";
 import { synthesizeSpeech, AVAILABLE_VOICES, VoiceOption } from "./ttsService";
 
-// Helper to get userId from authenticated request
+// Helper to get userId from authenticated request (supports email, phone, and Replit auth)
 function getUserId(req: any): string {
+  // Check for email or phone auth session first
+  if (req.session?.userId && (req.session?.authMethod === "email" || req.session?.authMethod === "phone")) {
+    return req.session.userId;
+  }
+  // Fall back to Replit OIDC auth
   return req.user?.claims?.sub;
 }
 
@@ -29,7 +34,7 @@ export async function registerRoutes(
   registerObjectStorageRoutes(app);
 
   // User role update endpoint (for onboarding)
-  app.patch("/api/auth/user/role", isAuthenticated, async (req, res) => {
+  app.patch("/api/auth/user/role", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const { role } = req.body;
@@ -78,7 +83,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // OCR endpoint - extract text from images using Gemini Vision (protected)
-  app.post("/api/ocr", isAuthenticated, async (req, res) => {
+  app.post("/api/ocr", ensureAuthenticated, async (req, res) => {
     try {
       const { images } = req.body;
       
@@ -95,7 +100,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Children endpoints (protected)
-  app.get("/api/children", isAuthenticated, async (req, res) => {
+  app.get("/api/children", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const children = await storage.getChildrenByUser(userId);
@@ -106,7 +111,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.get("/api/children/word-counts", isAuthenticated, async (req, res) => {
+  app.get("/api/children/word-counts", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const wordCounts = await storage.getChildWordCountsByUser(userId);
@@ -117,7 +122,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.get("/api/children/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/children/:id", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const child = await storage.getChildByUser(req.params.id, userId);
@@ -131,7 +136,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.post("/api/children", isAuthenticated, async (req, res) => {
+  app.post("/api/children", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const parsed = insertChildSchema.safeParse(req.body);
@@ -146,7 +151,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.patch("/api/children/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/children/:id", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const child = await storage.updateChildForUser(req.params.id, userId, req.body);
@@ -160,7 +165,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.delete("/api/children/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/children/:id", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       await storage.deleteChildForUser(req.params.id, userId);
@@ -172,7 +177,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Sessions endpoints (protected)
-  app.get("/api/children/:id/sessions", isAuthenticated, async (req, res) => {
+  app.get("/api/children/:id/sessions", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const child = await storage.getChildByUser(req.params.id, userId);
@@ -187,7 +192,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.post("/api/children/:id/sessions", isAuthenticated, async (req, res) => {
+  app.post("/api/children/:id/sessions", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const childId = req.params.id;
@@ -241,7 +246,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.get("/api/sessions/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/sessions/:id", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const session = await storage.getSession(req.params.id);
@@ -283,7 +288,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Words endpoints (protected)
-  app.get("/api/children/:id/words", isAuthenticated, async (req, res) => {
+  app.get("/api/children/:id/words", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const child = await storage.getChildByUser(req.params.id, userId);
@@ -303,7 +308,7 @@ Example format: "The cat ran to the big tree."`;
     words: z.array(z.string()).min(1),
   });
 
-  app.post("/api/children/:id/words/batch", isAuthenticated, async (req, res) => {
+  app.post("/api/children/:id/words/batch", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const child = await storage.getChildByUser(req.params.id, userId);
@@ -343,7 +348,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.patch("/api/words/:id/result", isAuthenticated, async (req, res) => {
+  app.patch("/api/words/:id/result", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const { isCorrect, isHistoryTest } = req.body;
@@ -399,7 +404,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Mark word as mastered (called when 7 correct in session)
-  app.patch("/api/words/:id/master", isAuthenticated, async (req, res) => {
+  app.patch("/api/words/:id/master", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const word = await storage.getWord(req.params.id);
@@ -429,7 +434,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Preset Word Lists endpoints (protected)
-  app.get("/api/presets", isAuthenticated, async (req, res) => {
+  app.get("/api/presets", ensureAuthenticated, async (req, res) => {
     try {
       const presets = await storage.getPresetWordLists();
       res.json(presets);
@@ -439,7 +444,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.get("/api/presets/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/presets/:id", ensureAuthenticated, async (req, res) => {
     try {
       const preset = await storage.getPresetWordList(req.params.id);
       if (!preset) {
@@ -457,7 +462,7 @@ Example format: "The cat ran to the big tree."`;
     presetId: z.string().min(1),
   });
 
-  app.post("/api/children/:id/add-preset", isAuthenticated, async (req, res) => {
+  app.post("/api/children/:id/add-preset", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const childId = req.params.id;
@@ -495,7 +500,7 @@ Example format: "The cat ran to the big tree."`;
     bookId: z.string().min(1),
   });
 
-  app.post("/api/children/:id/import-book-words", isAuthenticated, async (req, res) => {
+  app.post("/api/children/:id/import-book-words", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -548,7 +553,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Books endpoints (protected with user scoping)
-  app.get("/api/books", isAuthenticated, async (req, res) => {
+  app.get("/api/books", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -562,7 +567,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.get("/api/books/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/books/:id", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -586,7 +591,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.post("/api/books", isAuthenticated, async (req, res) => {
+  app.post("/api/books", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -611,7 +616,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.patch("/api/books/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/books/:id", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const existingBook = await storage.getBook(req.params.id);
@@ -634,7 +639,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Update book cover with uploaded image path
-  app.patch("/api/books/:id/cover", isAuthenticated, async (req, res) => {
+  app.patch("/api/books/:id/cover", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const { coverUrl } = req.body;
@@ -664,7 +669,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.delete("/api/books/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/books/:id", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const existingBook = await storage.getBook(req.params.id);
@@ -687,7 +692,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Append words to an existing book (with ownership validation)
-  app.post("/api/books/:id/append-words", isAuthenticated, async (req, res) => {
+  app.post("/api/books/:id/append-words", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const { words, childId } = req.body;
@@ -729,7 +734,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Book readiness endpoints (protected)
-  app.get("/api/children/:id/book-readiness", isAuthenticated, async (req, res) => {
+  app.get("/api/children/:id/book-readiness", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const childId = req.params.id;
@@ -747,7 +752,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Preset books endpoints (protected)
-  app.get("/api/preset-books", isAuthenticated, async (req, res) => {
+  app.get("/api/preset-books", ensureAuthenticated, async (req, res) => {
     try {
       const presetBooks = await storage.getPresetBooks();
       res.json(presetBooks);
@@ -758,7 +763,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Open Library search endpoints (protected)
-  app.get("/api/open-library/search", isAuthenticated, async (req, res) => {
+  app.get("/api/open-library/search", ensureAuthenticated, async (req, res) => {
     try {
       const query = req.query.q as string;
       const limit = parseInt(req.query.limit as string) || 10;
@@ -775,7 +780,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.get("/api/open-library/cover", isAuthenticated, async (req, res) => {
+  app.get("/api/open-library/cover", ensureAuthenticated, async (req, res) => {
     try {
       const title = req.query.title as string;
       const author = req.query.author as string | undefined;
@@ -805,7 +810,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Book contribution endpoints (community contributions)
-  app.post("/api/book-contributions", isAuthenticated, async (req, res) => {
+  app.post("/api/book-contributions", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       
@@ -837,7 +842,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Get pending book contributions (for moderation)
-  app.get("/api/book-contributions/pending", isAuthenticated, async (req, res) => {
+  app.get("/api/book-contributions/pending", ensureAuthenticated, async (req, res) => {
     try {
       const pendingBooks = await storage.getPendingBookContributions();
       res.json(pendingBooks);
@@ -848,7 +853,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Approve a book contribution
-  app.post("/api/book-contributions/:id/approve", isAuthenticated, async (req, res) => {
+  app.post("/api/book-contributions/:id/approve", ensureAuthenticated, async (req, res) => {
     try {
       const bookId = req.params.id;
       const approvedBook = await storage.approveBookContribution(bookId);
@@ -863,7 +868,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Reject a book contribution
-  app.post("/api/book-contributions/:id/reject", isAuthenticated, async (req, res) => {
+  app.post("/api/book-contributions/:id/reject", ensureAuthenticated, async (req, res) => {
     try {
       const bookId = req.params.id;
       const rejectedBook = await storage.rejectBookContribution(bookId);
@@ -878,7 +883,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Featured book endpoints
-  app.get("/api/featured-book", isAuthenticated, async (req, res) => {
+  app.get("/api/featured-book", ensureAuthenticated, async (req, res) => {
     try {
       const featuredBook = await storage.getFeaturedBook();
       res.json(featuredBook || null);
@@ -888,7 +893,7 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
-  app.post("/api/featured-book", isAuthenticated, async (req, res) => {
+  app.post("/api/featured-book", ensureAuthenticated, async (req, res) => {
     try {
       const { bookId, durationDays } = req.body;
       if (!bookId) {
@@ -906,7 +911,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Book unlock tracking endpoint
-  app.post("/api/books/:id/unlock", isAuthenticated, async (req, res) => {
+  app.post("/api/books/:id/unlock", ensureAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const bookId = req.params.id;
@@ -931,7 +936,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Get books by popularity
-  app.get("/api/preset-books/popular", isAuthenticated, async (req, res) => {
+  app.get("/api/preset-books/popular", ensureAuthenticated, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const popularBooks = await storage.getBooksByPopularity(limit);
@@ -943,7 +948,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Text-to-Speech endpoint
-  app.post("/api/tts/speak", isAuthenticated, async (req, res) => {
+  app.post("/api/tts/speak", ensureAuthenticated, async (req, res) => {
     try {
       const { text, voice, speed } = req.body;
       
@@ -971,7 +976,7 @@ Example format: "The cat ran to the big tree."`;
   });
 
   // Get available TTS voices
-  app.get("/api/tts/voices", isAuthenticated, async (req, res) => {
+  app.get("/api/tts/voices", ensureAuthenticated, async (req, res) => {
     res.json(AVAILABLE_VOICES);
   });
 
