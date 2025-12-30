@@ -48,22 +48,15 @@ declare global {
 let preferredVoice: SpeechSynthesisVoice | null = null;
 let voicesInitialized = false;
 let currentAudio: HTMLAudioElement | null = null;
-let selectedGoogleVoice: string = "en-US-Neural2-C";
 
-export interface GoogleVoice {
-  name: string;
+export type VoiceOption = "alloy" | "nova" | "shimmer";
+
+export interface TTSVoice {
+  name: VoiceOption;
   description: string;
 }
 
-export function setGoogleVoice(voiceName: string): void {
-  selectedGoogleVoice = voiceName;
-}
-
-export function getSelectedGoogleVoice(): string {
-  return selectedGoogleVoice;
-}
-
-export async function fetchGoogleVoices(): Promise<GoogleVoice[]> {
+export async function fetchAvailableVoices(): Promise<TTSVoice[]> {
   try {
     const response = await fetch("/api/tts/voices", {
       credentials: "include",
@@ -71,15 +64,19 @@ export async function fetchGoogleVoices(): Promise<GoogleVoice[]> {
     if (!response.ok) throw new Error("Failed to fetch voices");
     return await response.json();
   } catch (error) {
-    console.warn("Failed to fetch Google voices:", error);
-    return [];
+    console.warn("Failed to fetch voices:", error);
+    return [
+      { name: "nova", description: "Friendly and warm" },
+      { name: "alloy", description: "Neutral and clear" },
+      { name: "shimmer", description: "Soft and expressive" },
+    ];
   }
 }
 
-export async function speakWordWithGoogleTTS(
+export async function speakWordWithOpenAI(
   word: string,
-  rate: number = 0.9,
-  voice?: string
+  voice: VoiceOption = "nova",
+  speed: number = 0.9
 ): Promise<void> {
   if (currentAudio) {
     currentAudio.pause();
@@ -93,8 +90,8 @@ export async function speakWordWithGoogleTTS(
       credentials: "include",
       body: JSON.stringify({
         text: word,
-        voice: voice || selectedGoogleVoice,
-        rate,
+        voice,
+        speed,
       }),
     });
 
@@ -124,8 +121,8 @@ export async function speakWordWithGoogleTTS(
       });
     });
   } catch (error) {
-    console.warn("Google TTS failed, falling back to browser TTS:", error);
-    return speakWordBrowser(word, rate);
+    console.warn("OpenAI TTS failed, falling back to browser TTS:", error);
+    return speakWordBrowser(word, speed);
   }
 }
 
@@ -221,8 +218,8 @@ function speakWordBrowser(word: string, rate: number = 0.9): Promise<void> {
   });
 }
 
-export function speakWord(word: string, rate: number = 0.9): Promise<void> {
-  return speakWordWithGoogleTTS(word, rate);
+export function speakWord(word: string, voice: VoiceOption = "nova", speed: number = 0.9): Promise<void> {
+  return speakWordWithOpenAI(word, voice, speed);
 }
 
 export function isSpeechRecognitionSupported(): boolean {

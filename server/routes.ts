@@ -10,7 +10,7 @@ import { z } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { searchBooksForDisplay, fetchCoverForBook } from "./openLibrary";
-import { synthesizeSpeech, RECOMMENDED_VOICES } from "./ttsService";
+import { synthesizeSpeech, AVAILABLE_VOICES, VoiceOption } from "./ttsService";
 
 // Helper to get userId from authenticated request
 function getUserId(req: any): string {
@@ -866,16 +866,17 @@ export async function registerRoutes(
   // Text-to-Speech endpoint
   app.post("/api/tts/speak", isAuthenticated, async (req, res) => {
     try {
-      const { text, voice, rate } = req.body;
+      const { text, voice, speed } = req.body;
       
       if (!text || typeof text !== "string") {
         return res.status(400).json({ error: "Text is required" });
       }
       
-      const voiceName = voice || "en-US-Neural2-C";
-      const speakingRate = typeof rate === "number" ? rate : 0.9;
+      const validVoices: VoiceOption[] = ["alloy", "nova", "shimmer"];
+      const voiceName: VoiceOption = validVoices.includes(voice) ? voice : "nova";
+      const speakingSpeed = typeof speed === "number" ? speed : 0.9;
       
-      const audioBuffer = await synthesizeSpeech(text, voiceName, speakingRate);
+      const audioBuffer = await synthesizeSpeech(text, voiceName, speakingSpeed);
       
       res.set({
         "Content-Type": "audio/mpeg",
@@ -892,7 +893,7 @@ export async function registerRoutes(
 
   // Get available TTS voices
   app.get("/api/tts/voices", isAuthenticated, async (req, res) => {
-    res.json(RECOMMENDED_VOICES);
+    res.json(AVAILABLE_VOICES);
   });
 
   // Seed presets on startup

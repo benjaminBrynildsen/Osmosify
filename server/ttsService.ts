@@ -1,92 +1,55 @@
-import { TextToSpeechClient, protos } from "@google-cloud/text-to-speech";
+import OpenAI from "openai";
 
-const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
-
-const ttsClient = new TextToSpeechClient({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
-      },
-    },
-    universe_domain: "googleapis.com",
-  } as any,
-  projectId: "",
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
+
+export type VoiceOption = "alloy" | "nova" | "shimmer";
 
 const audioCache = new Map<string, Buffer>();
 const MAX_CACHE_SIZE = 500;
 
+export const AVAILABLE_VOICES: { name: VoiceOption; description: string }[] = [
+  { name: "nova", description: "Friendly and warm" },
+  { name: "alloy", description: "Neutral and clear" },
+  { name: "shimmer", description: "Soft and expressive" },
+];
+
 export async function synthesizeSpeech(
   text: string,
-  voiceName: string = "en-US-Neural2-C",
-  speakingRate: number = 0.9
+  voice: VoiceOption = "nova",
+  speed: number = 0.9
 ): Promise<Buffer> {
-  const cacheKey = `${text.toLowerCase()}_${voiceName}_${speakingRate}`;
-  
+  const cacheKey = `${text.toLowerCase()}_${voice}_${speed}`;
+
   if (audioCache.has(cacheKey)) {
     return audioCache.get(cacheKey)!;
   }
 
-  const request: protos.google.cloud.texttospeech.v1.ISynthesizeSpeechRequest = {
-    input: { text },
-    voice: {
-      languageCode: "en-US",
-      name: voiceName,
-    },
-    audioConfig: {
-      audioEncoding: "MP3" as any,
-      speakingRate,
-      pitch: 0,
-    },
-  };
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is not configured");
+  }
 
   try {
-    const [response] = await ttsClient.synthesizeSpeech(request);
-    
-    if (!response.audioContent) {
-      throw new Error("No audio content received");
-    }
+    const response = await openai.audio.speech.create({
+      model: "tts-1",
+      voice: voice,
+      input: text,
+      speed: speed,
+    });
 
-    const audioBuffer = Buffer.from(response.audioContent as Uint8Array);
-    
+    const arrayBuffer = await response.arrayBuffer();
+    const audioBuffer = Buffer.from(arrayBuffer);
+
     if (audioCache.size >= MAX_CACHE_SIZE) {
       const firstKey = audioCache.keys().next().value;
       if (firstKey) audioCache.delete(firstKey);
     }
     audioCache.set(cacheKey, audioBuffer);
-    
+
     return audioBuffer;
   } catch (error) {
-    console.error("TTS synthesis error:", error);
+    console.error("OpenAI TTS synthesis error:", error);
     throw error;
   }
 }
-
-export async function listVoices(): Promise<protos.google.cloud.texttospeech.v1.IVoice[]> {
-  try {
-    const [response] = await ttsClient.listVoices({ languageCode: "en-US" });
-    return response.voices || [];
-  } catch (error) {
-    console.error("Error listing voices:", error);
-    return [];
-  }
-}
-
-export const RECOMMENDED_VOICES = [
-  { name: "en-US-Neural2-C", description: "Female, calm and clear" },
-  { name: "en-US-Neural2-D", description: "Male, warm and friendly" },
-  { name: "en-US-Neural2-A", description: "Male, standard" },
-  { name: "en-US-Neural2-E", description: "Female, expressive" },
-  { name: "en-US-Neural2-F", description: "Female, casual" },
-  { name: "en-US-Neural2-G", description: "Female, soft" },
-  { name: "en-US-Neural2-H", description: "Female, bright" },
-  { name: "en-US-Neural2-I", description: "Male, deep" },
-  { name: "en-US-Neural2-J", description: "Male, upbeat" },
-];

@@ -166,6 +166,7 @@ export default function Flashcards() {
             onComplete={handleComplete}
             mode="mastery"
             masteryThreshold={masteryThreshold}
+            voicePreference={(child?.voicePreference as "nova" | "alloy" | "shimmer") || "nova"}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center p-4">

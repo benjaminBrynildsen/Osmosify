@@ -21,9 +21,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save } from "lucide-react";
+import { Save, Volume2 } from "lucide-react";
 import type { Child } from "@shared/schema";
 import { GRADE_LEVELS } from "@/lib/gradeLevels";
+import { speakWord, type VoiceOption } from "@/lib/speech";
+
+const VOICE_OPTIONS: { value: VoiceOption; label: string; description: string }[] = [
+  { value: "nova", label: "Nova", description: "Friendly and warm" },
+  { value: "alloy", label: "Alloy", description: "Neutral and clear" },
+  { value: "shimmer", label: "Shimmer", description: "Soft and expressive" },
+];
 
 const settingsSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -33,6 +40,7 @@ const settingsSchema = z.object({
   masteryThreshold: z.number().min(1).max(20),
   deckSize: z.number().min(5).max(50),
   demoteOnMiss: z.boolean(),
+  voicePreference: z.enum(["nova", "alloy", "shimmer"]),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -54,8 +62,13 @@ export function SettingsPanel({ child, onSave, isSaving = false }: SettingsPanel
       masteryThreshold: child.masteryThreshold,
       deckSize: child.deckSize,
       demoteOnMiss: child.demoteOnMiss,
+      voicePreference: (child.voicePreference as VoiceOption) || "nova",
     },
   });
+
+  const handlePreviewVoice = (voice: VoiceOption) => {
+    speakWord("Hello! This is how I sound.", voice);
+  };
 
   return (
     <Form {...form}>
@@ -226,6 +239,57 @@ export function SettingsPanel({ child, onSave, isSaving = false }: SettingsPanel
                       data-testid="switch-demote-on-miss"
                     />
                   </FormControl>
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Voice Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <FormField
+              control={form.control}
+              name="voicePreference"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Voice for Reading Words</FormLabel>
+                  <FormDescription className="mb-3">
+                    Choose the voice used during flashcard sessions
+                  </FormDescription>
+                  <div className="space-y-2">
+                    {VOICE_OPTIONS.map((voice) => (
+                      <div
+                        key={voice.value}
+                        className={`flex items-center justify-between p-3 rounded-md border cursor-pointer transition-colors ${
+                          field.value === voice.value
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover-elevate"
+                        }`}
+                        onClick={() => field.onChange(voice.value)}
+                        data-testid={`voice-option-${voice.value}`}
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium">{voice.label}</div>
+                          <div className="text-sm text-muted-foreground">{voice.description}</div>
+                        </div>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePreviewVoice(voice.value);
+                          }}
+                          data-testid={`button-preview-voice-${voice.value}`}
+                        >
+                          <Volume2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </FormItem>
               )}
             />

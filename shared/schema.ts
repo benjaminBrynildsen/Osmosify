@@ -12,6 +12,9 @@ export type WordStatus = "new" | "learning" | "mastered";
 // Import users table for foreign key reference
 import { users } from "./models/auth";
 
+// Voice options for TTS
+export type VoiceOption = "alloy" | "nova" | "shimmer";
+
 // Children profiles
 export const children = pgTable("children", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -23,6 +26,7 @@ export const children = pgTable("children", {
   masteryThreshold: integer("mastery_threshold").notNull().default(7),
   deckSize: integer("deck_size").notNull().default(7),
   demoteOnMiss: boolean("demote_on_miss").notNull().default(true),
+  voicePreference: text("voice_preference").notNull().default("nova").$type<VoiceOption>(),
 });
 
 export const childrenRelations = relations(children, ({ many }) => ({

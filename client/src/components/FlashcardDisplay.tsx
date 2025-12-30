@@ -10,7 +10,8 @@ import {
   speakWord, 
   startListening, 
   isSpeechRecognitionSupported,
-  type RecognitionResult 
+  type RecognitionResult,
+  type VoiceOption
 } from "@/lib/speech";
 
 interface MasteryModeProps {
@@ -29,6 +30,7 @@ interface HistoryModeProps {
 type FlashcardDisplayProps = {
   words: Word[];
   timerSeconds?: number;
+  voicePreference?: VoiceOption;
 } & (MasteryModeProps | HistoryModeProps);
 
 interface WordProgress {
@@ -38,7 +40,7 @@ interface WordProgress {
 }
 
 export function FlashcardDisplay(props: FlashcardDisplayProps) {
-  const { words, mode, timerSeconds = 5 } = props;
+  const { words, mode, timerSeconds = 5, voicePreference = "nova" } = props;
   const masteryThreshold = mode === "mastery" ? (props.masteryThreshold ?? 7) : 1;
 
   const [wordProgress, setWordProgress] = useState<Map<string, WordProgress>>(new Map());
@@ -158,7 +160,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
 
     if (ttsEnabled && voicesReady && currentWord) {
       setTimeout(() => {
-        speakWord(currentWord.word);
+        speakWord(currentWord.word, voicePreference);
       }, 200);
     }
 
@@ -369,7 +371,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
 
   const speakCurrentWord = () => {
     if (currentWord && voicesReady) {
-      speakWord(currentWord.word);
+      speakWord(currentWord.word, voicePreference);
     }
   };
 
