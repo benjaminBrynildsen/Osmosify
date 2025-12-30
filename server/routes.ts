@@ -298,6 +298,51 @@ Example format: "The cat ran to the big tree."`;
     }
   });
 
+  // Add multiple words at once (for guest data migration)
+  const batchWordsSchema = z.object({
+    words: z.array(z.string()).min(1),
+  });
+
+  app.post("/api/children/:id/words/batch", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const child = await storage.getChildByUser(req.params.id, userId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
+
+      const parsed = batchWordsSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request: words array required" });
+      }
+
+      const existingWords = await storage.getWordsByChild(req.params.id);
+      const existingWordSet = new Set(existingWords.map(w => w.word.toLowerCase()));
+
+      const newWords = parsed.data.words
+        .map(w => w.toLowerCase().trim())
+        .filter(w => w.length > 0 && !existingWordSet.has(w));
+
+      const createdWords = [];
+      for (const word of newWords) {
+        const created = await storage.createWord({
+          childId: req.params.id,
+          word,
+          status: "new",
+          totalOccurrences: 1,
+          masteryCorrectCount: 0,
+          incorrectCount: 0,
+        });
+        createdWords.push(created);
+      }
+
+      res.json({ added: createdWords.length, words: createdWords });
+    } catch (error) {
+      console.error("Error adding batch words:", error);
+      res.status(500).json({ error: "Failed to add words" });
+    }
+  });
+
   app.patch("/api/words/:id/result", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
