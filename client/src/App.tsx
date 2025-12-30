@@ -27,6 +27,7 @@ import GuestOnboarding from "@/pages/guest-onboarding";
 import GuestFlashcards from "@/pages/guest-flashcards";
 import GuestDashboard from "@/pages/guest-dashboard";
 import GuestWordPop from "@/pages/guest-word-pop";
+import Login from "@/pages/login";
 import SplashScreen from "@/components/SplashScreen";
 import { WelcomeCarousel } from "@/components/WelcomeCarousel";
 import { Loader2 } from "lucide-react";
@@ -55,6 +56,7 @@ function AuthenticatedRouter() {
 function GuestRouter() {
   return (
     <Switch>
+      <Route path="/login" component={Login} />
       <Route path="/guest/onboarding" component={GuestOnboarding} />
       <Route path="/guest/child/:id/flashcards" component={GuestFlashcards} />
       <Route path="/guest/child/:id/word-pop" component={GuestWordPop} />
@@ -69,7 +71,7 @@ function AuthWrapper() {
   const { isGuestMode, enterGuestMode, exitGuestMode, showLoginPrompt, setShowLoginPrompt } = useGuestModeContext();
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeChecked, setWelcomeChecked] = useState(false);
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -94,7 +96,7 @@ function AuthWrapper() {
 
   const handleLogin = () => {
     setShowLoginPrompt(false);
-    window.location.href = "/api/login";
+    setLocation("/login");
   };
 
   const handleContinueAsGuest = () => {
@@ -124,6 +126,9 @@ function AuthWrapper() {
   }
 
   if (!isAuthenticated) {
+    if (location === "/login") {
+      return <Login />;
+    }
     return <Landing onTryFree={handleTryFree} />;
   }
 

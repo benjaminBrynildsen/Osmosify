@@ -19,7 +19,7 @@ const getOidcConfig = memoize(
 );
 
 export function getSession() {
-  const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+  const sessionTtl = 90 * 24 * 60 * 60 * 1000; // 3 months
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
@@ -120,13 +120,40 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/logout", (req, res) => {
     req.logout(() => {
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
-      );
+      res.redirect("/");
     });
+  });
+
+  // Simple email login (no verification required)
+  app.post("/api/auth/email-login", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Invalid email format" });
+      }
+
+      // Create or get user by email
+      const user = await authStorage.createOrUpdateUserByEmail(email);
+
+      // Log the user in by setting up the session
+      req.login({ id: user.id, email: user.email }, (err) => {
+        if (err) {
+          console.error("Login error:", err);
+          return res.status(500).json({ message: "Login failed" });
+        }
+        res.json({ success: true, user: { id: user.id, email: user.email } });
+      });
+    } catch (error) {
+      console.error("Email login error:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
   });
 }
 

@@ -14,9 +14,10 @@ export default function GuestFlashcards() {
   const childId = params.id || guestData.child?.id || "";
 
   const sessionWordsRef = useRef<Word[] | null>(null);
+  const deckSize = 7;
   
   if (sessionWordsRef.current === null) {
-    sessionWordsRef.current = guestData.words
+    const allWords = guestData.words
       .filter(w => w.status !== "mastered")
       .map(w => ({
         id: w.id,
@@ -31,6 +32,7 @@ export default function GuestFlashcards() {
         incorrectCount: 0,
         lastTested: null,
       }));
+    sessionWordsRef.current = allWords.slice(0, deckSize);
   }
   
   const words = sessionWordsRef.current;

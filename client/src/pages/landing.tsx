@@ -17,7 +17,7 @@ export default function Landing({ onTryFree }: LandingProps) {
           <span className="text-2xl font-bold">Osmosify</span>
         </div>
         <Button asChild data-testid="button-sign-in">
-          <a href="/api/login">Sign In</a>
+          <a href="/login">Sign In</a>
         </Button>
       </header>
 
@@ -33,7 +33,7 @@ export default function Landing({ onTryFree }: LandingProps) {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button size="lg" asChild data-testid="button-get-started">
-              <a href="/api/login" className="gap-2">
+              <a href="/login" className="gap-2">
                 Sign In
                 <ArrowRight className="h-5 w-5" />
               </a>

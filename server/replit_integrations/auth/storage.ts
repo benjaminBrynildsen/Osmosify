@@ -7,8 +7,10 @@ import { eq, and, gt } from "drizzle-orm";
 export interface IAuthStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByPhone(phoneNumber: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   createOrUpdateUserByPhone(phoneNumber: string, firstName?: string): Promise<User>;
+  createOrUpdateUserByEmail(email: string): Promise<User>;
   saveVerificationCode(phoneNumber: string, code: string, expiresAt: Date): Promise<void>;
   getVerificationCode(phoneNumber: string, code: string): Promise<VerificationCode | undefined>;
   deleteVerificationCodes(phoneNumber: string): Promise<void>;
@@ -22,6 +24,11 @@ class AuthStorage implements IAuthStorage {
 
   async getUserByPhone(phoneNumber: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.phoneNumber, phoneNumber));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
     return user;
   }
 
@@ -60,6 +67,23 @@ class AuthStorage implements IAuthStorage {
       .values({
         phoneNumber,
         firstName,
+      })
+      .returning();
+    return newUser;
+  }
+
+  async createOrUpdateUserByEmail(email: string): Promise<User> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const existingUser = await this.getUserByEmail(normalizedEmail);
+    
+    if (existingUser) {
+      return existingUser;
+    }
+
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        email: normalizedEmail,
       })
       .returning();
     return newUser;
