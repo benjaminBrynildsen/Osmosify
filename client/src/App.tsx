@@ -71,8 +71,10 @@ function AuthWrapper() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeChecked, setWelcomeChecked] = useState(false);
   const [location, setLocation] = useLocation();
-  const guestMode = useGuestModeContext();
-  const { isGuestMode, enterGuestMode, showLoginPrompt, setShowLoginPrompt } = guestMode;
+
+  // Always call hooks at the top level
+  const guestModeContext = useGuestModeContext();
+  const { isGuestMode, enterGuestMode, showLoginPrompt, setShowLoginPrompt } = guestModeContext;
 
   useEffect(() => {
     if (isAuthenticated) {
