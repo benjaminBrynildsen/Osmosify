@@ -26,7 +26,7 @@ export const children = pgTable("children", {
   masteryThreshold: integer("mastery_threshold").notNull().default(7),
   deckSize: integer("deck_size").notNull().default(7),
   demoteOnMiss: boolean("demote_on_miss").notNull().default(true),
-  voicePreference: text("voice_preference").notNull().default("nova").$type<VoiceOption>(),
+  voicePreference: text("voice_preference").notNull().default("shimmer").$type<VoiceOption>(),
 });
 
 export const childrenRelations = relations(children, ({ many }) => ({

@@ -62,7 +62,7 @@ export function SettingsPanel({ child, onSave, isSaving = false }: SettingsPanel
       masteryThreshold: child.masteryThreshold,
       deckSize: child.deckSize,
       demoteOnMiss: child.demoteOnMiss,
-      voicePreference: (child.voicePreference as VoiceOption) || "nova",
+      voicePreference: (child.voicePreference as VoiceOption) || "shimmer",
     },
   });
 

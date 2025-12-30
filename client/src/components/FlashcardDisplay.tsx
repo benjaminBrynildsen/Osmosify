@@ -40,7 +40,7 @@ interface WordProgress {
 }
 
 export function FlashcardDisplay(props: FlashcardDisplayProps) {
-  const { words, mode, timerSeconds = 5, voicePreference = "nova" } = props;
+  const { words, mode, timerSeconds = 5, voicePreference = "shimmer" } = props;
   const masteryThreshold = mode === "mastery" ? (props.masteryThreshold ?? 7) : 1;
 
   const [wordProgress, setWordProgress] = useState<Map<string, WordProgress>>(new Map());
@@ -159,12 +159,6 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     setWordProgress(updatedProgress);
 
     const feedbackDuration = isCorrect ? 800 : 500;
-
-    if (ttsEnabled && voicesReady && currentWord) {
-      setTimeout(() => {
-        speakWord(currentWord.word, voicePreference);
-      }, 200);
-    }
 
     setTimeout(() => {
       setShowFeedback(null);
@@ -294,6 +288,14 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
       recognitionRef.current.updateTargetWord(currentWord.word);
     }
   }, [currentWord, isComplete, isInitialized, voiceEnabled, speechSupported]);
+
+  useEffect(() => {
+    if (!currentWord || showFeedback !== null || isComplete || !isInitialized || !ttsEnabled || !voicesReady) {
+      return;
+    }
+
+    speakWord(currentWord.word, voicePreference);
+  }, [cardKey, currentWord, showFeedback, isComplete, isInitialized, ttsEnabled, voicesReady, voicePreference]);
 
   useEffect(() => {
     if (!currentWord || showFeedback !== null || isComplete || !isInitialized || processingRef.current) {
