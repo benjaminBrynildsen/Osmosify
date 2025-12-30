@@ -1,14 +1,29 @@
+import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { AppHeader } from "@/components/AppHeader";
 import { StatBlock, StatsGrid } from "@/components/StatBlock";
 import { useGuestModeContext } from "@/hooks/use-guest-mode";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   BookOpen,
   Sparkles,
   Unlock,
   Gamepad2,
   CheckCircle2,
+  Lock,
+  BookMarked,
+  ListPlus,
+  Library,
+  Camera,
+  RefreshCw,
+  Mail,
 } from "lucide-react";
 
 export default function GuestDashboard() {
@@ -16,6 +31,7 @@ export default function GuestDashboard() {
   const [, setLocation] = useLocation();
   const { guestData } = useGuestModeContext();
   const childId = params.id;
+  const [showSignupDialog, setShowSignupDialog] = useState(false);
 
   const child = guestData.child;
   const words = guestData.words;
@@ -34,6 +50,10 @@ export default function GuestDashboard() {
   const newWords = words.filter((w) => w.status === "new");
   const learningWords = words.filter((w) => w.status === "learning");
   const unlockedWords = words.filter((w) => w.status === "mastered");
+
+  const handleLockedClick = () => {
+    setShowSignupDialog(true);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -62,38 +82,97 @@ export default function GuestDashboard() {
           />
         </StatsGrid>
 
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="relative">
             <Button
               size="lg"
               variant="secondary"
-              className="flex-1 h-auto py-4 flex-col gap-2"
+              className="w-full h-auto py-4 flex-col gap-2"
               onClick={() => setLocation(`/guest/child/${childId}/flashcards`)}
               disabled={newWords.length + learningWords.length === 0}
               data-testid="button-flashcards"
             >
               <Sparkles className="h-6 w-6" />
-              <span>Unlock Words</span>
+              <span>Flashcards</span>
             </Button>
             {guestData.flashcardSessionCompleted && (
-              <CheckCircle2 className="h-6 w-6 text-green-500" />
+              <CheckCircle2 className="absolute -top-1 -right-1 h-5 w-5 text-green-500 bg-background rounded-full" />
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2 relative opacity-60"
+            onClick={handleLockedClick}
+            data-testid="button-books-locked"
+          >
+            <Lock className="absolute top-2 right-2 h-4 w-4 text-muted-foreground" />
+            <BookMarked className="h-6 w-6" />
+            <span>Book Library</span>
+          </Button>
+
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2 relative opacity-60"
+            onClick={handleLockedClick}
+            data-testid="button-presets-locked"
+          >
+            <Lock className="absolute top-2 right-2 h-4 w-4 text-muted-foreground" />
+            <ListPlus className="h-6 w-6" />
+            <span>Word Lists</span>
+          </Button>
+
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2 relative opacity-60"
+            onClick={handleLockedClick}
+            data-testid="button-library-locked"
+          >
+            <Lock className="absolute top-2 right-2 h-4 w-4 text-muted-foreground" />
+            <Library className="h-6 w-6" />
+            <span>Word Library</span>
+          </Button>
+
+          <Button
+            size="lg"
+            className="h-auto py-4 flex-col gap-2 relative opacity-60"
+            onClick={handleLockedClick}
+            data-testid="button-upload-locked"
+          >
+            <Lock className="absolute top-2 right-2 h-4 w-4 text-muted-foreground" />
+            <Camera className="h-6 w-6" />
+            <span>Upload Book</span>
+          </Button>
+
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2 relative opacity-60"
+            onClick={handleLockedClick}
+            data-testid="button-history-locked"
+          >
+            <Lock className="absolute top-2 right-2 h-4 w-4 text-muted-foreground" />
+            <RefreshCw className="h-6 w-6" />
+            <span>Keep Words Strong</span>
+          </Button>
+
+          <div className="relative col-span-2">
             <Button
               size="lg"
               variant="outline"
-              className="flex-1 h-auto py-4 flex-col gap-2"
+              className="w-full h-auto py-4 flex-col gap-2 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30"
               onClick={() => setLocation(`/guest/child/${childId}/word-pop`)}
-              disabled={words.length === 0}
+              disabled={words.length < 4}
               data-testid="button-word-pop"
             >
-              <Gamepad2 className="h-6 w-6" />
-              <span>Pop Game</span>
+              <Gamepad2 className="h-6 w-6 text-purple-500" />
+              <span>Word Pop</span>
             </Button>
             {guestData.popGameCompleted && (
-              <CheckCircle2 className="h-6 w-6 text-green-500" />
+              <CheckCircle2 className="absolute -top-1 -right-1 h-5 w-5 text-green-500 bg-background rounded-full" />
             )}
           </div>
         </div>
@@ -122,9 +201,38 @@ export default function GuestDashboard() {
         )}
 
         <p className="text-center text-sm text-muted-foreground">
-          Try both activities to see all Osmosify has to offer!
+          Try Flashcards and Word Pop to see what Osmosify can do!
         </p>
       </main>
+
+      <Dialog open={showSignupDialog} onOpenChange={setShowSignupDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Unlock All Features</DialogTitle>
+            <DialogDescription className="pt-2">
+              Sign up to access the full Osmosify experience including book library, 
+              word lists, progress tracking, and more!
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <p className="text-center text-lg font-medium text-primary">
+              It's free!
+            </p>
+            <Button 
+              className="w-full gap-2" 
+              size="lg"
+              onClick={() => setLocation("/api/login")}
+              data-testid="button-signup-email"
+            >
+              <Mail className="h-5 w-5" />
+              Sign up with Email
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              Your guest progress will be saved when you sign up.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

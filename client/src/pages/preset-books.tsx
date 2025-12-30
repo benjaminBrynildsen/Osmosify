@@ -396,7 +396,7 @@ export default function PresetBooks() {
                     data-testid="button-unlock-words"
                   >
                     <Sparkles className="h-4 w-4" />
-                    Unlock Words
+                    Flashcards
                   </Button>
                   <Button
                     variant="outline"

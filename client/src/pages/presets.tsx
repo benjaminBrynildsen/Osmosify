@@ -160,7 +160,7 @@ export default function Presets() {
                           data-testid={`button-unlock-preset-${preset.id}`}
                         >
                           <Sparkles className="h-4 w-4 mr-2" />
-                          Unlock Words
+                          Flashcards
                         </Button>
                         <Button
                           size="sm"

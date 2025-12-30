@@ -118,7 +118,7 @@ export default function ChildDashboard() {
             data-testid="button-flashcards"
           >
             <Sparkles className="h-6 w-6" />
-            <span>Unlock Words</span>
+            <span>Flashcards</span>
           </Button>
           <Button
             size="lg"
