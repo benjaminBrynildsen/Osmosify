@@ -273,14 +273,17 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
             }
           } else {
             // Rotation fix: Ensure the current word is not immediately repeated
-            // by inserting it at least 1 position back if possible.
-            if (newQueue.length >= 1) {
-              const insertPosition = Math.min(newQueue.length, 2); 
-              newQueue.splice(insertPosition, 0, wordId);
+            // and force rotation by never allowing the same word to be first in queue
+            // until other words have been shown.
+            let updatedQueue = [...newQueue];
+            if (updatedQueue.length >= 1) {
+              // Always insert at least 1 position back (at index 1 or 2)
+              const insertPosition = Math.min(updatedQueue.length, 2); 
+              updatedQueue.splice(insertPosition, 0, wordId);
             } else {
-              newQueue.push(wordId);
+              updatedQueue.push(wordId);
             }
-            setQueue(newQueue);
+            setQueue(updatedQueue);
           }
         }
       }
