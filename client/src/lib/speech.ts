@@ -47,6 +47,87 @@ declare global {
 
 let preferredVoice: SpeechSynthesisVoice | null = null;
 let voicesInitialized = false;
+let currentAudio: HTMLAudioElement | null = null;
+let selectedGoogleVoice: string = "en-US-Neural2-C";
+
+export interface GoogleVoice {
+  name: string;
+  description: string;
+}
+
+export function setGoogleVoice(voiceName: string): void {
+  selectedGoogleVoice = voiceName;
+}
+
+export function getSelectedGoogleVoice(): string {
+  return selectedGoogleVoice;
+}
+
+export async function fetchGoogleVoices(): Promise<GoogleVoice[]> {
+  try {
+    const response = await fetch("/api/tts/voices", {
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error("Failed to fetch voices");
+    return await response.json();
+  } catch (error) {
+    console.warn("Failed to fetch Google voices:", error);
+    return [];
+  }
+}
+
+export async function speakWordWithGoogleTTS(
+  word: string,
+  rate: number = 0.9,
+  voice?: string
+): Promise<void> {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+
+  try {
+    const response = await fetch("/api/tts/speak", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        text: word,
+        voice: voice || selectedGoogleVoice,
+        rate,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("TTS request failed");
+    }
+
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    
+    return new Promise((resolve) => {
+      currentAudio = new Audio(audioUrl);
+      currentAudio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        currentAudio = null;
+        resolve();
+      };
+      currentAudio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        currentAudio = null;
+        resolve();
+      };
+      currentAudio.play().catch(() => {
+        URL.revokeObjectURL(audioUrl);
+        currentAudio = null;
+        resolve();
+      });
+    });
+  } catch (error) {
+    console.warn("Google TTS failed, falling back to browser TTS:", error);
+    return speakWordBrowser(word, rate);
+  }
+}
 
 export function initializeVoices(): Promise<SpeechSynthesisVoice[]> {
   return new Promise((resolve) => {
@@ -115,10 +196,9 @@ function selectBestVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice |
   return voices[0] || null;
 }
 
-export function speakWord(word: string, rate: number = 0.9): Promise<void> {
-  return new Promise((resolve, reject) => {
+function speakWordBrowser(word: string, rate: number = 0.9): Promise<void> {
+  return new Promise((resolve) => {
     if (!('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported');
       resolve();
       return;
     }
@@ -135,13 +215,14 @@ export function speakWord(word: string, rate: number = 0.9): Promise<void> {
     }
 
     utterance.onend = () => resolve();
-    utterance.onerror = (event) => {
-      console.warn('Speech error:', event);
-      resolve();
-    };
+    utterance.onerror = () => resolve();
 
     window.speechSynthesis.speak(utterance);
   });
+}
+
+export function speakWord(word: string, rate: number = 0.9): Promise<void> {
+  return speakWordWithGoogleTTS(word, rate);
 }
 
 export function isSpeechRecognitionSupported(): boolean {

@@ -10,6 +10,7 @@ import { z } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { searchBooksForDisplay, fetchCoverForBook } from "./openLibrary";
+import { synthesizeSpeech, RECOMMENDED_VOICES } from "./ttsService";
 
 // Helper to get userId from authenticated request
 function getUserId(req: any): string {
@@ -860,6 +861,38 @@ export async function registerRoutes(
       console.error("Error fetching popular books:", error);
       res.status(500).json({ error: "Failed to fetch popular books" });
     }
+  });
+
+  // Text-to-Speech endpoint
+  app.post("/api/tts/speak", isAuthenticated, async (req, res) => {
+    try {
+      const { text, voice, rate } = req.body;
+      
+      if (!text || typeof text !== "string") {
+        return res.status(400).json({ error: "Text is required" });
+      }
+      
+      const voiceName = voice || "en-US-Neural2-C";
+      const speakingRate = typeof rate === "number" ? rate : 0.9;
+      
+      const audioBuffer = await synthesizeSpeech(text, voiceName, speakingRate);
+      
+      res.set({
+        "Content-Type": "audio/mpeg",
+        "Content-Length": audioBuffer.length,
+        "Cache-Control": "public, max-age=86400",
+      });
+      
+      res.send(audioBuffer);
+    } catch (error) {
+      console.error("TTS error:", error);
+      res.status(500).json({ error: "Failed to synthesize speech" });
+    }
+  });
+
+  // Get available TTS voices
+  app.get("/api/tts/voices", isAuthenticated, async (req, res) => {
+    res.json(RECOMMENDED_VOICES);
   });
 
   // Seed presets on startup
