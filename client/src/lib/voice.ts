@@ -2,7 +2,11 @@ let cachedVoice: SpeechSynthesisVoice | null = null;
 let voicesLoaded = false;
 
 const PREFERRED_VOICE_NAMES = [
+  'Moira',
+  'Fiona',
+  'Tessa',
   'Google UK English Female',
+  'Serena',
   'Google US English', 
   'Samantha',
   'Karen',

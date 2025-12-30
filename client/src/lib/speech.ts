@@ -52,9 +52,9 @@ let currentAudio: HTMLAudioElement | null = null;
 export type VoiceOption = "alloy" | "nova" | "shimmer";
 
 const voicePreferences: Record<VoiceOption, { gender: "female" | "male" | "neutral"; keywords: string[] }> = {
-  nova: { gender: "female", keywords: ["Google", "Samantha", "Karen", "Victoria", "Zira", "Female"] },
+  nova: { gender: "female", keywords: ["Moira", "Fiona", "Tessa", "Google UK Female", "Serena"] },
   alloy: { gender: "neutral", keywords: ["Alex", "Daniel", "David", "Google UK", "Male"] },
-  shimmer: { gender: "female", keywords: ["Moira", "Fiona", "Tessa", "Google UK Female", "Serena"] },
+  shimmer: { gender: "female", keywords: ["Google", "Samantha", "Karen", "Victoria", "Zira", "Female"] },
 };
 
 export interface TTSVoice {

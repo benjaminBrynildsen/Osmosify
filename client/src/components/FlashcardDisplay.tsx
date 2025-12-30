@@ -158,13 +158,11 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     updatedProgress.set(wordId, updatedWordProg);
     setWordProgress(updatedProgress);
 
-    const feedbackDuration = isCorrect ? 800 : 500;
-
     if (ttsEnabled && voicesReady && currentWord) {
-      setTimeout(() => {
-        speakWord(currentWord.word, voicePreference);
-      }, 200);
+      speakWord(currentWord.word, voicePreference);
     }
+
+    const feedbackDuration = isCorrect ? 1500 : 1200;
 
     setTimeout(() => {
       setShowFeedback(null);
