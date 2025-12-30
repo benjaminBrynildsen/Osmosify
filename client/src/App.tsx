@@ -68,10 +68,11 @@ function GuestRouter() {
 
 function AuthWrapper() {
   const { user, isLoading, isAuthenticated } = useAuth();
-  const { isGuestMode, enterGuestMode, exitGuestMode, showLoginPrompt, setShowLoginPrompt } = useGuestModeContext();
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeChecked, setWelcomeChecked] = useState(false);
   const [location, setLocation] = useLocation();
+  const guestMode = useGuestModeContext();
+  const { isGuestMode, enterGuestMode, showLoginPrompt, setShowLoginPrompt } = guestMode;
 
   useEffect(() => {
     if (isAuthenticated) {
