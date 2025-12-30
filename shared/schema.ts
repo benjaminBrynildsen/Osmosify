@@ -25,6 +25,7 @@ export const children = pgTable("children", {
   gradeLevelFilterEnabled: boolean("grade_level_filter_enabled").notNull().default(false),
   masteryThreshold: integer("mastery_threshold").notNull().default(7),
   deckSize: integer("deck_size").notNull().default(7),
+  timerSeconds: integer("timer_seconds").notNull().default(7),
   demoteOnMiss: boolean("demote_on_miss").notNull().default(true),
   voicePreference: text("voice_preference").notNull().default("shimmer").$type<VoiceOption>(),
 });

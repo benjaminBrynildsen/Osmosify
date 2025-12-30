@@ -41,7 +41,7 @@ interface WordProgress {
 }
 
 export function FlashcardDisplay(props: FlashcardDisplayProps) {
-  const { words, mode, timerSeconds = 5, voicePreference = "shimmer" } = props;
+  const { words, mode, timerSeconds = 7, voicePreference = "shimmer" } = props;
   const masteryThreshold = mode === "mastery" ? (props.masteryThreshold ?? 7) : 1;
 
   const [wordProgress, setWordProgress] = useState<Map<string, WordProgress>>(new Map());

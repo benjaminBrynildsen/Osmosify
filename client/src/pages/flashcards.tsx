@@ -146,6 +146,7 @@ export default function Flashcards() {
   
   const deckSize = child?.deckSize || 7;
   const masteryThreshold = child?.masteryThreshold || 7;
+  const timerSeconds = child?.timerSeconds || 7;
   const limitedDeck = deckWords.slice(0, deckSize);
   const headerTitle = book ? `Prepare: ${book.title}` : preset ? `Prepare: ${preset.name}` : "Word Preparation";
   const backPath = bookId ? `/child/${childId}/books` : presetId ? `/child/${childId}/presets` : `/child/${childId}`;
@@ -166,6 +167,7 @@ export default function Flashcards() {
             onComplete={handleComplete}
             mode="mastery"
             masteryThreshold={masteryThreshold}
+            timerSeconds={timerSeconds}
             voicePreference={(child?.voicePreference as "nova" | "alloy" | "shimmer") || "nova"}
           />
         ) : (

@@ -104,6 +104,7 @@ export default function HistoryTest() {
             onResult={handleResult}
             onComplete={handleComplete}
             mode="history"
+            timerSeconds={child?.timerSeconds || 7}
             voicePreference={(child?.voicePreference as "nova" | "alloy" | "shimmer") || "nova"}
           />
         ) : (

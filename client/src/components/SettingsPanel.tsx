@@ -32,6 +32,13 @@ const VOICE_OPTIONS: { value: VoiceOption; label: string; description: string }[
   { value: "shimmer", label: "Voice 3", description: "Soft and gentle" },
 ];
 
+const TIMER_OPTIONS = [
+  { value: 3, label: "3 seconds" },
+  { value: 5, label: "5 seconds" },
+  { value: 7, label: "7 seconds" },
+  { value: 10, label: "10 seconds" },
+];
+
 const settingsSchema = z.object({
   name: z.string().min(1, "Name is required"),
   gradeLevel: z.string().optional(),
@@ -39,6 +46,7 @@ const settingsSchema = z.object({
   gradeLevelFilterEnabled: z.boolean(),
   masteryThreshold: z.number().min(1).max(20),
   deckSize: z.number().min(5).max(50),
+  timerSeconds: z.number().min(3).max(10),
   demoteOnMiss: z.boolean(),
   voicePreference: z.enum(["nova", "alloy", "shimmer"]),
 });
@@ -61,6 +69,7 @@ export function SettingsPanel({ child, onSave, isSaving = false }: SettingsPanel
       gradeLevelFilterEnabled: child.gradeLevelFilterEnabled,
       masteryThreshold: child.masteryThreshold,
       deckSize: child.deckSize,
+      timerSeconds: child.timerSeconds || 7,
       demoteOnMiss: child.demoteOnMiss,
       voicePreference: (child.voicePreference as VoiceOption) || "shimmer",
     },
@@ -218,6 +227,35 @@ export function SettingsPanel({ child, onSave, isSaving = false }: SettingsPanel
                       data-testid="slider-deck-size"
                     />
                   </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="timerSeconds"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Timer Duration</FormLabel>
+                  <FormDescription className="mb-3">
+                    Time given to answer each flashcard
+                  </FormDescription>
+                  <Select
+                    value={String(field.value)}
+                    onValueChange={(val) => field.onChange(Number(val))}
+                  >
+                    <FormControl>
+                      <SelectTrigger data-testid="select-timer-duration">
+                        <SelectValue placeholder="Select duration" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {TIMER_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={String(option.value)}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </FormItem>
               )}
             />
