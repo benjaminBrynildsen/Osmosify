@@ -45,11 +45,17 @@ declare global {
   }
 }
 
-let preferredVoice: SpeechSynthesisVoice | null = null;
+let browserVoices: SpeechSynthesisVoice[] = [];
 let voicesInitialized = false;
 let currentAudio: HTMLAudioElement | null = null;
 
 export type VoiceOption = "alloy" | "nova" | "shimmer";
+
+const voicePreferences: Record<VoiceOption, { gender: "female" | "male" | "neutral"; keywords: string[] }> = {
+  nova: { gender: "female", keywords: ["Google", "Samantha", "Karen", "Victoria", "Zira", "Female"] },
+  alloy: { gender: "neutral", keywords: ["Alex", "Daniel", "David", "Google UK", "Male"] },
+  shimmer: { gender: "female", keywords: ["Moira", "Fiona", "Tessa", "Google UK Female", "Serena"] },
+};
 
 export interface TTSVoice {
   name: VoiceOption;
@@ -122,14 +128,14 @@ export async function speakWordWithOpenAI(
     });
   } catch (error) {
     console.warn("OpenAI TTS failed, falling back to browser TTS:", error);
-    return speakWordBrowser(word, speed);
+    return speakWordBrowser(word, voice, speed);
   }
 }
 
 export function initializeVoices(): Promise<SpeechSynthesisVoice[]> {
   return new Promise((resolve) => {
-    if (voicesInitialized && preferredVoice) {
-      resolve(window.speechSynthesis.getVoices());
+    if (voicesInitialized && browserVoices.length > 0) {
+      resolve(browserVoices);
       return;
     }
 
@@ -138,12 +144,12 @@ export function initializeVoices(): Promise<SpeechSynthesisVoice[]> {
     const loadVoices = () => {
       const voices = synth.getVoices();
       if (voices.length > 0) {
-        preferredVoice = selectBestVoice(voices);
+        browserVoices = voices.filter(v => v.lang.startsWith('en'));
         voicesInitialized = true;
         if (synth.onvoiceschanged !== undefined) {
           synth.onvoiceschanged = null;
         }
-        resolve(voices);
+        resolve(browserVoices);
       }
     };
 
@@ -156,44 +162,38 @@ export function initializeVoices(): Promise<SpeechSynthesisVoice[]> {
     setTimeout(() => {
       const voices = synth.getVoices();
       if (voices.length > 0 && !voicesInitialized) {
-        preferredVoice = selectBestVoice(voices);
+        browserVoices = voices.filter(v => v.lang.startsWith('en'));
         voicesInitialized = true;
       }
-      resolve(voices);
+      resolve(browserVoices);
     }, 500);
   });
 }
 
-function selectBestVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-  const googleNatural = voices.find(v => 
-    v.name.includes('Google') && 
-    v.lang.startsWith('en') &&
-    (v.name.includes('Natural') || v.name.includes('US'))
+function selectVoiceForPreference(voiceOption: VoiceOption): SpeechSynthesisVoice | null {
+  if (browserVoices.length === 0) return null;
+  
+  const prefs = voicePreferences[voiceOption];
+  
+  for (const keyword of prefs.keywords) {
+    const match = browserVoices.find(v => 
+      v.name.includes(keyword) && v.lang.startsWith('en')
+    );
+    if (match) return match;
+  }
+  
+  const googleVoice = browserVoices.find(v => 
+    v.name.includes('Google') && v.lang.startsWith('en')
   );
-  if (googleNatural) return googleNatural;
-
-  const googleEnglish = voices.find(v => 
-    v.name.includes('Google') && 
-    v.lang.startsWith('en')
-  );
-  if (googleEnglish) return googleEnglish;
-
-  const naturalVoice = voices.find(v => 
-    v.lang.startsWith('en') &&
-    (v.name.includes('Natural') || v.name.includes('Neural') || v.name.includes('Premium'))
-  );
-  if (naturalVoice) return naturalVoice;
-
-  const englishVoice = voices.find(v => v.lang.startsWith('en-US'));
-  if (englishVoice) return englishVoice;
-
-  const anyEnglish = voices.find(v => v.lang.startsWith('en'));
-  if (anyEnglish) return anyEnglish;
-
-  return voices[0] || null;
+  if (googleVoice) return googleVoice;
+  
+  const usVoice = browserVoices.find(v => v.lang.startsWith('en-US'));
+  if (usVoice) return usVoice;
+  
+  return browserVoices[0] || null;
 }
 
-function speakWordBrowser(word: string, rate: number = 0.9): Promise<void> {
+function speakWordBrowser(word: string, voiceOption: VoiceOption = "nova", rate: number = 0.9): Promise<void> {
   return new Promise((resolve) => {
     if (!('speechSynthesis' in window)) {
       resolve();
@@ -207,8 +207,9 @@ function speakWordBrowser(word: string, rate: number = 0.9): Promise<void> {
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
     
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
+    const selectedVoice = selectVoiceForPreference(voiceOption);
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
     }
 
     utterance.onend = () => resolve();

@@ -27,9 +27,9 @@ import { GRADE_LEVELS } from "@/lib/gradeLevels";
 import { speakWord, type VoiceOption } from "@/lib/speech";
 
 const VOICE_OPTIONS: { value: VoiceOption; label: string; description: string }[] = [
-  { value: "nova", label: "Nova", description: "Friendly and warm" },
-  { value: "alloy", label: "Alloy", description: "Neutral and clear" },
-  { value: "shimmer", label: "Shimmer", description: "Soft and expressive" },
+  { value: "nova", label: "Voice 1", description: "Warm and friendly" },
+  { value: "alloy", label: "Voice 2", description: "Clear and neutral" },
+  { value: "shimmer", label: "Voice 3", description: "Soft and gentle" },
 ];
 
 const settingsSchema = z.object({
