@@ -33,6 +33,7 @@ type FlashcardDisplayProps = {
   words: Word[];
   timerSeconds?: number;
   voicePreference?: VoiceOption;
+  initialWordCount?: number;
 } & (MasteryModeProps | HistoryModeProps);
 
 interface WordProgress {
@@ -42,7 +43,7 @@ interface WordProgress {
 }
 
 export function FlashcardDisplay(props: FlashcardDisplayProps) {
-  const { words, mode, timerSeconds = 7, voicePreference = "shimmer" } = props;
+  const { words, mode, timerSeconds = 7, voicePreference = "shimmer", initialWordCount: propInitialCount } = props;
   const masteryThreshold = mode === "mastery" ? (props.masteryThreshold ?? 7) : 1;
 
   const [wordProgress, setWordProgress] = useState<Map<string, WordProgress>>(new Map());
@@ -68,6 +69,8 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
   const [showSentenceCelebration, setShowSentenceCelebration] = useState(false);
   const [sentenceCelebrationWords, setSentenceCelebrationWords] = useState<string[]>([]);
   const [lastCelebrationCount, setLastCelebrationCount] = useState(0);
+  const [initialWordCount, setInitialWordCount] = useState(0);
+  const initializedRef = useRef(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recognitionRef = useRef<{ stop: () => void; updateTargetWord: (word: string) => void } | null>(null);
@@ -128,7 +131,11 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     setTimeLeft(timerSeconds);
     setSpokenText("");
     setShowFeedback(null);
-  }, [words, timerSeconds, stopTimer, stopListening]);
+    if (!initializedRef.current) {
+      setInitialWordCount(propInitialCount ?? words.length);
+      initializedRef.current = true;
+    }
+  }, [words, timerSeconds, stopTimer, stopListening, propInitialCount]);
 
   useEffect(() => {
     const currentWordIds = words.map(w => w.id).sort().join(",");
@@ -153,7 +160,8 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
 
   const totalWords = words.length;
   const masteredCount = mode === "mastery" ? masteredIds.length : historyResults.length;
-  const progressPercent = totalWords > 0 ? (masteredCount / totalWords) * 100 : 0;
+  const displayTotal = initialWordCount || totalWords;
+  const progressPercent = displayTotal > 0 ? (masteredCount / displayTotal) * 100 : 0;
 
   const processAnswer = useCallback((isCorrect: boolean, wordId: string, wordProg: WordProgress) => {
     const newQueue = [...queue];
@@ -546,14 +554,14 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
         <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground mb-2">
           {mode === "mastery" ? (
             <>
-              <span>{masteredIds.length} of {totalWords} unlocked</span>
+              <span>Word {masteredIds.length + 1} of {initialWordCount || totalWords}</span>
               <span className="text-xs">
                 This word: {currentProgress.sessionCorrectCount} / {masteryThreshold}
               </span>
             </>
           ) : (
             <>
-              <span>{historyResults.length + 1} of {totalWords}</span>
+              <span>Word {historyResults.length + 1} of {initialWordCount || totalWords}</span>
               <span className="text-xs">Keep Words Strong</span>
             </>
           )}

@@ -169,6 +169,7 @@ export default function Flashcards() {
             masteryThreshold={masteryThreshold}
             timerSeconds={timerSeconds}
             voicePreference={(child?.voicePreference as "nova" | "alloy" | "shimmer") || "nova"}
+            initialWordCount={limitedDeck.length}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center p-4">

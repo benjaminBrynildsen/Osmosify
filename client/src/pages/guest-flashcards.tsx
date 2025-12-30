@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useLocation, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Home, PartyPopper } from "lucide-react";
@@ -13,21 +13,27 @@ export default function GuestFlashcards() {
   const [isComplete, setIsComplete] = useState(false);
   const childId = params.id || guestData.child?.id || "";
 
-  const words: Word[] = guestData.words
-    .filter(w => w.status !== "mastered")
-    .map(w => ({
-      id: w.id,
-      word: w.word,
-      childId: guestData.child?.id || "",
-      status: w.status,
-      firstSeen: new Date(),
-      lastSeen: new Date(),
-      totalOccurrences: 1,
-      sessionsSeenCount: 1,
-      masteryCorrectCount: w.correctCount,
-      incorrectCount: 0,
-      lastTested: null,
-    }));
+  const sessionWordsRef = useRef<Word[] | null>(null);
+  
+  if (sessionWordsRef.current === null) {
+    sessionWordsRef.current = guestData.words
+      .filter(w => w.status !== "mastered")
+      .map(w => ({
+        id: w.id,
+        word: w.word,
+        childId: guestData.child?.id || "",
+        status: w.status,
+        firstSeen: new Date(),
+        lastSeen: new Date(),
+        totalOccurrences: 1,
+        sessionsSeenCount: 1,
+        masteryCorrectCount: w.correctCount,
+        incorrectCount: 0,
+        lastTested: null,
+      }));
+  }
+  
+  const words = sessionWordsRef.current;
 
   const handleWordMastered = (wordId: string) => {
     updateGuestWordStatus(wordId, 7, "mastered");
@@ -82,6 +88,7 @@ export default function GuestFlashcards() {
           masteryThreshold={3}
           timerSeconds={10}
           voicePreference="shimmer"
+          initialWordCount={words.length}
         />
       </main>
     </div>

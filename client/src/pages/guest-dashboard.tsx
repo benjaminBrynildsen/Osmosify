@@ -221,7 +221,7 @@ export default function GuestDashboard() {
             <Button 
               className="w-full gap-2" 
               size="lg"
-              onClick={() => setLocation("/api/login")}
+              onClick={() => window.location.href = "/api/login"}
               data-testid="button-signup-email"
             >
               <Mail className="h-5 w-5" />
