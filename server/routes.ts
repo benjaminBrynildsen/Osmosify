@@ -8,6 +8,7 @@ import { presetWordLists as presetData } from "./presetData";
 import { presetBooks as presetBooksData } from "./presetBooks";
 import { z } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { searchBooksForDisplay, fetchCoverForBook } from "./openLibrary";
 
 // Helper to get userId from authenticated request
@@ -22,6 +23,9 @@ export async function registerRoutes(
   // Setup authentication FIRST (before other routes)
   await setupAuth(app);
   registerAuthRoutes(app);
+  
+  // Register object storage routes for file uploads
+  registerObjectStorageRoutes(app);
 
   // User role update endpoint (for onboarding)
   app.patch("/api/auth/user/role", isAuthenticated, async (req, res) => {
@@ -706,6 +710,90 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Open Library cover fetch error:", error);
       res.status(500).json({ error: "Failed to fetch cover" });
+    }
+  });
+
+  // Book contribution schema for validation
+  const bookContributionSchema = z.object({
+    title: z.string().min(1, "Title is required").max(200),
+    author: z.string().max(100).nullable().optional(),
+    isbn: z.string().max(20).nullable().optional(),
+    gradeLevel: z.string().max(50).nullable().optional(),
+    description: z.string().max(1000).nullable().optional(),
+    words: z.array(z.string().max(50)).min(1, "At least one word is required").max(500),
+    contributorLabel: z.string().max(100).nullable().optional(),
+  });
+
+  // Book contribution endpoints (community contributions)
+  app.post("/api/book-contributions", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      
+      const parseResult = bookContributionSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: parseResult.error.errors[0]?.message || "Invalid input" });
+      }
+      
+      const { title, author, isbn, gradeLevel, description, words, contributorLabel } = parseResult.data;
+      
+      const contribution = await storage.createBookContribution({
+        title,
+        author: author || null,
+        isbn: isbn || null,
+        gradeLevel: gradeLevel || null,
+        description: description || null,
+        words,
+        contributorLabel: contributorLabel || null,
+        contributedBy: userId,
+        sourceType: "community",
+        approvalStatus: "pending",
+      });
+      
+      res.status(201).json(contribution);
+    } catch (error) {
+      console.error("Error creating book contribution:", error);
+      res.status(500).json({ error: "Failed to submit book contribution" });
+    }
+  });
+
+  // Get pending book contributions (for moderation)
+  app.get("/api/book-contributions/pending", isAuthenticated, async (req, res) => {
+    try {
+      const pendingBooks = await storage.getPendingBookContributions();
+      res.json(pendingBooks);
+    } catch (error) {
+      console.error("Error fetching pending contributions:", error);
+      res.status(500).json({ error: "Failed to fetch pending contributions" });
+    }
+  });
+
+  // Approve a book contribution
+  app.post("/api/book-contributions/:id/approve", isAuthenticated, async (req, res) => {
+    try {
+      const bookId = req.params.id;
+      const approvedBook = await storage.approveBookContribution(bookId);
+      if (!approvedBook) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      res.json(approvedBook);
+    } catch (error) {
+      console.error("Error approving book contribution:", error);
+      res.status(500).json({ error: "Failed to approve book" });
+    }
+  });
+
+  // Reject a book contribution
+  app.post("/api/book-contributions/:id/reject", isAuthenticated, async (req, res) => {
+    try {
+      const bookId = req.params.id;
+      const rejectedBook = await storage.rejectBookContribution(bookId);
+      if (!rejectedBook) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      res.json(rejectedBook);
+    } catch (error) {
+      console.error("Error rejecting book contribution:", error);
+      res.status(500).json({ error: "Failed to reject book" });
     }
   });
 

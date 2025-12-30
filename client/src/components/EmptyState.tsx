@@ -1,7 +1,7 @@
-import { BookOpen, Users, FileText, Search } from "lucide-react";
+import { BookOpen, Users, FileText, Search, ShieldCheck } from "lucide-react";
 
 interface EmptyStateProps {
-  type: "children" | "sessions" | "words" | "search";
+  type: "children" | "sessions" | "words" | "search" | "moderation";
   title: string;
   description: string;
 }
@@ -12,6 +12,7 @@ export function EmptyState({ type, title, description }: EmptyStateProps) {
     sessions: FileText,
     words: BookOpen,
     search: Search,
+    moderation: ShieldCheck,
   };
 
   const Icon = icons[type];

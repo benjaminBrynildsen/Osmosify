@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { BookCoverCard } from "@/components/BookCoverCard";
 import { BookCoverUpload } from "@/components/BookCoverUpload";
+import { BookPurchaseLinks } from "@/components/BookPurchaseLinks";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
@@ -419,6 +420,10 @@ export default function Books() {
                       {selectedBook.words.filter(w => masteredWordSet.has(w.toLowerCase())).length} / {selectedBook.words.length}
                     </span>
                   </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t">
+                  <BookPurchaseLinks book={selectedBook} />
                 </div>
 
                 <div className="mt-4 flex flex-col gap-2">

@@ -19,6 +19,8 @@ import ChildSettings from "@/pages/child-settings";
 import Presets from "@/pages/presets";
 import Books from "@/pages/books";
 import WordPop from "@/pages/word-pop";
+import PresetBooks from "@/pages/preset-books";
+import Moderation from "@/pages/moderation";
 import SplashScreen from "@/components/SplashScreen";
 import { WelcomeCarousel } from "@/components/WelcomeCarousel";
 import { Loader2 } from "lucide-react";
@@ -36,7 +38,9 @@ function AuthenticatedRouter() {
       <Route path="/child/:id/presets" component={Presets} />
       <Route path="/child/:id/books" component={Books} />
       <Route path="/child/:id/word-pop" component={WordPop} />
+      <Route path="/child/:id/preset-books" component={PresetBooks} />
       <Route path="/session/:id" component={SessionDetails} />
+      <Route path="/moderation" component={Moderation} />
       <Route component={NotFound} />
     </Switch>
   );

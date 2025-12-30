@@ -484,6 +484,68 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Book Contributions (Community)
+  async createBookContribution(data: {
+    title: string;
+    author?: string | null;
+    isbn?: string | null;
+    gradeLevel?: string | null;
+    description?: string | null;
+    words: string[];
+    contributorLabel?: string | null;
+    contributedBy: string;
+    sourceType: "community";
+    approvalStatus: "pending";
+  }): Promise<Book> {
+    const normalizedWords = data.words.map(w => w.toLowerCase().trim()).filter(w => w.length > 0);
+    const uniqueWords = Array.from(new Set(normalizedWords));
+    
+    const [created] = await db.insert(books).values({
+      title: data.title,
+      author: data.author,
+      isbn: data.isbn,
+      gradeLevel: data.gradeLevel,
+      description: data.description,
+      words: uniqueWords,
+      wordCount: uniqueWords.length,
+      sourceType: "community",
+      approvalStatus: "pending",
+      contributedBy: data.contributedBy,
+      contributorLabel: data.contributorLabel,
+      isPreset: false,
+      isBeta: false,
+    }).returning();
+    return created;
+  }
+
+  async getPendingBookContributions(): Promise<Book[]> {
+    return db
+      .select()
+      .from(books)
+      .where(eq(books.approvalStatus, "pending"));
+  }
+
+  async approveBookContribution(bookId: string): Promise<Book | undefined> {
+    const [updated] = await db
+      .update(books)
+      .set({
+        approvalStatus: "approved" as const,
+        isPreset: true,
+      })
+      .where(eq(books.id, bookId))
+      .returning();
+    return updated;
+  }
+
+  async rejectBookContribution(bookId: string): Promise<Book | undefined> {
+    const [updated] = await db
+      .update(books)
+      .set({ approvalStatus: "rejected" })
+      .where(eq(books.id, bookId))
+      .returning();
+    return updated;
+  }
+
   // Book Progress & Readiness
   async getChildBookProgress(childId: string): Promise<ChildBookProgress[]> {
     return db

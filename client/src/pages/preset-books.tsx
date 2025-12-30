@@ -8,6 +8,8 @@ import { AppHeader } from "@/components/AppHeader";
 import { LoadingScreen } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
 import { BookCoverCard } from "@/components/BookCoverCard";
+import { BookPurchaseLinks } from "@/components/BookPurchaseLinks";
+import { ContributeBookForm } from "@/components/ContributeBookForm";
 import {
   Dialog,
   DialogContent,
@@ -154,17 +156,20 @@ export default function PresetBooks() {
       />
 
       <main className="container mx-auto max-w-4xl p-4 space-y-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="outline" className="gap-1">
-            <Star className="h-3 w-3 text-green-500" />
-            {readyCount} Ready
-          </Badge>
-          <Badge variant="outline" className="gap-1 bg-amber-500/10">
-            {almostReadyCount} Almost Ready
-          </Badge>
-          <Badge variant="secondary">
-            {booksWithReadiness.length} Total Books
-          </Badge>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="outline" className="gap-1">
+              <Star className="h-3 w-3 text-green-500" />
+              {readyCount} Ready
+            </Badge>
+            <Badge variant="outline" className="gap-1 bg-amber-500/10">
+              {almostReadyCount} Almost Ready
+            </Badge>
+            <Badge variant="secondary">
+              {booksWithReadiness.length} Total Books
+            </Badge>
+          </div>
+          <ContributeBookForm />
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
@@ -353,6 +358,10 @@ export default function PresetBooks() {
                     <Gamepad2 className="h-4 w-4 text-purple-500" />
                     Play Word Pop
                   </Button>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <BookPurchaseLinks book={selectedBook} />
                 </div>
 
                 <div className="pt-4 border-t">

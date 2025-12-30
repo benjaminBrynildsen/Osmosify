@@ -138,6 +138,8 @@ export const books = pgTable("books", {
   coverImageUrl: text("cover_image_url"),
   customCoverUrl: text("custom_cover_url"),
   isbn: text("isbn"),
+  amazonUrl: text("amazon_url"),
+  bookshopUrl: text("bookshop_url"),
   sourceType: text("source_type").notNull().default("parent").$type<BookSourceType>(),
   popularityCount: integer("popularity_count").notNull().default(0),
   approvalStatus: text("approval_status").default("approved").$type<BookApprovalStatus>(),

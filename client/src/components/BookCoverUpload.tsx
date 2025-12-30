@@ -66,6 +66,12 @@ export function BookCoverUpload({ book, childId, onSuccess }: BookCoverUploadPro
     const uploadResponse = await uploadFile(file);
     if (uploadResponse) {
       updateCoverMutation.mutate(uploadResponse.objectPath);
+    } else {
+      toast({
+        title: "Upload Failed",
+        description: "Could not upload the image. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
