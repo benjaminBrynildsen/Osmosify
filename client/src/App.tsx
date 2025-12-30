@@ -5,6 +5,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
+import { GuestModeProvider, useGuestModeContext } from "@/hooks/use-guest-mode";
+import { LoginPromptDialog } from "@/components/LoginPromptDialog";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Landing from "@/pages/landing";
@@ -21,6 +23,8 @@ import Books from "@/pages/books";
 import WordPop from "@/pages/word-pop";
 import PresetBooks from "@/pages/preset-books";
 import Moderation from "@/pages/moderation";
+import GuestOnboarding from "@/pages/guest-onboarding";
+import GuestFlashcards from "@/pages/guest-flashcards";
 import SplashScreen from "@/components/SplashScreen";
 import { WelcomeCarousel } from "@/components/WelcomeCarousel";
 import { Loader2 } from "lucide-react";
@@ -46,8 +50,19 @@ function AuthenticatedRouter() {
   );
 }
 
+function GuestRouter() {
+  return (
+    <Switch>
+      <Route path="/guest/onboarding" component={GuestOnboarding} />
+      <Route path="/guest/child/:id/flashcards" component={GuestFlashcards} />
+      <Route component={GuestOnboarding} />
+    </Switch>
+  );
+}
+
 function AuthWrapper() {
   const { user, isLoading, isAuthenticated } = useAuth();
+  const { isGuestMode, enterGuestMode, exitGuestMode, showLoginPrompt, setShowLoginPrompt } = useGuestModeContext();
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeChecked, setWelcomeChecked] = useState(false);
   const [, setLocation] = useLocation();
@@ -68,6 +83,20 @@ function AuthWrapper() {
     setLocation("/");
   };
 
+  const handleTryFree = () => {
+    enterGuestMode();
+    setLocation("/guest/onboarding");
+  };
+
+  const handleLogin = () => {
+    setShowLoginPrompt(false);
+    window.location.href = "/api/login";
+  };
+
+  const handleContinueAsGuest = () => {
+    setShowLoginPrompt(false);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -76,8 +105,22 @@ function AuthWrapper() {
     );
   }
 
+  if (isGuestMode && !isAuthenticated) {
+    return (
+      <>
+        <GuestRouter />
+        <LoginPromptDialog
+          open={showLoginPrompt}
+          onOpenChange={setShowLoginPrompt}
+          onLogin={handleLogin}
+          onContinueAsGuest={handleContinueAsGuest}
+        />
+      </>
+    );
+  }
+
   if (!isAuthenticated) {
-    return <Landing />;
+    return <Landing onTryFree={handleTryFree} />;
   }
 
   if (!user?.role) {
@@ -101,9 +144,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
-        {!showSplash && <AuthWrapper />}
-        <Toaster />
+        <GuestModeProvider>
+          {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+          {!showSplash && <AuthWrapper />}
+          <Toaster />
+        </GuestModeProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

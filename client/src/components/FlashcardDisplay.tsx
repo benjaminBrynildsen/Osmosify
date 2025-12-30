@@ -10,6 +10,7 @@ import {
   speakWord, 
   startListening, 
   isSpeechRecognitionSupported,
+  playSuccessSound,
   type RecognitionResult,
   type VoiceOption
 } from "@/lib/speech";
@@ -70,6 +71,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
   const recognitionStartedRef = useRef(false);
 
   const prevWordIdsRef = useRef<string>("");
+  const wordProgressRef = useRef<Map<string, WordProgress>>(new Map());
 
   useEffect(() => {
     setSpeechSupported(isSpeechRecognitionSupported());
@@ -139,6 +141,10 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
   useEffect(() => {
     currentWordIdRef.current = currentWordId || null;
   }, [currentWordId]);
+
+  useEffect(() => {
+    wordProgressRef.current = wordProgress;
+  }, [wordProgress]);
 
   const totalWords = words.length;
   const masteredCount = mode === "mastery" ? masteredIds.length : historyResults.length;
@@ -243,7 +249,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     const wordId = currentWordIdRef.current;
     if (!wordId) return;
     
-    const wordProg = wordProgress.get(wordId);
+    const wordProg = wordProgressRef.current.get(wordId);
     if (!wordProg) return;
     
     processingRef.current = true;
@@ -255,10 +261,11 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     
     if (isCorrect) {
       setTotalCorrect(prev => prev + 1);
+      playSuccessSound();
     }
 
     processAnswer(isCorrect, wordId, wordProg);
-  }, [showFeedback, wordProgress, stopTimer, processAnswer]);
+  }, [showFeedback, stopTimer, processAnswer]);
   
   const startContinuousRecognition = useCallback(() => {
     if (!currentWord || !speechSupported || !voiceEnabled) return;

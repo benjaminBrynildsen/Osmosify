@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Volume2, Trophy, Flame, Play, RotateCcw, Star, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { speak } from "@/lib/voice";
+import { playSuccessSound } from "@/lib/speech";
 import type { Word, Child, Book, PresetWordList } from "@shared/schema";
 
 interface Bubble {
@@ -151,6 +152,7 @@ export default function WordPop() {
     
     if (bubble.word === targetWord) {
       setBubbles([]);
+      playSuccessSound();
       const levelBonus = level * 5;
       const points = 10 + streak * 2 + levelBonus;
       setScore(prev => prev + points);

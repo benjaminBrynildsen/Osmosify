@@ -356,6 +356,43 @@ function checkWordMatch(spoken: string, target: string): boolean {
   return false;
 }
 
+let audioContext: AudioContext | null = null;
+
+export function playSuccessSound(): void {
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+
+    if (audioContext.state === "suspended") {
+      audioContext.resume().then(() => playChime(audioContext!));
+    } else {
+      playChime(audioContext);
+    }
+  } catch (error) {
+    console.warn("Could not play success sound:", error);
+  }
+}
+
+function playChime(ctx: AudioContext): void {
+  const oscillator = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(ctx.destination);
+
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+  oscillator.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+  oscillator.frequency.setValueAtTime(1320, ctx.currentTime + 0.2);
+
+  gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+
+  oscillator.start(ctx.currentTime);
+  oscillator.stop(ctx.currentTime + 0.4);
+}
+
 function levenshteinDistance(a: string, b: string): number {
   const matrix: number[][] = [];
   

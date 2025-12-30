@@ -1,9 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, Users, Unlock, Sparkles, ArrowRight, Eye, CheckCircle } from "lucide-react";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 
-export default function Landing() {
+interface LandingProps {
+  onTryFree?: () => void;
+}
+
+export default function Landing({ onTryFree }: LandingProps) {
+  const [, setLocation] = useLocation();
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex flex-col">
       <header className="container mx-auto px-4 py-6 flex justify-between items-center">
@@ -26,14 +31,21 @@ export default function Landing() {
           <p className="text-lg text-muted-foreground mb-8">
             Osmosify quietly prepares your child's vocabulary so when it's time to read, the book finally clicks.
           </p>
-          <Button size="lg" asChild data-testid="button-get-started">
-            <a href="/api/login" className="gap-2">
-              Prepare the Words
-              <ArrowRight className="h-5 w-5" />
-            </a>
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button size="lg" asChild data-testid="button-get-started">
+              <a href="/api/login" className="gap-2">
+                Sign In
+                <ArrowRight className="h-5 w-5" />
+              </a>
+            </Button>
+            {onTryFree && (
+              <Button size="lg" variant="outline" onClick={onTryFree} data-testid="button-try-free">
+                Try it Free
+              </Button>
+            )}
+          </div>
           <p className="mt-4 text-sm text-muted-foreground">
-            Free to start. No credit card required.
+            No account needed to try. Sign in anytime to save your progress.
           </p>
         </div>
 
