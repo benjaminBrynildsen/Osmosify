@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -142,6 +142,9 @@ export const books = pgTable("books", {
   bookshopUrl: text("bookshop_url"),
   sourceType: text("source_type").notNull().default("parent").$type<BookSourceType>(),
   popularityCount: integer("popularity_count").notNull().default(0),
+  unlockCount: integer("unlock_count").notNull().default(0),
+  isFeatured: boolean("is_featured").notNull().default(false),
+  featuredUntil: timestamp("featured_until"),
   approvalStatus: text("approval_status").default("approved").$type<BookApprovalStatus>(),
   contributedBy: varchar("contributed_by").references(() => users.id),
   contributorLabel: text("contributor_label"),
@@ -202,6 +205,35 @@ export const insertChildBookProgressSchema = createInsertSchema(childBookProgres
 
 export type InsertChildBookProgress = z.infer<typeof insertChildBookProgressSchema>;
 export type ChildBookProgress = typeof childBookProgress.$inferSelect;
+
+// Track book unlocks globally (for popularity counting)
+export const bookUnlocks = pgTable("book_unlocks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookId: varchar("book_id").notNull().references(() => books.id, { onDelete: "cascade" }),
+  childId: varchar("child_id").notNull().references(() => children.id, { onDelete: "cascade" }),
+  unlockedAt: timestamp("unlocked_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("book_unlocks_book_child_idx").on(table.bookId, table.childId),
+]);
+
+export const bookUnlocksRelations = relations(bookUnlocks, ({ one }) => ({
+  book: one(books, {
+    fields: [bookUnlocks.bookId],
+    references: [books.id],
+  }),
+  child: one(children, {
+    fields: [bookUnlocks.childId],
+    references: [children.id],
+  }),
+}));
+
+export const insertBookUnlockSchema = createInsertSchema(bookUnlocks).omit({
+  id: true,
+  unlockedAt: true,
+});
+
+export type InsertBookUnlock = z.infer<typeof insertBookUnlockSchema>;
+export type BookUnlock = typeof bookUnlocks.$inferSelect;
 
 // Flashcard result type for frontend
 export interface FlashcardResult {

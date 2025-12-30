@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Star, Lock, Sparkles } from "lucide-react";
+import { BookOpen, Star, Lock, Sparkles, Users } from "lucide-react";
 import type { Book } from "@shared/schema";
 
 interface BookCoverCardProps {
@@ -140,11 +140,21 @@ export function BookCoverCard({
           </div>
         </div>
 
-        {book.gradeLevel && (
-          <Badge variant="outline" className="mt-2 text-xs">
-            {book.gradeLevel}
-          </Badge>
-        )}
+        <div className="flex flex-wrap items-center gap-1 mt-2">
+          {book.gradeLevel && (
+            <Badge variant="outline" className="text-xs">
+              {book.gradeLevel}
+            </Badge>
+          )}
+          {book.unlockCount >= 1000 && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              <Users className="h-3 w-3" />
+              {book.unlockCount >= 1000000
+                ? `${(book.unlockCount / 1000000).toFixed(1)}M`
+                : `${(book.unlockCount / 1000).toFixed(0)}K`}
+            </Badge>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

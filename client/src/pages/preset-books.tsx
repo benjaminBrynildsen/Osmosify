@@ -33,11 +33,14 @@ import {
   Gamepad2,
   Grid3X3,
   List,
+  TrendingUp,
+  Award,
 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import type { Child, Book, Word } from "@shared/schema";
 
 type ViewMode = "grid" | "list";
-type SortMode = "readiness" | "title" | "author";
+type SortMode = "readiness" | "title" | "author" | "popular";
 type GradeFilter = "all" | "Preschool" | "Kindergarten" | "1st Grade" | "2nd Grade";
 
 export default function PresetBooks() {
@@ -61,6 +64,10 @@ export default function PresetBooks() {
   const { data: childWords, isLoading: wordsLoading } = useQuery<Word[]>({
     queryKey: ["/api/children", childId, "words"],
     enabled: !!childId,
+  });
+
+  const { data: featuredBook } = useQuery<Book | null>({
+    queryKey: ["/api/featured-book"],
   });
 
   const masteredWordSet = useMemo(() => new Set(
@@ -110,6 +117,9 @@ export default function PresetBooks() {
         break;
       case "author":
         result.sort((a, b) => (a.book.author || "").localeCompare(b.book.author || ""));
+        break;
+      case "popular":
+        result.sort((a, b) => (b.book.unlockCount || 0) - (a.book.unlockCount || 0));
         break;
     }
 
@@ -198,11 +208,12 @@ export default function PresetBooks() {
           </Select>
 
           <Select value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
-            <SelectTrigger className="w-full sm:w-36" data-testid="select-sort">
+            <SelectTrigger className="w-full sm:w-40" data-testid="select-sort">
               <SelectValue placeholder="Sort" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="readiness">By Readiness</SelectItem>
+              <SelectItem value="popular">Most Popular</SelectItem>
               <SelectItem value="title">By Title</SelectItem>
               <SelectItem value="author">By Author</SelectItem>
             </SelectContent>
@@ -227,6 +238,47 @@ export default function PresetBooks() {
             </Button>
           </div>
         </div>
+
+        {featuredBook && (
+          <Card 
+            className="cursor-pointer hover-elevate overflow-visible bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border-amber-500/30"
+            onClick={() => setSelectedBook(featuredBook)}
+            data-testid="card-featured-book"
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center">
+                    <Award className="h-6 w-6 text-amber-500" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge className="bg-amber-500 text-white gap-1">
+                      <Star className="h-3 w-3" />
+                      Featured Book
+                    </Badge>
+                  </div>
+                  <h3 className="font-medium truncate">{featuredBook.title}</h3>
+                  {featuredBook.author && (
+                    <p className="text-sm text-muted-foreground truncate">by {featuredBook.author}</p>
+                  )}
+                </div>
+                {(() => {
+                  const readiness = booksWithReadiness.find(b => b.book.id === featuredBook.id);
+                  if (!readiness) return null;
+                  return (
+                    <div className="text-right flex-shrink-0">
+                      <Badge className={readiness.percent >= 90 ? "bg-green-500" : readiness.percent >= 70 ? "bg-amber-500" : ""}>
+                        {readiness.percent}% Ready
+                      </Badge>
+                    </div>
+                  );
+                })()}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {filteredAndSortedBooks.length === 0 ? (
           <EmptyState

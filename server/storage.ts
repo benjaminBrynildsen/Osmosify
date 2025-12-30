@@ -12,6 +12,7 @@ import {
   type ChildBookProgress,
   type InsertChildBookProgress,
   type BookReadiness,
+  type BookUnlock,
   type User,
   type UserRole,
   children,
@@ -20,6 +21,7 @@ import {
   presetWordLists,
   books,
   childBookProgress,
+  bookUnlocks,
   users,
 } from "@shared/schema";
 import { db } from "./db";
@@ -654,6 +656,105 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // Featured Book Methods
+  async getFeaturedBook(): Promise<Book | undefined> {
+    const now = new Date();
+    const [featured] = await db
+      .select()
+      .from(books)
+      .where(and(
+        eq(books.isFeatured, true),
+        eq(books.isPreset, true)
+      ))
+      .limit(1);
+    
+    if (featured && featured.featuredUntil && featured.featuredUntil > now) {
+      return featured;
+    }
+    
+    // If no valid featured book, return the most popular preset book
+    const [popular] = await db
+      .select()
+      .from(books)
+      .where(eq(books.isPreset, true))
+      .orderBy(desc(books.unlockCount))
+      .limit(1);
+    
+    return popular;
+  }
+
+  async setFeaturedBook(bookId: string, durationDays: number = 7): Promise<Book | undefined> {
+    // First, unfeature all books
+    await db
+      .update(books)
+      .set({ isFeatured: false, featuredUntil: null });
+    
+    // Then set the new featured book
+    const featuredUntil = new Date();
+    featuredUntil.setDate(featuredUntil.getDate() + durationDays);
+    
+    const [updated] = await db
+      .update(books)
+      .set({
+        isFeatured: true,
+        featuredUntil,
+      })
+      .where(eq(books.id, bookId))
+      .returning();
+    
+    return updated;
+  }
+
+  // Book Unlock Tracking
+  async recordBookUnlock(bookId: string, childId: string): Promise<boolean> {
+    // Check if already unlocked by this child
+    const existing = await db
+      .select()
+      .from(bookUnlocks)
+      .where(and(
+        eq(bookUnlocks.bookId, bookId),
+        eq(bookUnlocks.childId, childId)
+      ))
+      .limit(1);
+    
+    if (existing.length > 0) {
+      return false; // Already unlocked
+    }
+    
+    // Record the unlock
+    await db.insert(bookUnlocks).values({ bookId, childId });
+    
+    // Increment the unlock count on the book
+    await db
+      .update(books)
+      .set({
+        unlockCount: sql`${books.unlockCount} + 1`,
+      })
+      .where(eq(books.id, bookId));
+    
+    return true;
+  }
+
+  async getBooksByPopularity(limit: number = 50): Promise<Book[]> {
+    return db
+      .select()
+      .from(books)
+      .where(eq(books.isPreset, true))
+      .orderBy(desc(books.unlockCount))
+      .limit(limit);
+  }
+
+  async getPopularPresetBooks(): Promise<Book[]> {
+    return db
+      .select()
+      .from(books)
+      .where(and(
+        eq(books.isPreset, true),
+        sql`${books.unlockCount} >= 1000`
+      ))
+      .orderBy(desc(books.unlockCount));
   }
 }
 

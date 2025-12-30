@@ -797,6 +797,71 @@ export async function registerRoutes(
     }
   });
 
+  // Featured book endpoints
+  app.get("/api/featured-book", isAuthenticated, async (req, res) => {
+    try {
+      const featuredBook = await storage.getFeaturedBook();
+      res.json(featuredBook || null);
+    } catch (error) {
+      console.error("Error fetching featured book:", error);
+      res.status(500).json({ error: "Failed to fetch featured book" });
+    }
+  });
+
+  app.post("/api/featured-book", isAuthenticated, async (req, res) => {
+    try {
+      const { bookId, durationDays } = req.body;
+      if (!bookId) {
+        return res.status(400).json({ error: "Book ID is required" });
+      }
+      const featuredBook = await storage.setFeaturedBook(bookId, durationDays || 7);
+      if (!featuredBook) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      res.json(featuredBook);
+    } catch (error) {
+      console.error("Error setting featured book:", error);
+      res.status(500).json({ error: "Failed to set featured book" });
+    }
+  });
+
+  // Book unlock tracking endpoint
+  app.post("/api/books/:id/unlock", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const bookId = req.params.id;
+      const { childId } = req.body;
+      
+      if (!childId) {
+        return res.status(400).json({ error: "Child ID is required" });
+      }
+      
+      // Verify the child belongs to this user
+      const child = await storage.getChildByUser(childId, userId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
+      
+      const wasNewUnlock = await storage.recordBookUnlock(bookId, childId);
+      res.json({ success: true, wasNewUnlock });
+    } catch (error) {
+      console.error("Error recording book unlock:", error);
+      res.status(500).json({ error: "Failed to record book unlock" });
+    }
+  });
+
+  // Get books by popularity
+  app.get("/api/preset-books/popular", isAuthenticated, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const popularBooks = await storage.getBooksByPopularity(limit);
+      res.json(popularBooks);
+    } catch (error) {
+      console.error("Error fetching popular books:", error);
+      res.status(500).json({ error: "Failed to fetch popular books" });
+    }
+  });
+
   // Seed presets on startup
   await storage.seedPresetWordLists(presetData);
   await storage.seedPresetBooks(presetBooksData);
