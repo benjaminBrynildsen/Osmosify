@@ -195,6 +195,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
       setTimeLeft(timerSeconds);
       setSpokenText("");
       processingRef.current = false;
+      stopListening();
 
       // Use the ref which was updated synchronously in processAnswer
       const currentWordProg = wordProgressRef.current.get(wordId);
@@ -272,23 +273,17 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
               setQueue(shuffled);
             }
           } else {
-            // Rotation fix: Ensure the current word is not immediately repeated
-            // and force rotation by never allowing the same word to be first in queue
-            // until other words have been shown.
+            // Rotation fix: Move word far enough back to ensure variety
             let updatedQueue = [...newQueue];
-            if (updatedQueue.length >= 1) {
-              // Always insert at least 1 position back (at index 1 or 2)
-              const insertPosition = Math.min(updatedQueue.length, 2); 
-              updatedQueue.splice(insertPosition, 0, wordId);
-            } else {
-              updatedQueue.push(wordId);
-            }
+            // With 7 words, push this word at least 3-4 spots back
+            const insertPosition = Math.min(updatedQueue.length, 3 + Math.floor(Math.random() * 2));
+            updatedQueue.splice(insertPosition, 0, wordId);
             setQueue(updatedQueue);
           }
         }
       }
     }, feedbackDuration);
-  }, [queue, wordProgress, mode, masteredIds, historyResults, totalWords, masteryThreshold, props, ttsEnabled, voicesReady, currentWord, timerSeconds, voicePreference, lastCelebrationCount]);
+  }, [queue, wordProgress, mode, masteredIds, historyResults, totalWords, masteryThreshold, props, ttsEnabled, voicesReady, currentWord, timerSeconds, voicePreference, lastCelebrationCount, stopListening]);
 
   const handleAnswer = useCallback((isCorrect: boolean) => {
     if (processingRef.current || showFeedback !== null) return;
