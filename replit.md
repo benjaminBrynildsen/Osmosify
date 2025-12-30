@@ -7,9 +7,12 @@ A mobile-first educational web application designed for parents to track their c
 **Core Features:**
 - Multi-child profile management with individual settings
 - Reading session uploads with OCR text extraction and cleanup
-- Per-child word library tracking (new → learning → mastered progression)
+- Per-child word library tracking (new → learning → unlocked progression)
 - Flashcard mastery sessions and history review tests
 - Stop-word filtering and grade-level word filtering options
+- **Book Library** with Open Library integration, custom cover uploads, and readiness scores
+- **Purchase Links** for Amazon and Bookshop.org generated from book metadata
+- **Community Contributions** allowing users to submit books for moderation approval
 
 ## User Preferences
 
