@@ -2,9 +2,16 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Check, X, RotateCcw, Star } from "lucide-react";
+import { Check, X, RotateCcw, Star, Mic, MicOff, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Word } from "@shared/schema";
+import { 
+  initializeVoices, 
+  speakWord, 
+  startListening, 
+  isSpeechRecognitionSupported,
+  type RecognitionResult 
+} from "@/lib/speech";
 
 interface MasteryModeProps {
   mode: "mastery";
@@ -21,6 +28,7 @@ interface HistoryModeProps {
 
 type FlashcardDisplayProps = {
   words: Word[];
+  timerSeconds?: number;
 } & (MasteryModeProps | HistoryModeProps);
 
 interface WordProgress {
@@ -30,7 +38,7 @@ interface WordProgress {
 }
 
 export function FlashcardDisplay(props: FlashcardDisplayProps) {
-  const { words, mode } = props;
+  const { words, mode, timerSeconds = 5 } = props;
   const masteryThreshold = mode === "mastery" ? (props.masteryThreshold ?? 7) : 1;
 
   const [wordProgress, setWordProgress] = useState<Map<string, WordProgress>>(new Map());
@@ -45,7 +53,40 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
   const [cardKey, setCardKey] = useState(0);
   const [slideDirection, setSlideDirection] = useState<"left" | "right">("left");
 
+  const [isListening, setIsListening] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(timerSeconds);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [voicesReady, setVoicesReady] = useState(false);
+  const [spokenText, setSpokenText] = useState<string>("");
+
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recognitionRef = useRef<{ stop: () => void } | null>(null);
+  const processingRef = useRef(false);
+
   const prevWordIdsRef = useRef<string>("");
+
+  useEffect(() => {
+    setSpeechSupported(isSpeechRecognitionSupported());
+    initializeVoices().then(() => {
+      setVoicesReady(true);
+    });
+  }, []);
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+  }, []);
 
   const initializeSession = useCallback(() => {
     const progress = new Map<string, WordProgress>();
@@ -67,7 +108,10 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     setIsComplete(false);
     setIsInitialized(true);
     setCardKey(0);
-  }, [words]);
+    setTimeLeft(timerSeconds);
+    setSpokenText("");
+    processingRef.current = false;
+  }, [words, timerSeconds]);
 
   useEffect(() => {
     const currentWordIds = words.map(w => w.id).sort().join(",");
@@ -86,8 +130,12 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
   const masteredCount = mode === "mastery" ? masteredIds.length : historyResults.length;
   const progressPercent = totalWords > 0 ? (masteredCount / totalWords) * 100 : 0;
 
-  const handleAnswer = (isCorrect: boolean) => {
-    if (!currentWordId || !currentProgress || showFeedback !== null) return;
+  const handleAnswer = useCallback((isCorrect: boolean, fromVoice: boolean = false) => {
+    if (!currentWordId || !currentProgress || showFeedback !== null || processingRef.current) return;
+    
+    processingRef.current = true;
+    stopTimer();
+    stopListening();
 
     setShowFeedback(isCorrect ? "correct" : "incorrect");
     setSlideDirection(isCorrect ? "left" : "right");
@@ -112,19 +160,28 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
 
     const feedbackDuration = isCorrect ? 800 : 500;
 
+    if (voicesReady && currentWord) {
+      setTimeout(() => {
+        speakWord(currentWord.word);
+      }, 200);
+    }
+
     setTimeout(() => {
       setShowFeedback(null);
       setCardKey(prev => prev + 1);
+      setTimeLeft(timerSeconds);
+      setSpokenText("");
+      processingRef.current = false;
 
       if (mode === "history") {
         const result = { wordId: currentWordId, isCorrect };
         const newResults = [...historyResults, result];
         setHistoryResults(newResults);
-        props.onResult(currentWordId, isCorrect);
+        (props as HistoryModeProps).onResult(currentWordId, isCorrect);
 
         if (newQueue.length === 0) {
           setIsComplete(true);
-          props.onComplete(newResults);
+          (props as HistoryModeProps).onComplete(newResults);
         } else {
           setQueue(newQueue);
         }
@@ -134,18 +191,18 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
         if (wordJustMastered) {
           const newMasteredIds = [...masteredIds, currentWordId];
           setMasteredIds(newMasteredIds);
-          props.onWordMastered(currentWordId);
+          (props as MasteryModeProps).onWordMastered(currentWordId);
           
           if (newMasteredIds.length >= totalWords) {
             setIsComplete(true);
-            props.onComplete(newMasteredIds);
+            (props as MasteryModeProps).onComplete(newMasteredIds);
           } else if (newQueue.length === 0) {
             const remainingWordIds = Array.from(updatedProgress.keys())
               .filter(id => !newMasteredIds.includes(id));
             
             if (remainingWordIds.length === 0) {
               setIsComplete(true);
-              props.onComplete(newMasteredIds);
+              (props as MasteryModeProps).onComplete(newMasteredIds);
             } else {
               const shuffled = remainingWordIds.sort(() => Math.random() - 0.5);
               setQueue(shuffled);
@@ -160,7 +217,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
             
             if (remainingWordIds.length === 0) {
               setIsComplete(true);
-              props.onComplete(masteredIds);
+              (props as MasteryModeProps).onComplete(masteredIds);
             } else {
               const shuffled = remainingWordIds.sort(() => Math.random() - 0.5);
               setQueue(shuffled);
@@ -175,6 +232,82 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
         }
       }
     }, feedbackDuration);
+  }, [currentWordId, currentProgress, showFeedback, queue, wordProgress, mode, masteredIds, historyResults, totalWords, masteryThreshold, props, stopTimer, stopListening, voicesReady, currentWord, timerSeconds]);
+
+  const startVoiceRecognition = useCallback(() => {
+    if (!currentWord || !speechSupported || !voiceEnabled || isListening || showFeedback !== null) return;
+
+    setIsListening(true);
+    setSpokenText("");
+
+    recognitionRef.current = startListening(
+      currentWord.word,
+      (result: RecognitionResult) => {
+        setSpokenText(result.transcript);
+        if (result.isMatch) {
+          handleAnswer(true, true);
+        } else if (result.transcript) {
+          handleAnswer(false, true);
+        }
+      },
+      (error: string) => {
+        console.warn('Recognition error:', error);
+      },
+      () => {
+        setIsListening(false);
+      }
+    );
+  }, [currentWord, speechSupported, voiceEnabled, isListening, showFeedback, handleAnswer]);
+
+  useEffect(() => {
+    if (!currentWord || showFeedback !== null || isComplete || !isInitialized) {
+      stopTimer();
+      return;
+    }
+
+    if (voiceEnabled && speechSupported) {
+      const startDelay = setTimeout(() => {
+        startVoiceRecognition();
+      }, 300);
+      return () => clearTimeout(startDelay);
+    }
+  }, [currentWord, showFeedback, isComplete, isInitialized, voiceEnabled, speechSupported, startVoiceRecognition, stopTimer]);
+
+  useEffect(() => {
+    if (!currentWord || showFeedback !== null || isComplete || !isInitialized) {
+      stopTimer();
+      return;
+    }
+
+    setTimeLeft(timerSeconds);
+    
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          stopTimer();
+          if (!processingRef.current) {
+            handleAnswer(false);
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => stopTimer();
+  }, [cardKey, currentWord, showFeedback, isComplete, isInitialized, timerSeconds, stopTimer, handleAnswer]);
+
+  useEffect(() => {
+    return () => {
+      stopTimer();
+      stopListening();
+    };
+  }, [stopTimer, stopListening]);
+
+  const speakCurrentWord = () => {
+    if (currentWord && voicesReady) {
+      speakWord(currentWord.word);
+    }
   };
 
   if (words.length === 0) {
@@ -288,6 +421,8 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     }),
   };
 
+  const timerPercent = (timeLeft / timerSeconds) * 100;
+
   return (
     <div className="flex flex-col h-full" data-testid="flashcard-active">
       <div className="px-4 py-3 border-b">
@@ -309,6 +444,62 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
         <Progress value={progressPercent} className="h-2" />
       </div>
 
+      <div className="px-4 py-2 border-b bg-muted/30">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-1 px-2 py-1 rounded-md text-sm font-medium ${
+              timeLeft <= 2 ? 'bg-red-500/20 text-red-600 dark:text-red-400' : 
+              timeLeft <= 3 ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' :
+              'bg-muted text-muted-foreground'
+            }`}>
+              <span data-testid="text-timer">{timeLeft}s</span>
+            </div>
+            <Progress 
+              value={timerPercent} 
+              className={`w-20 h-2 ${timeLeft <= 2 ? '[&>div]:bg-red-500' : timeLeft <= 3 ? '[&>div]:bg-amber-500' : ''}`}
+            />
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {speechSupported && (
+              <Button
+                size="icon"
+                variant={voiceEnabled ? "default" : "outline"}
+                onClick={() => setVoiceEnabled(!voiceEnabled)}
+                data-testid="button-toggle-voice"
+                className="relative"
+              >
+                {voiceEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+                {isListening && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                )}
+              </Button>
+            )}
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={speakCurrentWord}
+              disabled={!voicesReady}
+              data-testid="button-speak-word"
+            >
+              <Volume2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        
+        {isListening && (
+          <div className="mt-2 text-center">
+            <p className="text-sm text-muted-foreground">
+              {spokenText ? (
+                <span>Heard: "<span className="font-medium text-foreground">{spokenText}</span>"</span>
+              ) : (
+                <span className="animate-pulse">Listening... say the word!</span>
+              )}
+            </p>
+          </div>
+        )}
+      </div>
+
       <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
         <AnimatePresence mode="wait" custom={slideDirection}>
           <motion.div
@@ -322,7 +513,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
             className="w-full max-w-md"
           >
             <Card
-              className={`min-h-96 flex items-center justify-center transition-colors duration-300 relative overflow-visible ${
+              className={`min-h-80 flex items-center justify-center transition-colors duration-300 relative overflow-visible ${
                 showFeedback === "correct"
                   ? "bg-emerald-500 border-emerald-500"
                   : showFeedback === "incorrect"
@@ -418,6 +609,9 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
       </div>
 
       <div className="p-4 border-t">
+        <p className="text-center text-xs text-muted-foreground mb-3">
+          {voiceEnabled && speechSupported ? "Say the word or tap a button" : "Parent: Mark as correct or incorrect"}
+        </p>
         <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
           <Button
             size="lg"
