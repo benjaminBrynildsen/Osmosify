@@ -215,6 +215,8 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
           setMasteredIds(newMasteredIds);
           (props as MasteryModeProps).onWordMastered(wordId);
           
+          const filteredQueue = newQueue.filter(id => id !== wordId);
+          
           const celebrationInterval = 7;
           const currentCelebrationMilestone = Math.floor(newMasteredIds.length / celebrationInterval);
           const previousCelebrationMilestone = Math.floor(lastCelebrationCount / celebrationInterval);
@@ -231,14 +233,14 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
             setLastCelebrationCount(newMasteredIds.length);
             setSentenceCelebrationWords(recentlyMasteredWords);
             setShowSentenceCelebration(true);
-            setQueue(newQueue.length > 0 ? newQueue : []);
+            setQueue(filteredQueue);
             return;
           }
           
           if (newMasteredIds.length >= totalWords) {
             setIsComplete(true);
             (props as MasteryModeProps).onComplete(newMasteredIds);
-          } else if (newQueue.length === 0) {
+          } else if (filteredQueue.length === 0) {
             const remainingWordIds = Array.from(updatedProgress.keys())
               .filter(id => !newMasteredIds.includes(id));
             
@@ -250,7 +252,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
               setQueue(shuffled);
             }
           } else {
-            setQueue(newQueue);
+            setQueue(filteredQueue);
           }
         } else {
           if (newQueue.length === 0) {
