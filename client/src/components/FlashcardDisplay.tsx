@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Check, X, RotateCcw, Star, Mic, MicOff, Volume2 } from "lucide-react";
+import { Check, X, RotateCcw, Star, Mic, MicOff, Volume2, Pause, Play } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Word } from "@shared/schema";
 import { 
@@ -14,6 +14,7 @@ import {
   type RecognitionResult,
   type VoiceOption
 } from "@/lib/speech";
+import { SentenceCelebration } from "./SentenceCelebration";
 
 interface MasteryModeProps {
   mode: "mastery";
@@ -63,6 +64,10 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
   const [speechSupported, setSpeechSupported] = useState(false);
   const [voicesReady, setVoicesReady] = useState(false);
   const [spokenText, setSpokenText] = useState<string>("");
+  const [isPaused, setIsPaused] = useState(false);
+  const [showSentenceCelebration, setShowSentenceCelebration] = useState(false);
+  const [sentenceCelebrationWords, setSentenceCelebrationWords] = useState<string[]>([]);
+  const [lastCelebrationCount, setLastCelebrationCount] = useState(0);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recognitionRef = useRef<{ stop: () => void; updateTargetWord: (word: string) => void } | null>(null);
@@ -202,6 +207,26 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
           setMasteredIds(newMasteredIds);
           (props as MasteryModeProps).onWordMastered(wordId);
           
+          const celebrationInterval = 7;
+          const currentCelebrationMilestone = Math.floor(newMasteredIds.length / celebrationInterval);
+          const previousCelebrationMilestone = Math.floor(lastCelebrationCount / celebrationInterval);
+          
+          if (currentCelebrationMilestone > previousCelebrationMilestone && newMasteredIds.length < totalWords) {
+            const recentlyMasteredWords = newMasteredIds
+              .slice(-celebrationInterval)
+              .map(id => {
+                const prog = updatedProgress.get(id);
+                return prog?.word.word || "";
+              })
+              .filter(w => w.length > 0);
+            
+            setLastCelebrationCount(newMasteredIds.length);
+            setSentenceCelebrationWords(recentlyMasteredWords);
+            setShowSentenceCelebration(true);
+            setQueue(newQueue.length > 0 ? newQueue : []);
+            return;
+          }
+          
           if (newMasteredIds.length >= totalWords) {
             setIsComplete(true);
             (props as MasteryModeProps).onComplete(newMasteredIds);
@@ -241,7 +266,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
         }
       }
     }, feedbackDuration);
-  }, [queue, wordProgress, mode, masteredIds, historyResults, totalWords, masteryThreshold, props, ttsEnabled, voicesReady, currentWord, timerSeconds, voicePreference]);
+  }, [queue, wordProgress, mode, masteredIds, historyResults, totalWords, masteryThreshold, props, ttsEnabled, voicesReady, currentWord, timerSeconds, voicePreference, lastCelebrationCount]);
 
   const handleAnswer = useCallback((isCorrect: boolean) => {
     if (processingRef.current || showFeedback !== null) return;
@@ -322,7 +347,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
   }, [currentWord, showFeedback, isComplete, isInitialized, voiceEnabled, speechSupported, startContinuousRecognition]);
 
   useEffect(() => {
-    if (!currentWord || showFeedback !== null || isComplete || !isInitialized) {
+    if (!currentWord || showFeedback !== null || isComplete || !isInitialized || isPaused || showSentenceCelebration) {
       stopTimer();
       return;
     }
@@ -331,8 +356,6 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
       return;
     }
 
-    setTimeLeft(timerSeconds);
-    
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -351,7 +374,36 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     }, 1000);
 
     return () => stopTimer();
-  }, [cardKey, currentWord, showFeedback, isComplete, isInitialized, timerSeconds, stopTimer, handleAnswer]);
+  }, [cardKey, currentWord, showFeedback, isComplete, isInitialized, timerSeconds, stopTimer, handleAnswer, isPaused, showSentenceCelebration]);
+
+  useEffect(() => {
+    if (isPaused || showSentenceCelebration) {
+      stopTimer();
+      stopListening();
+    }
+  }, [isPaused, showSentenceCelebration, stopTimer, stopListening]);
+
+  const togglePause = useCallback(() => {
+    setIsPaused(prev => !prev);
+  }, []);
+
+  const handleSentenceCelebrationComplete = useCallback(() => {
+    setShowSentenceCelebration(false);
+    setSentenceCelebrationWords([]);
+    
+    const remainingWordIds = Array.from(wordProgress.keys())
+      .filter(id => !masteredIds.includes(id));
+    
+    if (remainingWordIds.length === 0) {
+      setIsComplete(true);
+      if (mode === "mastery") {
+        (props as MasteryModeProps).onComplete(masteredIds);
+      }
+    } else if (queue.length === 0) {
+      const shuffled = remainingWordIds.sort(() => Math.random() - 0.5);
+      setQueue(shuffled);
+    }
+  }, [wordProgress, masteredIds, queue, mode, props]);
 
   useEffect(() => {
     return () => {
@@ -384,6 +436,15 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
       <div className="flex flex-col items-center justify-center min-h-96 p-4">
         <p className="text-muted-foreground">Loading...</p>
       </div>
+    );
+  }
+
+  if (showSentenceCelebration && sentenceCelebrationWords.length > 0) {
+    return (
+      <SentenceCelebration
+        masteredWords={sentenceCelebrationWords}
+        onComplete={handleSentenceCelebrationComplete}
+      />
     );
   }
 
@@ -544,6 +605,14 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
             >
               <Volume2 className="h-4 w-4" />
             </Button>
+            <Button
+              size="icon"
+              variant={isPaused ? "default" : "outline"}
+              onClick={togglePause}
+              data-testid="button-toggle-pause"
+            >
+              {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+            </Button>
           </div>
         </div>
         
@@ -560,7 +629,22 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
         )}
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+      <div className="flex-1 flex items-center justify-center p-4 overflow-hidden relative">
+        {isPaused && (
+          <motion.div
+            className="absolute inset-0 bg-background/90 z-10 flex flex-col items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <Pause className="h-16 w-16 text-muted-foreground mb-4" />
+            <p className="text-xl font-medium text-foreground mb-2">Paused</p>
+            <Button onClick={togglePause} size="lg" className="gap-2" data-testid="button-resume">
+              <Play className="h-5 w-5" />
+              Resume
+            </Button>
+          </motion.div>
+        )}
         <AnimatePresence mode="wait" custom={slideDirection}>
           <motion.div
             key={cardKey}
@@ -678,7 +762,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
             variant="outline"
             className="h-16 text-lg font-semibold border-red-500/30 text-red-600 dark:text-red-400"
             onClick={() => handleAnswer(false)}
-            disabled={showFeedback !== null}
+            disabled={showFeedback !== null || isPaused}
             data-testid="button-incorrect"
           >
             <X className="h-6 w-6 mr-2" />
@@ -688,7 +772,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
             size="lg"
             className="h-16 text-lg font-semibold bg-emerald-600 text-white"
             onClick={() => handleAnswer(true)}
-            disabled={showFeedback !== null}
+            disabled={showFeedback !== null || isPaused}
             data-testid="button-correct"
           >
             <Check className="h-6 w-6 mr-2" />

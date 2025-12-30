@@ -13,19 +13,21 @@ export default function GuestFlashcards() {
   const [isComplete, setIsComplete] = useState(false);
   const childId = params.id || guestData.child?.id || "";
 
-  const words: Word[] = guestData.words.map(w => ({
-    id: w.id,
-    word: w.word,
-    childId: guestData.child?.id || "",
-    status: w.status,
-    firstSeen: new Date(),
-    lastSeen: new Date(),
-    totalOccurrences: 1,
-    sessionsSeenCount: 1,
-    masteryCorrectCount: w.correctCount,
-    incorrectCount: 0,
-    lastTested: null,
-  }));
+  const words: Word[] = guestData.words
+    .filter(w => w.status !== "mastered")
+    .map(w => ({
+      id: w.id,
+      word: w.word,
+      childId: guestData.child?.id || "",
+      status: w.status,
+      firstSeen: new Date(),
+      lastSeen: new Date(),
+      totalOccurrences: 1,
+      sessionsSeenCount: 1,
+      masteryCorrectCount: w.correctCount,
+      incorrectCount: 0,
+      lastTested: null,
+    }));
 
   const handleWordMastered = (wordId: string) => {
     updateGuestWordStatus(wordId, 7, "mastered");

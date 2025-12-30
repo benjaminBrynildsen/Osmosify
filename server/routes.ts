@@ -43,6 +43,40 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to update role" });
     }
   });
+  // Sentence generation endpoint for flashcard celebration (public for guest mode)
+  app.post("/api/generate-sentence", async (req, res) => {
+    try {
+      const { words } = req.body;
+      
+      if (!words || !Array.isArray(words) || words.length === 0) {
+        return res.status(400).json({ error: "No words provided" });
+      }
+
+      const { ai } = await import("./replit_integrations/image/client");
+      
+      const prompt = `Create a simple, short sentence (6-12 words) that a young child can read. 
+The sentence MUST include at least 2-3 of these words: ${words.slice(0, 5).join(", ")}.
+Use simple vocabulary appropriate for early readers (ages 5-8).
+Only respond with the sentence, nothing else.
+Example format: "The cat ran to the big tree."`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      });
+
+      const sentence = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 
+        `I can read ${words[0] || "words"} and ${words[1] || "more"}.`;
+      
+      res.json({ sentence });
+    } catch (error) {
+      console.error("Sentence generation error:", error);
+      const words = req.body?.words || ["word"];
+      const fallback = `I can read ${words[0] || "words"} and ${words[1] || "more"}.`;
+      res.json({ sentence: fallback });
+    }
+  });
+
   // OCR endpoint - extract text from images using Gemini Vision (protected)
   app.post("/api/ocr", isAuthenticated, async (req, res) => {
     try {
