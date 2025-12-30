@@ -46,15 +46,25 @@ declare global {
 }
 
 let preferredVoice: SpeechSynthesisVoice | null = null;
+let voicesInitialized = false;
 
 export function initializeVoices(): Promise<SpeechSynthesisVoice[]> {
   return new Promise((resolve) => {
+    if (voicesInitialized && preferredVoice) {
+      resolve(window.speechSynthesis.getVoices());
+      return;
+    }
+
     const synth = window.speechSynthesis;
     
     const loadVoices = () => {
       const voices = synth.getVoices();
       if (voices.length > 0) {
         preferredVoice = selectBestVoice(voices);
+        voicesInitialized = true;
+        if (synth.onvoiceschanged !== undefined) {
+          synth.onvoiceschanged = null;
+        }
         resolve(voices);
       }
     };
@@ -67,8 +77,9 @@ export function initializeVoices(): Promise<SpeechSynthesisVoice[]> {
     
     setTimeout(() => {
       const voices = synth.getVoices();
-      if (voices.length > 0) {
+      if (voices.length > 0 && !voicesInitialized) {
         preferredVoice = selectBestVoice(voices);
+        voicesInitialized = true;
       }
       resolve(voices);
     }, 500);
@@ -145,7 +156,8 @@ export interface RecognitionResult {
 
 export function startListening(
   targetWord: string,
-  onResult: (result: RecognitionResult) => void,
+  onMatch: (result: RecognitionResult) => void,
+  onNoMatch: (result: RecognitionResult) => void,
   onError: (error: string) => void,
   onEnd: () => void
 ): { stop: () => void } {
@@ -164,8 +176,10 @@ export function startListening(
   recognition.maxAlternatives = 5;
 
   let hasResult = false;
+  let stopped = false;
 
   recognition.onresult = (event: SpeechRecognitionEvent) => {
+    if (stopped) return;
     hasResult = true;
     const results = event.results[0];
     
@@ -177,7 +191,7 @@ export function startListening(
       const isMatch = checkWordMatch(transcript, target);
       
       if (isMatch) {
-        onResult({
+        onMatch({
           transcript: alternative.transcript,
           confidence: alternative.confidence,
           isMatch: true,
@@ -187,7 +201,7 @@ export function startListening(
     }
     
     const bestResult = results[0];
-    onResult({
+    onNoMatch({
       transcript: bestResult.transcript,
       confidence: bestResult.confidence,
       isMatch: false,
@@ -195,19 +209,14 @@ export function startListening(
   };
 
   recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    if (stopped) return;
     if (event.error !== 'no-speech' && event.error !== 'aborted') {
       onError(event.error);
     }
   };
 
   recognition.onend = () => {
-    if (!hasResult) {
-      onResult({
-        transcript: '',
-        confidence: 0,
-        isMatch: false,
-      });
-    }
+    if (stopped) return;
     onEnd();
   };
 
@@ -220,8 +229,9 @@ export function startListening(
 
   return {
     stop: () => {
+      stopped = true;
       try {
-        recognition.stop();
+        recognition.abort();
       } catch (e) {
         // Ignore errors when stopping
       }
@@ -230,17 +240,24 @@ export function startListening(
 }
 
 function checkWordMatch(spoken: string, target: string): boolean {
-  if (spoken === target) return true;
+  const cleanSpoken = spoken.replace(/[.,!?'"]/g, '').trim();
+  const cleanTarget = target.replace(/[.,!?'"]/g, '').trim();
   
-  const spokenWords = spoken.split(/\s+/);
-  if (spokenWords.includes(target)) return true;
+  if (cleanSpoken === cleanTarget) return true;
   
-  const distance = levenshteinDistance(spoken, target);
-  const maxAllowedDistance = Math.max(1, Math.floor(target.length * 0.3));
+  const spokenWords = cleanSpoken.split(/\s+/);
+  if (spokenWords.includes(cleanTarget)) return true;
+  
+  if (cleanSpoken.startsWith(cleanTarget) || cleanSpoken.endsWith(cleanTarget)) return true;
+  
+  const distance = levenshteinDistance(cleanSpoken, cleanTarget);
+  const maxAllowedDistance = Math.max(1, Math.floor(cleanTarget.length * 0.35));
   if (distance <= maxAllowedDistance) return true;
   
   for (const word of spokenWords) {
-    const wordDistance = levenshteinDistance(word, target);
+    const cleanWord = word.replace(/[.,!?'"]/g, '');
+    if (cleanWord === cleanTarget) return true;
+    const wordDistance = levenshteinDistance(cleanWord, cleanTarget);
     if (wordDistance <= maxAllowedDistance) return true;
   }
   
