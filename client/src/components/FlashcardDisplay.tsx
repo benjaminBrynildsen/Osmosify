@@ -272,10 +272,14 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
               setQueue(shuffled);
             }
           } else {
-            const minPosition = Math.min(2, newQueue.length);
-            const maxPosition = Math.min(4, newQueue.length);
-            const insertPosition = Math.floor(Math.random() * (maxPosition - minPosition + 1)) + minPosition;
-            newQueue.splice(insertPosition, 0, wordId);
+            // Rotation fix: Ensure the current word is not immediately repeated
+            // by inserting it at least 1 position back if possible.
+            if (newQueue.length >= 1) {
+              const insertPosition = Math.min(newQueue.length, 2); 
+              newQueue.splice(insertPosition, 0, wordId);
+            } else {
+              newQueue.push(wordId);
+            }
             setQueue(newQueue);
           }
         }
