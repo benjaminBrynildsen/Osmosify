@@ -331,14 +331,226 @@ export function startListening(
   };
 }
 
+const HOMOPHONES: string[][] = [
+  ["sight", "site", "cite"],
+  ["their", "there", "they're"],
+  ["to", "too", "two"],
+  ["your", "you're"],
+  ["its", "it's"],
+  ["know", "no"],
+  ["knew", "new"],
+  ["knight", "night"],
+  ["knot", "not"],
+  ["write", "right", "rite"],
+  ["read", "red"],
+  ["hear", "here"],
+  ["sea", "see"],
+  ["sun", "son"],
+  ["one", "won"],
+  ["be", "bee"],
+  ["by", "buy", "bye"],
+  ["for", "four", "fore"],
+  ["ate", "eight"],
+  ["wait", "weight"],
+  ["great", "grate"],
+  ["pair", "pear", "pare"],
+  ["fair", "fare"],
+  ["bare", "bear"],
+  ["wear", "where", "ware"],
+  ["dear", "deer"],
+  ["peace", "piece"],
+  ["weak", "week"],
+  ["meet", "meat"],
+  ["tail", "tale"],
+  ["sale", "sail"],
+  ["mail", "male"],
+  ["rain", "reign", "rein"],
+  ["plain", "plane"],
+  ["main", "mane"],
+  ["road", "rode", "rowed"],
+  ["hole", "whole"],
+  ["soul", "sole"],
+  ["role", "roll"],
+  ["flower", "flour"],
+  ["hour", "our"],
+  ["would", "wood"],
+  ["steal", "steel"],
+  ["heal", "heel"],
+  ["real", "reel"],
+  ["break", "brake"],
+  ["stake", "steak"],
+  ["made", "maid"],
+  ["thrown", "throne"],
+  ["grown", "groan"],
+  ["shown", "shone"],
+  ["loan", "lone"],
+  ["nose", "knows"],
+  ["rose", "rows"],
+  ["toes", "tows"],
+  ["threw", "through"],
+  ["blue", "blew"],
+  ["flew", "flu", "flue"],
+  ["dew", "due"],
+  ["scent", "sent", "cent"],
+  ["seen", "scene"],
+  ["feet", "feat"],
+  ["beat", "beet"],
+  ["peak", "peek"],
+  ["creek", "creak"],
+  ["sweet", "suite"],
+  ["tide", "tied"],
+  ["die", "dye"],
+  ["eye", "aye"],
+  ["high", "hi"],
+  ["pie", "pi"],
+  ["lie", "lye"],
+  ["might", "mite"],
+  ["find", "fined"],
+  ["mind", "mined"],
+  ["time", "thyme"],
+  ["wine", "whine"],
+  ["sign", "sine"],
+  ["vein", "vain", "vane"],
+  ["pain", "pane"],
+  ["way", "weigh", "whey"],
+  ["prey", "pray"],
+  ["hey", "hay"],
+  ["gray", "grey"],
+  ["toe", "tow"],
+  ["row", "roe"],
+  ["sew", "so", "sow"],
+  ["bow", "beau"],
+  ["foe", "faux"],
+  ["doe", "dough"],
+  ["moan", "mown"],
+  ["bored", "board"],
+  ["chord", "cord"],
+  ["poured", "pored"],
+  ["horse", "hoarse"],
+  ["course", "coarse"],
+  ["wore", "war"],
+  ["more", "moor"],
+  ["poor", "pour", "pore"],
+  ["soar", "sore"],
+  ["boar", "bore"],
+  ["oar", "or", "ore"],
+  ["allowed", "aloud"],
+  ["ant", "aunt"],
+  ["ball", "bawl"],
+  ["band", "banned"],
+  ["base", "bass"],
+  ["beach", "beech"],
+  ["berth", "birth"],
+  ["bread", "bred"],
+  ["brews", "bruise"],
+  ["ceiling", "sealing"],
+  ["cell", "sell"],
+  ["cereal", "serial"],
+  ["cheap", "cheep"],
+  ["chews", "choose"],
+  ["chili", "chilly"],
+  ["clause", "claws"],
+  ["crews", "cruise"],
+  ["days", "daze"],
+  ["disc", "disk"],
+  ["dual", "duel"],
+  ["earn", "urn"],
+  ["ewe", "you", "yew"],
+  ["faint", "feint"],
+  ["fir", "fur"],
+  ["flair", "flare"],
+  ["flea", "flee"],
+  ["foreword", "forward"],
+  ["gait", "gate"],
+  ["genes", "jeans"],
+  ["gnu", "knew", "new"],
+  ["gorilla", "guerrilla"],
+  ["grill", "grille"],
+  ["grays", "graze"],
+  ["guessed", "guest"],
+  ["hare", "hair"],
+  ["hall", "haul"],
+  ["hangar", "hanger"],
+  ["heard", "herd"],
+  ["hymn", "him"],
+  ["idle", "idol"],
+  ["in", "inn"],
+  ["jam", "jamb"],
+  ["kernel", "colonel"],
+  ["lessen", "lesson"],
+  ["links", "lynx"],
+  ["muscle", "mussel"],
+  ["naval", "navel"],
+  ["none", "nun"],
+  ["pail", "pale"],
+  ["passed", "past"],
+  ["patience", "patients"],
+  ["pause", "paws"],
+  ["pedal", "peddle"],
+  ["peer", "pier"],
+  ["prints", "prince"],
+  ["principal", "principle"],
+  ["profit", "prophet"],
+  ["rap", "wrap"],
+  ["ring", "wring"],
+  ["root", "route"],
+  ["scull", "skull"],
+  ["seam", "seem"],
+  ["shear", "sheer"],
+  ["sleigh", "slay"],
+  ["stair", "stare"],
+  ["stationary", "stationery"],
+  ["straight", "strait"],
+  ["symbol", "cymbal"],
+  ["tense", "tents"],
+  ["threw", "through"],
+  ["waist", "waste"],
+  ["wail", "whale"],
+  ["waive", "wave"],
+  ["weather", "whether"],
+  ["which", "witch"],
+  ["whose", "who's"],
+  ["worn", "warn"],
+  ["yoke", "yolk"],
+];
+
+const homophoneMap = new Map<string, Set<string>>();
+for (const group of HOMOPHONES) {
+  const lowerGroup = group.map(w => w.toLowerCase());
+  for (const word of lowerGroup) {
+    if (!homophoneMap.has(word)) {
+      homophoneMap.set(word, new Set());
+    }
+    for (const other of lowerGroup) {
+      if (other !== word) {
+        homophoneMap.get(word)!.add(other);
+      }
+    }
+  }
+}
+
+function areHomophones(word1: string, word2: string): boolean {
+  const lower1 = word1.toLowerCase();
+  const lower2 = word2.toLowerCase();
+  if (lower1 === lower2) return true;
+  const homophones = homophoneMap.get(lower1);
+  return homophones ? homophones.has(lower2) : false;
+}
+
 function checkWordMatch(spoken: string, target: string): boolean {
-  const cleanSpoken = spoken.replace(/[.,!?'"]/g, '').trim();
-  const cleanTarget = target.replace(/[.,!?'"]/g, '').trim();
+  const cleanSpoken = spoken.replace(/[.,!?'"]/g, '').trim().toLowerCase();
+  const cleanTarget = target.replace(/[.,!?'"]/g, '').trim().toLowerCase();
   
   if (cleanSpoken === cleanTarget) return true;
   
+  if (areHomophones(cleanSpoken, cleanTarget)) return true;
+  
   const spokenWords = cleanSpoken.split(/\s+/);
   if (spokenWords.includes(cleanTarget)) return true;
+  
+  for (const word of spokenWords) {
+    if (areHomophones(word, cleanTarget)) return true;
+  }
   
   if (cleanSpoken.startsWith(cleanTarget) || cleanSpoken.endsWith(cleanTarget)) return true;
   
