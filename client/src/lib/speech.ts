@@ -238,33 +238,36 @@ export function startListening(
   onNoMatch: (result: RecognitionResult) => void,
   onError: (error: string) => void,
   onEnd: () => void
-): { stop: () => void } {
+): { stop: () => void; updateTargetWord: (newWord: string) => void } {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   
   if (!SpeechRecognition) {
     onError('Speech recognition not supported');
     onEnd();
-    return { stop: () => {} };
+    return { stop: () => {}, updateTargetWord: () => {} };
   }
 
   const recognition = new SpeechRecognition();
-  recognition.continuous = false;
+  recognition.continuous = true;
   recognition.interimResults = false;
   recognition.lang = 'en-US';
   recognition.maxAlternatives = 5;
 
-  let hasResult = false;
   let stopped = false;
+  let currentTargetWord = targetWord;
 
   recognition.onresult = (event: SpeechRecognitionEvent) => {
     if (stopped) return;
-    hasResult = true;
-    const results = event.results[0];
+    
+    const lastResultIndex = event.results.length - 1;
+    const results = event.results[lastResultIndex];
+    
+    if (!results.isFinal) return;
     
     for (let i = 0; i < results.length; i++) {
       const alternative = results[i];
       const transcript = alternative.transcript.toLowerCase().trim();
-      const target = targetWord.toLowerCase().trim();
+      const target = currentTargetWord.toLowerCase().trim();
       
       const isMatch = checkWordMatch(transcript, target);
       
@@ -288,14 +291,21 @@ export function startListening(
 
   recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
     if (stopped) return;
-    if (event.error !== 'no-speech' && event.error !== 'aborted') {
+    if (event.error === 'no-speech') {
+      return;
+    }
+    if (event.error !== 'aborted') {
       onError(event.error);
     }
   };
 
   recognition.onend = () => {
     if (stopped) return;
-    onEnd();
+    try {
+      recognition.start();
+    } catch (e) {
+      onEnd();
+    }
   };
 
   try {
@@ -313,6 +323,9 @@ export function startListening(
       } catch (e) {
         // Ignore errors when stopping
       }
+    },
+    updateTargetWord: (newWord: string) => {
+      currentTargetWord = newWord;
     },
   };
 }
