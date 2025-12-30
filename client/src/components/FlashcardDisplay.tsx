@@ -175,6 +175,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
       updatedWordProg.sessionCorrectCount++;
     }
     updatedProgress.set(wordId, updatedWordProg);
+    wordProgressRef.current = updatedProgress; // Update ref immediately
     setWordProgress(updatedProgress);
 
     const feedbackDuration = isCorrect ? 800 : 5000;
@@ -195,8 +196,9 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
       setSpokenText("");
       processingRef.current = false;
 
-      const wordProg = wordProgressRef.current.get(wordId);
-      if (!wordProg) return;
+      // Use the ref which was updated synchronously in processAnswer
+      const currentWordProg = wordProgressRef.current.get(wordId);
+      if (!currentWordProg) return;
 
       if (mode === "history") {
         const result = { wordId, isCorrect };
@@ -211,7 +213,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
           setQueue(newQueue);
         }
       } else {
-        const wordJustMastered = wordProg.sessionCorrectCount >= masteryThreshold;
+        const wordJustMastered = currentWordProg.sessionCorrectCount >= masteryThreshold;
         
         if (wordJustMastered) {
           const newMasteredIds = [...masteredIds, wordId];
