@@ -1,0 +1,152 @@
+Book as a First-Class Object (Foundational)
+
+Create a Book entity in the system, not just sessions.
+
+Book object includes:
+	•	Title
+	•	Author
+	•	Grade band
+	•	Cover image
+	•	ISBN (if available)
+	•	Canonical word list (normalized)
+	•	Prep-word list (filtered, tiered)
+	•	Popularity / usage count
+	•	Source type:
+	•	Public-domain
+	•	Teacher-uploaded
+	•	Parent-uploaded
+	•	Curated (Osmosify)
+
+This allows books to be reused, improved, and trusted.
+
+⸻
+
+2. Book Discovery & Selection (Parent + Teacher Friendly)
+
+Book Library Screen
+	•	Search by:
+	•	title
+	•	grade
+	•	“almost ready for my child”
+	•	Visual grid with book covers (this matters emotionally)
+
+Each book shows:
+	•	Cover
+	•	Readiness score for this child
+	•	“Prepare X words to unlock”
+
+⸻
+
+3. Links to the Actual Book (Very Important)
+
+For each book, include safe, non-intrusive links:
+
+Supported link types
+	•	Amazon
+	•	Bookshop.org (teacher-friendly, indie)
+	•	Library lookup (WorldCat-style)
+	•	“Already have this book” toggle
+
+This positions Osmosify as supporting reading, not replacing it.
+
+⸻
+
+4. Community-Sourced Book Prep (Network Effect)
+
+Upload once → benefit everyone
+
+Flow:
+	1.	Parent or teacher uploads pages / scans a book
+	2.	Osmosify:
+	•	extracts words
+	•	cleans
+	•	generates prep list
+	3.	User opts to:
+“Contribute this book to the Osmosify Library”
+
+Safeguards
+	•	No page images shared publicly
+	•	Only normalized word lists + metadata
+	•	Attribution badge:
+“Prepared by a teacher in Ohio”
+
+This avoids copyright issues while still compounding value.
+
+⸻
+
+5. Trust Levels for Book Packs
+
+Not all book prep is equal—signal that.
+
+Prep source labels:
+	•	Osmosify Curated
+	•	Teacher Contributed
+	•	Community Verified (used by X classrooms)
+	•	Personal (private)
+
+This builds confidence and reduces hesitation.
+
+⸻
+
+6. Book Readiness, Now Smarter
+
+Because books are shared, readiness gets better:
+	•	% of words mastered globally by grade
+	•	% of words mastered by this child
+	•	Estimated friction level
+
+UI copy:
+
+This book is commonly unlocked after preparing 8–12 words.
+
+⸻
+
+7. Book Timeline (Long-Term Value)
+
+Each child gets a reading journey:
+	•	Books prepared
+	•	Books unlocked
+	•	Books read
+
+Parents don’t just see words—they see a path.
+
+⸻
+
+8. Incentivize Contribution (Quietly)
+
+No points. No badges.
+
+Instead:
+	•	“Thanks for preparing this book—34 families won’t have to do it again.”
+	•	Teacher dashboard shows:
+“Your contributions saved 12 hours of prep time this month.”
+
+That’s meaningful.
+
+⸻
+
+9. What NOT to Share (Important)
+
+Never share:
+	•	Full text
+	•	Page images
+	•	Sentence-level content
+
+Only share:
+	•	Normalized word sets
+	•	Frequencies
+	•	Difficulty metadata
+
+You stay safe and scalable.
+
+⸻
+
+10. Why This Is a Moat
+
+Once this exists:
+	•	Every new book strengthens the platform
+	•	Parents feel helped by other parents
+	•	Teachers feel they’re contributing to a system
+	•	Switching costs rise naturally
+
+This is how Osmosify becomes infrastructure, not an app.
