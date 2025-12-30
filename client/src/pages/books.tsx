@@ -434,10 +434,10 @@ export default function Books() {
                       setSelectedBook(null);
                       setLocation(`/child/${childId}/flashcards?bookId=${selectedBook.id}`);
                     }}
-                    data-testid="button-prepare-words"
+                    data-testid="button-unlock-words"
                   >
                     <Sparkles className="h-4 w-4" />
-                    Prepare Words
+                    Unlock Words
                   </Button>
                   <Button
                     variant="outline"
@@ -671,7 +671,7 @@ function BookCard({
                 data-testid={`button-practice-book-${item.book.id}`}
               >
                 <Sparkles className="h-3 w-3 mr-1" />
-                Prepare
+                Unlock
               </Button>
             )}
           </div>

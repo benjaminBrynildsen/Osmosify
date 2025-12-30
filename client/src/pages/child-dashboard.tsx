@@ -128,7 +128,7 @@ export default function ChildDashboard() {
             data-testid="button-books"
           >
             <BookMarked className="h-6 w-6" />
-            <span>Prepare Books</span>
+            <span>Unlock Books</span>
           </Button>
           <Button
             size="lg"

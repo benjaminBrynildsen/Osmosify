@@ -111,7 +111,7 @@ export function BookCoverCard({
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
             <div className="flex items-center gap-1 text-white text-xs">
               <Lock className="h-3 w-3" />
-              <span>Prepare {wordsToUnlock} words</span>
+              <span>Unlock {wordsToUnlock} words</span>
             </div>
           </div>
         )}

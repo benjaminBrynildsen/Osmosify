@@ -157,10 +157,10 @@ export default function Presets() {
                           size="sm"
                           variant="secondary"
                           onClick={() => setLocation(`/child/${childId}/flashcards?presetId=${preset.id}`)}
-                          data-testid={`button-prepare-preset-${preset.id}`}
+                          data-testid={`button-unlock-preset-${preset.id}`}
                         >
                           <Sparkles className="h-4 w-4 mr-2" />
-                          Prepare Words
+                          Unlock Words
                         </Button>
                         <Button
                           size="sm"

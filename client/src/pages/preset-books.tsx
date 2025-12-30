@@ -330,7 +330,7 @@ export default function PresetBooks() {
 
                 {selectedBookReadiness.percent < 100 && (
                   <p className="text-sm text-muted-foreground">
-                    Prepare {selectedBookReadiness.totalCount - selectedBookReadiness.masteredCount} more words to unlock this book!
+                    Unlock {selectedBookReadiness.totalCount - selectedBookReadiness.masteredCount} more words to read this book!
                   </p>
                 )}
 
@@ -341,10 +341,10 @@ export default function PresetBooks() {
                       setSelectedBook(null);
                       setLocation(`/child/${childId}/flashcards?bookId=${selectedBook.id}`);
                     }}
-                    data-testid="button-prepare-words"
+                    data-testid="button-unlock-words"
                   >
                     <Sparkles className="h-4 w-4" />
-                    Prepare Words
+                    Unlock Words
                   </Button>
                   <Button
                     variant="outline"
