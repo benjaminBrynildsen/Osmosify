@@ -158,7 +158,16 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     updatedProgress.set(wordId, updatedWordProg);
     setWordProgress(updatedProgress);
 
-    const feedbackDuration = isCorrect ? 800 : 500;
+    const feedbackDuration = isCorrect ? 800 : 5000;
+
+    if (!isCorrect && ttsEnabled && voicesReady && currentWord) {
+      speakWord(currentWord.word, voicePreference);
+      setTimeout(() => {
+        if (currentWord) {
+          speakWord(currentWord.word, voicePreference);
+        }
+      }, 2000);
+    }
 
     setTimeout(() => {
       setShowFeedback(null);
@@ -226,7 +235,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
         }
       }
     }, feedbackDuration);
-  }, [queue, wordProgress, mode, masteredIds, historyResults, totalWords, masteryThreshold, props, ttsEnabled, voicesReady, currentWord, timerSeconds]);
+  }, [queue, wordProgress, mode, masteredIds, historyResults, totalWords, masteryThreshold, props, ttsEnabled, voicesReady, currentWord, timerSeconds, voicePreference]);
 
   const handleAnswer = useCallback((isCorrect: boolean) => {
     if (processingRef.current || showFeedback !== null) return;
@@ -289,13 +298,6 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     }
   }, [currentWord, isComplete, isInitialized, voiceEnabled, speechSupported]);
 
-  useEffect(() => {
-    if (!currentWord || showFeedback !== null || isComplete || !isInitialized || !ttsEnabled || !voicesReady) {
-      return;
-    }
-
-    speakWord(currentWord.word, voicePreference);
-  }, [cardKey, currentWord, showFeedback, isComplete, isInitialized, ttsEnabled, voicesReady, voicePreference]);
 
   useEffect(() => {
     if (!currentWord || showFeedback !== null || isComplete || !isInitialized || processingRef.current) {
