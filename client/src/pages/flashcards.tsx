@@ -23,7 +23,13 @@ export default function Flashcards() {
   const searchParams = new URLSearchParams(searchString);
   const bookId = searchParams.get("bookId");
   const presetId = searchParams.get("presetId");
+  const wordPopWordsParam = searchParams.get("wordPopWords");
   const childId = params.id;
+
+  // Parse Word Pop words passed from the lesson flow
+  const wordPopWords = wordPopWordsParam 
+    ? decodeURIComponent(wordPopWordsParam).split(",").filter(w => w.length > 0)
+    : [];
   const { toast } = useToast();
   const [wordsImported, setWordsImported] = useState(false);
 
@@ -214,6 +220,7 @@ export default function Flashcards() {
             timerSeconds={timerSeconds}
             voicePreference={(child?.voicePreference as "nova" | "alloy" | "shimmer") || "nova"}
             initialWordCount={limitedDeck.length}
+            wordPopWords={wordPopWords}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center p-4">

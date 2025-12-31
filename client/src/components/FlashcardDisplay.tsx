@@ -35,6 +35,7 @@ type FlashcardDisplayProps = {
   timerSeconds?: number;
   voicePreference?: VoiceOption;
   initialWordCount?: number;
+  wordPopWords?: string[]; // Words practiced in Word Pop (for combined lesson celebration)
 } & (MasteryModeProps | HistoryModeProps);
 
 interface WordProgress {
@@ -44,7 +45,7 @@ interface WordProgress {
 }
 
 export function FlashcardDisplay(props: FlashcardDisplayProps) {
-  const { words, mode, timerSeconds = 7, voicePreference = "shimmer", initialWordCount: propInitialCount } = props;
+  const { words, mode, timerSeconds = 7, voicePreference = "shimmer", initialWordCount: propInitialCount, wordPopWords = [] } = props;
   const masteryThreshold = mode === "mastery" ? (props.masteryThreshold ?? 7) : 1;
 
   const [wordProgress, setWordProgress] = useState<Map<string, WordProgress>>(new Map());
@@ -71,6 +72,8 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
   const [sentenceCelebrationWords, setSentenceCelebrationWords] = useState<string[]>([]);
   const [lastCelebrationCount, setLastCelebrationCount] = useState(0);
   const [initialWordCount, setInitialWordCount] = useState(0);
+  const [showFinalCelebration, setShowFinalCelebration] = useState(false);
+  const [finalCelebrationPending, setFinalCelebrationPending] = useState(false);
   const initializedRef = useRef(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -426,6 +429,10 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
       .filter(id => !masteredIds.includes(id));
     
     if (remainingWordIds.length === 0) {
+      // If we have wordPopWords, trigger final celebration before completion
+      if (wordPopWords.length > 0) {
+        setFinalCelebrationPending(true);
+      }
       setIsComplete(true);
       if (mode === "mastery") {
         (props as MasteryModeProps).onComplete(masteredIds);
@@ -434,7 +441,46 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
       const shuffled = remainingWordIds.sort(() => Math.random() - 0.5);
       setQueue(shuffled);
     }
-  }, [wordProgress, masteredIds, queue, mode, props]);
+  }, [wordProgress, masteredIds, queue, mode, props, wordPopWords]);
+
+  // Trigger final celebration when isComplete and we have pending celebration
+  useEffect(() => {
+    if (isComplete && finalCelebrationPending && !showFinalCelebration) {
+      // Combine flashcard words with wordPopWords for final celebration
+      const flashcardWords = masteredIds.map(id => {
+        const prog = wordProgress.get(id);
+        return prog?.word.word || "";
+      }).filter(w => w.length > 0);
+      
+      const allWords = Array.from(new Set([...wordPopWords, ...flashcardWords]));
+      if (allWords.length > 0) {
+        setSentenceCelebrationWords(allWords);
+        setShowFinalCelebration(true);
+      }
+      setFinalCelebrationPending(false);
+    }
+  }, [isComplete, finalCelebrationPending, showFinalCelebration, masteredIds, wordProgress, wordPopWords]);
+
+  // Also trigger final celebration if complete and we have wordPopWords but no mid-session celebration happened
+  useEffect(() => {
+    if (isComplete && wordPopWords.length > 0 && !showFinalCelebration && !finalCelebrationPending && sentenceCelebrationWords.length === 0) {
+      const flashcardWords = masteredIds.map(id => {
+        const prog = wordProgress.get(id);
+        return prog?.word.word || "";
+      }).filter(w => w.length > 0);
+      
+      const allWords = Array.from(new Set([...wordPopWords, ...flashcardWords]));
+      if (allWords.length > 0) {
+        setSentenceCelebrationWords(allWords);
+        setShowFinalCelebration(true);
+      }
+    }
+  }, [isComplete, wordPopWords, showFinalCelebration, finalCelebrationPending, masteredIds, wordProgress, sentenceCelebrationWords]);
+
+  const handleFinalCelebrationComplete = useCallback(() => {
+    setShowFinalCelebration(false);
+    setSentenceCelebrationWords([]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -475,6 +521,16 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
       <SentenceCelebration
         masteredWords={sentenceCelebrationWords}
         onComplete={handleSentenceCelebrationComplete}
+      />
+    );
+  }
+
+  // Final celebration with combined Word Pop + Flashcard words
+  if (showFinalCelebration && sentenceCelebrationWords.length > 0) {
+    return (
+      <SentenceCelebration
+        masteredWords={sentenceCelebrationWords}
+        onComplete={handleFinalCelebrationComplete}
       />
     );
   }

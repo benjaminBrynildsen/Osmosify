@@ -37,6 +37,7 @@ export default function WordPop() {
   const lessonMode = searchParams.get("lessonMode") === "true";
   const childId = id || "";
 
+  // In lesson mode, skip celebration (it happens at end of flashcards)
   const [gameState, setGameState] = useState<"ready" | "playing" | "gameover" | "celebration">("ready");
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
@@ -254,8 +255,13 @@ export default function WordPop() {
       setLives(prev => {
         const newLives = prev - 1;
         if (newLives <= 0) {
-          // Show celebration if we have practiced words (use ref for synchronous access)
-          setGameState(practicedWordsRef.current.length > 0 ? "celebration" : "gameover");
+          // In lesson mode, skip celebration (it happens at end of flashcards)
+          // Otherwise show celebration if we have practiced words
+          if (lessonMode) {
+            setGameState("gameover");
+          } else {
+            setGameState(practicedWordsRef.current.length > 0 ? "celebration" : "gameover");
+          }
         }
         return newLives;
       });
@@ -288,8 +294,12 @@ export default function WordPop() {
           setLives(l => {
             const newLives = l - 1;
             if (newLives <= 0) {
-              // Show celebration if we have practiced words (use ref for synchronous access)
-              setGameState(practicedWordsRef.current.length > 0 ? "celebration" : "gameover");
+              // In lesson mode, skip celebration (it happens at end of flashcards)
+              if (lessonMode) {
+                setGameState("gameover");
+              } else {
+                setGameState(practicedWordsRef.current.length > 0 ? "celebration" : "gameover");
+              }
             } else {
               setTimeout(nextRound, 500);
             }
@@ -572,7 +582,11 @@ export default function WordPop() {
                 <Button 
                   size="lg"
                   className="w-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
-                  onClick={() => setLocation(`/child/${childId}/flashcards?bookId=${bookId}`)}
+                  onClick={() => {
+                    // Pass practiced words from Word Pop to Flashcards for combined celebration
+                    const wordsParam = encodeURIComponent(practicedWords.join(","));
+                    setLocation(`/child/${childId}/flashcards?bookId=${bookId}&wordPopWords=${wordsParam}`);
+                  }}
                   data-testid="button-continue-flashcards"
                 >
                   <Sparkles className="w-5 h-5 mr-2" />
