@@ -21,10 +21,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, Volume2 } from "lucide-react";
-import type { Child } from "@shared/schema";
+import { Save, Volume2, Palette } from "lucide-react";
+import type { Child, ThemeOption } from "@shared/schema";
 import { GRADE_LEVELS } from "@/lib/gradeLevels";
 import { speakWord, type VoiceOption } from "@/lib/speech";
+import { THEME_OPTIONS, getTheme } from "@/lib/themes";
 
 const VOICE_OPTIONS: { value: VoiceOption; label: string; description: string }[] = [
   { value: "nova", label: "Voice 1", description: "Warm and friendly" },
@@ -50,6 +51,7 @@ const settingsSchema = z.object({
   demoteOnMiss: z.boolean(),
   voicePreference: z.enum(["nova", "alloy", "shimmer"]),
   gifCelebrationsEnabled: z.boolean(),
+  theme: z.enum(["default", "space", "jungle", "ocean", "candy"]),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -74,6 +76,7 @@ export function SettingsPanel({ child, onSave, isSaving = false }: SettingsPanel
       demoteOnMiss: child.demoteOnMiss,
       voicePreference: (child.voicePreference as VoiceOption) || "shimmer",
       gifCelebrationsEnabled: child.gifCelebrationsEnabled ?? true,
+      theme: (child.theme as ThemeOption) || "default",
     },
   });
 
@@ -359,6 +362,51 @@ export function SettingsPanel({ child, onSave, isSaving = false }: SettingsPanel
                       data-testid="switch-gif-celebrations"
                     />
                   </FormControl>
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Palette className="h-5 w-5" />
+              Game Theme
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <FormField
+              control={form.control}
+              name="theme"
+              render={({ field }) => (
+                <FormItem>
+                  <FormDescription className="mb-3">
+                    Choose a visual theme for games like Lava Letters
+                  </FormDescription>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {THEME_OPTIONS.map((themeOpt) => {
+                      const themeData = getTheme(themeOpt.value);
+                      return (
+                        <div
+                          key={themeOpt.value}
+                          className={`relative p-3 rounded-md border cursor-pointer transition-all ${
+                            field.value === themeOpt.value
+                              ? "border-primary ring-2 ring-primary/20"
+                              : "border-border hover-elevate"
+                          }`}
+                          onClick={() => field.onChange(themeOpt.value)}
+                          data-testid={`theme-option-${themeOpt.value}`}
+                        >
+                          <div 
+                            className={`w-full h-12 rounded-md mb-2 ${themeData.background}`}
+                          />
+                          <div className="font-medium text-sm">{themeData.name}</div>
+                          <div className="text-xs text-muted-foreground">{themeOpt.description}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </FormItem>
               )}
             />

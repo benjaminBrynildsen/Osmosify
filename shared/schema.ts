@@ -15,6 +15,9 @@ import { users } from "./models/auth";
 // Voice options for TTS
 export type VoiceOption = "alloy" | "nova" | "shimmer";
 
+// Theme options for UI customization
+export type ThemeOption = "default" | "space" | "jungle" | "ocean" | "candy";
+
 // Children profiles
 export const children = pgTable("children", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -30,6 +33,7 @@ export const children = pgTable("children", {
   voicePreference: text("voice_preference").notNull().default("shimmer").$type<VoiceOption>(),
   sentencesRead: integer("sentences_read").notNull().default(0),
   gifCelebrationsEnabled: boolean("gif_celebrations_enabled").notNull().default(true),
+  theme: text("theme").notNull().default("default").$type<ThemeOption>(),
 });
 
 export const childrenRelations = relations(children, ({ many }) => ({
