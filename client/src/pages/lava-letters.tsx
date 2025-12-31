@@ -59,7 +59,7 @@ export default function LavaLetters() {
   const [practicedWords, setPracticedWords] = useState<string[]>([]);
   const [playedTime, setPlayedTime] = useState<number>(0);
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
-  const lastSavedWordRef = useRef<{ word: string; time: number } | null>(null);
+  const lastMatchTimeRef = useRef<number>(0);
   const playedTimeRef = useRef<number>(0);
   const lastResumeTimeRef = useRef<number>(0);
   
@@ -174,12 +174,10 @@ export default function LavaLetters() {
   const handleWordMatch = useCallback((match: { word: string; index: number; transcript: string; confidence: number }) => {
     setSpokenText(match.transcript);
     
-    // Prevent saving the same word multiple times from a single spoken word
-    // by adding a cooldown of 500ms for the same word
+    // Global cooldown: Only process one match per 800ms regardless of which word
+    // This prevents multiple words being matched from a single utterance
     const now = Date.now();
-    if (lastSavedWordRef.current && 
-        lastSavedWordRef.current.word === match.word && 
-        now - lastSavedWordRef.current.time < 500) {
+    if (now - lastMatchTimeRef.current < 800) {
       return;
     }
     
@@ -187,8 +185,8 @@ export default function LavaLetters() {
       const creatureIndex = prev.findIndex(c => c.word === match.word && !c.saved);
       if (creatureIndex === -1) return prev;
       
-      // Update the last saved word ref
-      lastSavedWordRef.current = { word: match.word, time: now };
+      // Update the global match time lock
+      lastMatchTimeRef.current = now;
       
       const updated = [...prev];
       updated[creatureIndex] = { ...updated[creatureIndex], saved: true };
@@ -278,7 +276,7 @@ export default function LavaLetters() {
     playedTimeRef.current = 0;
     lastResumeTimeRef.current = Date.now();
     setSpeedMultiplier(1);
-    lastSavedWordRef.current = null;
+    lastMatchTimeRef.current = 0;
     
     const initialProgress = new Map<string, WordProgress>();
     playableWords.forEach(pw => {
