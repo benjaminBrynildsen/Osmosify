@@ -173,26 +173,33 @@ export default function LavaLetters() {
     });
   }, [unclearedWords, speedMultiplier]);
 
-  const handleWordMatch = useCallback((match: { word: string; index: number; transcript: string; confidence: number }) => {
-    setSpokenText(match.transcript);
+  const handleAllMatches = useCallback((matches: { word: string; index: number; transcript: string; confidence: number }[]) => {
+    if (matches.length === 0) return;
+    
+    setSpokenText(matches[0].transcript);
     
     // Global cooldown: Only process one match per 800ms regardless of which word
-    // This prevents multiple words being matched from a single utterance
     const now = Date.now();
     if (now - lastMatchTimeRef.current < 800) {
       return;
     }
     
     setCreatures(prev => {
-      // Find all matching creatures that haven't been saved
-      const matchingCreatures = prev
-        .map((c, i) => ({ creature: c, index: i }))
-        .filter(({ creature }) => creature.word === match.word && !creature.saved);
+      // Find all creatures that match ANY of the detected words, prioritize by Y position
+      const allMatchingCreatures: { creature: Creature; creatureIdx: number; matchWord: string }[] = [];
       
-      if (matchingCreatures.length === 0) return prev;
+      for (const match of matches) {
+        prev.forEach((creature, idx) => {
+          if (creature.word === match.word && !creature.saved) {
+            allMatchingCreatures.push({ creature, creatureIdx: idx, matchWord: match.word });
+          }
+        });
+      }
       
-      // Prioritize the creature closest to the bottom (highest Y value = most danger)
-      const closestToBottom = matchingCreatures.reduce((closest, current) => 
+      if (allMatchingCreatures.length === 0) return prev;
+      
+      // Pick the creature closest to the bottom (highest Y = most danger)
+      const closestToBottom = allMatchingCreatures.reduce((closest, current) => 
         current.creature.y > closest.creature.y ? current : closest
       );
       
@@ -200,28 +207,32 @@ export default function LavaLetters() {
       lastMatchTimeRef.current = now;
       
       const updated = [...prev];
-      const creatureIndex = closestToBottom.index;
-      updated[creatureIndex] = { ...updated[creatureIndex], saved: true };
+      updated[closestToBottom.creatureIdx] = { ...updated[closestToBottom.creatureIdx], saved: true };
       
       playSuccessSound();
       setSavedCount(s => s + 1);
       
       setWordProgress(wp => {
         const newProgress = new Map(wp);
-        const current = newProgress.get(match.word) || { word: match.word, correctSaves: 0, cleared: false };
+        const current = newProgress.get(closestToBottom.matchWord) || { word: closestToBottom.matchWord, correctSaves: 0, cleared: false };
         const newSaves = current.correctSaves + 1;
         const cleared = newSaves >= masteryThreshold;
-        newProgress.set(match.word, { ...current, correctSaves: newSaves, cleared });
+        newProgress.set(closestToBottom.matchWord, { ...current, correctSaves: newSaves, cleared });
         return newProgress;
       });
       
       setTimeout(() => {
-        setCreatures(c => c.filter(creature => creature.id !== updated[creatureIndex].id));
+        setCreatures(c => c.filter(creature => creature.id !== updated[closestToBottom.creatureIdx].id));
       }, 500);
       
       return updated;
     });
   }, [masteryThreshold]);
+
+  const handleWordMatch = useCallback((match: { word: string; index: number; transcript: string; confidence: number }) => {
+    // Delegate to handleAllMatches with a single-item array
+    handleAllMatches([match]);
+  }, [handleAllMatches]);
 
   const handleManualSave = useCallback((creature: Creature) => {
     if (creature.saved) return;
@@ -263,10 +274,11 @@ export default function LavaLetters() {
       () => {
         speechRef.current = null;
         setIsListening(false);
-      }
+      },
+      handleAllMatches // Pass the new callback to prioritize by creature position
     );
     setIsListening(true);
-  }, [speechSupported, unclearedWords, handleWordMatch]);
+  }, [speechSupported, unclearedWords, handleWordMatch, handleAllMatches]);
 
   const stopListening = useCallback(() => {
     if (speechRef.current) {

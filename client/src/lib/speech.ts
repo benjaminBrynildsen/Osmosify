@@ -323,7 +323,8 @@ export function startContinuousListening(
   onWordMatch: (match: MultiWordMatch) => void,
   onInterimResult: (transcript: string) => void,
   onError: (error: string) => void,
-  onEnd: () => void
+  onEnd: () => void,
+  onAllMatches?: (matches: MultiWordMatch[]) => void
 ): { stop: () => void; updateTargetWords: (words: string[]) => void } {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   
@@ -347,6 +348,7 @@ export function startContinuousListening(
     if (stopped) return;
     
     let matchFoundThisEvent = false;
+    const allMatchesThisEvent: MultiWordMatch[] = [];
     
     for (let resultIndex = 0; resultIndex < event.results.length && !matchFoundThisEvent; resultIndex++) {
       const results = event.results[resultIndex];
@@ -357,21 +359,33 @@ export function startContinuousListening(
         
         onInterimResult(alternative.transcript);
         
+        // Collect ALL matching words from this transcript
         for (let wordIdx = 0; wordIdx < currentTargetWords.length; wordIdx++) {
           if (matchedWords.has(wordIdx)) continue;
           
           const target = currentTargetWords[wordIdx];
           if (checkWordMatch(transcript, target)) {
-            matchedWords.add(wordIdx);
-            onWordMatch({
+            allMatchesThisEvent.push({
               word: target,
               index: wordIdx,
               transcript: alternative.transcript,
               confidence: alternative.confidence || 0.9,
             });
-            // Only allow ONE match per recognition event
-            matchFoundThisEvent = true;
-            break;
+          }
+        }
+        
+        // If we found matches, let the game decide which one to use
+        if (allMatchesThisEvent.length > 0) {
+          matchFoundThisEvent = true;
+          
+          if (onAllMatches) {
+            // New callback: pass all matches to the game for prioritization
+            onAllMatches(allMatchesThisEvent);
+          } else {
+            // Legacy: just use the first match
+            const firstMatch = allMatchesThisEvent[0];
+            matchedWords.add(firstMatch.index);
+            onWordMatch(firstMatch);
           }
         }
       }
