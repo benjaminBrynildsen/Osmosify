@@ -11,6 +11,7 @@ import {
   startListening, 
   isSpeechRecognitionSupported,
   playSuccessSound,
+  unlockAudio,
   type RecognitionResult,
   type VoiceOption
 } from "@/lib/speech";
@@ -86,6 +87,19 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     initializeVoices().then(() => {
       setVoicesReady(true);
     });
+    
+    const handleFirstInteraction = () => {
+      unlockAudio();
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+    };
+    document.addEventListener('click', handleFirstInteraction);
+    document.addEventListener('touchstart', handleFirstInteraction);
+    
+    return () => {
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+    };
   }, []);
 
   const stopTimer = useCallback(() => {

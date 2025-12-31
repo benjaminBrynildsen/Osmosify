@@ -48,8 +48,36 @@ declare global {
 let browserVoices: SpeechSynthesisVoice[] = [];
 let voicesInitialized = false;
 let currentAudio: HTMLAudioElement | null = null;
+let audioUnlocked = false;
 
 export type VoiceOption = "alloy" | "nova" | "shimmer";
+
+export function unlockAudio(): void {
+  if (audioUnlocked) return;
+  
+  console.log("[TTS] Unlocking audio context...");
+  
+  const silentAudio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
+  silentAudio.volume = 0.01;
+  silentAudio.play().then(() => {
+    console.log("[TTS] Audio context unlocked via silent audio");
+    audioUnlocked = true;
+  }).catch((e) => {
+    console.warn("[TTS] Silent audio unlock failed, will retry on next interaction:", e);
+  });
+  
+  if ('speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+      const warmupUtterance = new SpeechSynthesisUtterance("");
+      warmupUtterance.volume = 0;
+      window.speechSynthesis.speak(warmupUtterance);
+      console.log("[TTS] Browser speech synthesis warmed up");
+    } catch (e) {
+      console.warn("[TTS] Browser speech synthesis warmup failed:", e);
+    }
+  }
+}
 
 const voicePreferences: Record<VoiceOption, { gender: "female" | "male" | "neutral"; keywords: string[] }> = {
   nova: { gender: "female", keywords: ["Google", "Samantha", "Karen", "Victoria", "Zira", "Female"] },
@@ -84,12 +112,15 @@ export async function speakWordWithOpenAI(
   voice: VoiceOption = "nova",
   speed: number = 0.9
 ): Promise<void> {
+  console.log(`[TTS] Speaking word: "${word}" with voice: ${voice}`);
+  
   if (currentAudio) {
     currentAudio.pause();
     currentAudio = null;
   }
 
   try {
+    console.log("[TTS] Attempting OpenAI TTS...");
     const response = await fetch("/api/tts/speak", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -102,32 +133,40 @@ export async function speakWordWithOpenAI(
     });
 
     if (!response.ok) {
-      throw new Error("TTS request failed");
+      const errorText = await response.text();
+      console.warn(`[TTS] OpenAI TTS failed with status ${response.status}: ${errorText}`);
+      throw new Error(`TTS request failed: ${response.status}`);
     }
 
     const audioBlob = await response.blob();
+    console.log(`[TTS] Received audio blob: ${audioBlob.size} bytes`);
     const audioUrl = URL.createObjectURL(audioBlob);
     
     return new Promise((resolve) => {
       currentAudio = new Audio(audioUrl);
       currentAudio.onended = () => {
+        console.log("[TTS] OpenAI audio playback completed");
         URL.revokeObjectURL(audioUrl);
         currentAudio = null;
         resolve();
       };
-      currentAudio.onerror = () => {
+      currentAudio.onerror = (e) => {
+        console.warn("[TTS] OpenAI audio playback error:", e);
         URL.revokeObjectURL(audioUrl);
         currentAudio = null;
-        resolve();
+        speakWordBrowser(word, voice, speed).then(resolve);
       };
-      currentAudio.play().catch(() => {
+      currentAudio.play().then(() => {
+        console.log("[TTS] OpenAI audio started playing");
+      }).catch((e) => {
+        console.warn("[TTS] OpenAI audio play() failed, trying browser TTS:", e);
         URL.revokeObjectURL(audioUrl);
         currentAudio = null;
-        resolve();
+        speakWordBrowser(word, voice, speed).then(resolve);
       });
     });
   } catch (error) {
-    console.warn("OpenAI TTS failed, falling back to browser TTS:", error);
+    console.warn("[TTS] OpenAI TTS failed, falling back to browser TTS:", error);
     return speakWordBrowser(word, voice, speed);
   }
 }
@@ -195,12 +234,21 @@ function selectVoiceForPreference(voiceOption: VoiceOption): SpeechSynthesisVoic
 
 function speakWordBrowser(word: string, voiceOption: VoiceOption = "nova", rate: number = 0.9): Promise<void> {
   return new Promise((resolve) => {
+    console.log(`[TTS] Using browser speech synthesis for: "${word}"`);
+    
     if (!('speechSynthesis' in window)) {
+      console.warn("[TTS] Browser speech synthesis not supported");
       resolve();
       return;
     }
 
-    window.speechSynthesis.cancel();
+    const synth = window.speechSynthesis;
+    
+    synth.cancel();
+    
+    if (synth.paused) {
+      synth.resume();
+    }
 
     const utterance = new SpeechSynthesisUtterance(word);
     utterance.rate = rate;
@@ -210,12 +258,42 @@ function speakWordBrowser(word: string, voiceOption: VoiceOption = "nova", rate:
     const selectedVoice = selectVoiceForPreference(voiceOption);
     if (selectedVoice) {
       utterance.voice = selectedVoice;
+      console.log(`[TTS] Using browser voice: ${selectedVoice.name}`);
+    } else {
+      console.log("[TTS] Using default browser voice");
     }
 
-    utterance.onend = () => resolve();
-    utterance.onerror = () => resolve();
+    let resolved = false;
+    const safeResolve = () => {
+      if (!resolved) {
+        resolved = true;
+        resolve();
+      }
+    };
 
-    window.speechSynthesis.speak(utterance);
+    utterance.onend = () => {
+      console.log("[TTS] Browser speech completed");
+      safeResolve();
+    };
+    
+    utterance.onerror = (e) => {
+      console.warn("[TTS] Browser speech error:", e);
+      safeResolve();
+    };
+
+    setTimeout(safeResolve, 10000);
+
+    synth.speak(utterance);
+    console.log("[TTS] Browser speech utterance queued");
+    
+    const checkInterval = setInterval(() => {
+      if (!synth.speaking && !synth.pending) {
+        clearInterval(checkInterval);
+        safeResolve();
+      }
+    }, 100);
+    
+    setTimeout(() => clearInterval(checkInterval), 10000);
   });
 }
 
