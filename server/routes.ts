@@ -1049,6 +1049,14 @@ Example format: "The cat ran to the big tree."`;
   // Seed presets on startup
   await storage.seedPresetWordLists(presetData);
   await storage.seedPresetBooks(presetBooksData);
+  
+  // Sync global word stats from preset books (for leverage-based prioritization)
+  try {
+    await storage.syncGlobalWordStats();
+    console.log("Global word stats synced successfully");
+  } catch (error) {
+    console.error("Failed to sync global word stats:", error);
+  }
 
   return httpServer;
 }
