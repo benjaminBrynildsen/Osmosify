@@ -9,6 +9,7 @@ import {
   speakWord,
   type MultiWordMatch 
 } from "@/lib/speech";
+import { useGifCelebration } from "./GifCelebration";
 
 interface SentenceCelebrationProps {
   childId: string;
@@ -32,6 +33,9 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
   const recognitionRef = useRef<{ stop: () => void; updateTargetWords: (words: string[]) => void } | null>(null);
   const speechSupported = isSpeechRecognitionSupported();
   const recognitionStartedRef = useRef(false);
+  
+  // GIF celebration hook
+  const { celebrate, GifCelebrationComponent } = useGifCelebration();
 
   useEffect(() => {
     generateSentence();
@@ -102,6 +106,7 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
         setTimeout(async () => {
           setIsComplete(true);
           playBigCelebrationSound();
+          celebrate("correct");
           stopListening();
           // Increment sentences read counter
           try {
@@ -320,6 +325,8 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
             <ArrowRight className="h-5 w-5" />
           </Button>
         </motion.div>
+        
+        {GifCelebrationComponent}
       </motion.div>
     );
   }
@@ -410,6 +417,8 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
           {completedWords.size} of {words.length} words read
         </p>
       </div>
+      
+      {GifCelebrationComponent}
     </div>
   );
 }

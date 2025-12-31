@@ -16,6 +16,7 @@ import {
   type VoiceOption
 } from "@/lib/speech";
 import { SentenceCelebration } from "./SentenceCelebration";
+import { useGifCelebration } from "./GifCelebration";
 
 interface MasteryModeProps {
   mode: "mastery";
@@ -82,6 +83,9 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
   const processingRef = useRef(false);
   const currentWordIdRef = useRef<string | null>(null);
   const recognitionStartedRef = useRef(false);
+  
+  // GIF celebration hook
+  const { celebrate, GifCelebrationComponent } = useGifCelebration();
 
   const prevWordIdsRef = useRef<string>("");
   const wordProgressRef = useRef<Map<string, WordProgress>>(new Map());
@@ -257,6 +261,9 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
           setMasteredIds(newMasteredIds);
           (props as MasteryModeProps).onWordMastered(wordId);
           
+          // Show celebratory GIF when a word is mastered
+          celebrate("correct");
+          
           const filteredQueue = newQueue.filter(id => id !== wordId);
           
           // Skip mid-session celebrations in lesson mode (when wordPopWords exist)
@@ -344,6 +351,9 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     if (isCorrect) {
       setTotalCorrect(prev => prev + 1);
       playSuccessSound();
+    } else {
+      // Show encouraging GIF for incorrect answers
+      celebrate("incorrect");
     }
 
     processAnswer(isCorrect, wordId, wordProg);
@@ -885,6 +895,8 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
           </Button>
         </div>
       </div>
+      
+      {GifCelebrationComponent}
     </div>
   );
 }
