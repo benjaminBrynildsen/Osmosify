@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { AppHeader } from "@/components/AppHeader";
 import { SessionCard } from "@/components/SessionCard";
 import { StatBlock, StatsGrid } from "@/components/StatBlock";
@@ -357,11 +358,12 @@ export default function ChildDashboard() {
           <Button
             size="lg"
             variant="outline"
-            className="h-auto py-4 flex-col gap-2 bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/30"
+            className="h-auto py-4 flex-col gap-2 bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/30 relative"
             onClick={() => setLocation(`/child/${childId}/lava-letters`)}
             disabled={(words?.length || 0) < 2}
             data-testid="button-lava-letters"
           >
+            <Badge className="absolute top-1 right-1 text-xs bg-green-500 text-white">NEW</Badge>
             <Flame className="h-6 w-6 text-orange-500" />
             <span>Lava Letters</span>
           </Button>

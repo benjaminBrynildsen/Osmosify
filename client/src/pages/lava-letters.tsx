@@ -5,7 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Heart, Play, RotateCcw, Mic, MicOff, Check, X, Flame, Trophy, Star } from "lucide-react";
+import { ArrowLeft, Heart, Play, RotateCcw, Mic, MicOff, Check, X, Flame, Trophy, Star, Pause } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { startContinuousListening, playSuccessSound, isSpeechRecognitionSupported } from "@/lib/speech";
 import { SentenceCelebration } from "@/components/SentenceCelebration";
@@ -49,7 +49,7 @@ export default function LavaLetters() {
     ? decodeURIComponent(practicedWordsParam).split(",").filter(w => w.length > 0)
     : [];
 
-  const [gameState, setGameState] = useState<"ready" | "playing" | "gameover" | "celebration" | "victory">("ready");
+  const [gameState, setGameState] = useState<"ready" | "playing" | "paused" | "gameover" | "celebration" | "victory">("ready");
   const [lives, setLives] = useState(3);
   const [creatures, setCreatures] = useState<Creature[]>([]);
   const [wordProgress, setWordProgress] = useState<Map<string, WordProgress>>(new Map());
@@ -57,6 +57,11 @@ export default function LavaLetters() {
   const [spokenText, setSpokenText] = useState("");
   const [savedCount, setSavedCount] = useState(0);
   const [practicedWords, setPracticedWords] = useState<string[]>([]);
+  const [playedTime, setPlayedTime] = useState<number>(0);
+  const [speedMultiplier, setSpeedMultiplier] = useState(1);
+  const lastSavedWordRef = useRef<{ word: string; time: number } | null>(null);
+  const playedTimeRef = useRef<number>(0);
+  const lastResumeTimeRef = useRef<number>(0);
   
   const gameAreaRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
@@ -131,33 +136,59 @@ export default function LavaLetters() {
     if (!gameAreaRef.current || unclearedWords.length === 0) return;
     
     const areaWidth = gameAreaRef.current.offsetWidth;
-    const randomWord = unclearedWords[Math.floor(Math.random() * unclearedWords.length)];
-    const size = 80 + randomWord.word.length * 4;
-    const x = Math.random() * (areaWidth - size - 20) + 10;
     
-    const newCreature: Creature = {
-      id: creatureIdRef.current++,
-      word: randomWord.word,
-      x,
-      y: -100,
-      speed: 0.8 + Math.random() * 0.4,
-      saved: false,
-    };
-    
-    setCreatures(prev => [...prev, newCreature]);
-    
-    if (!practicedWordsRef.current.includes(randomWord.word)) {
-      practicedWordsRef.current = [...practicedWordsRef.current, randomWord.word];
-      setPracticedWords([...practicedWordsRef.current]);
-    }
-  }, [unclearedWords]);
+    // Use functional update to check for active words without depending on creatures state
+    setCreatures(prev => {
+      // Get words that are NOT already falling (active in creatures list)
+      const activeWords = new Set(prev.filter(c => !c.saved).map(c => c.word));
+      const availableWords = unclearedWords.filter(w => !activeWords.has(w.word));
+      
+      // If all uncleared words are already falling, don't spawn
+      if (availableWords.length === 0) return prev;
+      
+      const randomWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+      const size = 80 + randomWord.word.length * 4;
+      const x = Math.random() * (areaWidth - size - 20) + 10;
+      
+      // Apply speed multiplier for progressive difficulty
+      const baseSpeed = 0.8 + Math.random() * 0.4;
+      
+      const newCreature: Creature = {
+        id: creatureIdRef.current++,
+        word: randomWord.word,
+        x,
+        y: -100,
+        speed: baseSpeed * speedMultiplier,
+        saved: false,
+      };
+      
+      if (!practicedWordsRef.current.includes(randomWord.word)) {
+        practicedWordsRef.current = [...practicedWordsRef.current, randomWord.word];
+        setPracticedWords([...practicedWordsRef.current]);
+      }
+      
+      return [...prev, newCreature];
+    });
+  }, [unclearedWords, speedMultiplier]);
 
   const handleWordMatch = useCallback((match: { word: string; index: number; transcript: string; confidence: number }) => {
     setSpokenText(match.transcript);
     
+    // Prevent saving the same word multiple times from a single spoken word
+    // by adding a cooldown of 500ms for the same word
+    const now = Date.now();
+    if (lastSavedWordRef.current && 
+        lastSavedWordRef.current.word === match.word && 
+        now - lastSavedWordRef.current.time < 500) {
+      return;
+    }
+    
     setCreatures(prev => {
       const creatureIndex = prev.findIndex(c => c.word === match.word && !c.saved);
       if (creatureIndex === -1) return prev;
+      
+      // Update the last saved word ref
+      lastSavedWordRef.current = { word: match.word, time: now };
       
       const updated = [...prev];
       updated[creatureIndex] = { ...updated[creatureIndex], saved: true };
@@ -243,6 +274,11 @@ export default function LavaLetters() {
     setPracticedWords([]);
     practicedWordsRef.current = [];
     creatureIdRef.current = 0;
+    setPlayedTime(0);
+    playedTimeRef.current = 0;
+    lastResumeTimeRef.current = Date.now();
+    setSpeedMultiplier(1);
+    lastSavedWordRef.current = null;
     
     const initialProgress = new Map<string, WordProgress>();
     playableWords.forEach(pw => {
@@ -255,6 +291,23 @@ export default function LavaLetters() {
     }
   }, [playableWords, speechSupported, startListening]);
 
+  const togglePause = useCallback(() => {
+    if (gameState === "playing") {
+      // Accumulate played time when pausing
+      playedTimeRef.current += Date.now() - lastResumeTimeRef.current;
+      setPlayedTime(playedTimeRef.current);
+      setGameState("paused");
+      stopListening();
+    } else if (gameState === "paused") {
+      // Track resume time when resuming
+      lastResumeTimeRef.current = Date.now();
+      setGameState("playing");
+      if (speechSupported) {
+        startListening();
+      }
+    }
+  }, [gameState, speechSupported, startListening, stopListening]);
+
   const handleCelebrationComplete = useCallback(() => {
     // In lesson mode, go back to dashboard; otherwise show game over
     if (lessonMode) {
@@ -263,6 +316,22 @@ export default function LavaLetters() {
       setGameState("gameover");
     }
   }, [lessonMode, childId, setLocation]);
+
+  // Progressive difficulty: increase speed every 30 seconds of actual play time
+  useEffect(() => {
+    if (gameState !== "playing") return;
+    
+    const interval = setInterval(() => {
+      // Calculate total played time: accumulated + current session
+      const currentSessionTime = Date.now() - lastResumeTimeRef.current;
+      const totalPlayedSeconds = (playedTimeRef.current + currentSessionTime) / 1000;
+      // Increase speed by 10% every 30 seconds, max 2x speed
+      const newMultiplier = Math.min(2, 1 + Math.floor(totalPlayedSeconds / 30) * 0.1);
+      setSpeedMultiplier(newMultiplier);
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [gameState]);
 
   useEffect(() => {
     if (gameState !== "playing") {
@@ -443,17 +512,30 @@ export default function LavaLetters() {
           </Badge>
         </div>
         
-        {speechSupported && gameState === "playing" && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={isListening ? stopListening : startListening}
-            className={isListening ? "text-green-400" : "text-white"}
-            data-testid="button-toggle-mic"
-          >
-            {isListening ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {(gameState === "playing" || gameState === "paused") && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={togglePause}
+              className="text-white"
+              data-testid="button-pause"
+            >
+              {gameState === "paused" ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+            </Button>
+          )}
+          {speechSupported && gameState === "playing" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={isListening ? stopListening : startListening}
+              className={isListening ? "text-green-400" : "text-white"}
+              data-testid="button-toggle-mic"
+            >
+              {isListening ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+            </Button>
+          )}
+        </div>
       </div>
 
       {sourceName && (
@@ -506,6 +588,40 @@ export default function LavaLetters() {
                 <Play className="h-5 w-5" />
                 Start Game
               </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {gameState === "paused" && (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <Card className="max-w-sm w-full bg-slate-800/90 border-orange-500/50">
+            <CardContent className="p-6 text-center">
+              <Pause className="w-16 h-16 mx-auto text-orange-400 mb-4" />
+              <h2 className="text-2xl font-bold text-white mb-4">Game Paused</h2>
+              <div className="space-y-3">
+                <Button
+                  size="lg"
+                  className="w-full gap-2 bg-orange-600 hover:bg-orange-700"
+                  onClick={togglePause}
+                  data-testid="button-resume"
+                >
+                  <Play className="h-5 w-5" />
+                  Resume
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full gap-2 text-white border-white/30"
+                  onClick={() => {
+                    stopListening();
+                    setLocation(backPath);
+                  }}
+                  data-testid="button-quit-paused"
+                >
+                  Quit Game
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
