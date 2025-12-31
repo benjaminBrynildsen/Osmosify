@@ -155,7 +155,7 @@ export default function ChildDashboard() {
         <StatsGrid>
           <StatBlock
             value={words?.length || 0}
-            label="My Words"
+            label="Words in My Library"
             icon={BookOpen}
           />
           <StatBlock
@@ -165,7 +165,7 @@ export default function ChildDashboard() {
           />
           <StatBlock
             value={gradeLevel?.gradeLevel || "Pre-K"}
-            label="Grade Level"
+            label="Reading Level"
             icon={GraduationCap}
           />
           <StatBlock
