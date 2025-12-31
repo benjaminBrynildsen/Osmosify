@@ -50,6 +50,7 @@ export default function WordPop() {
   const [celebrateWord, setCelebrateWord] = useState<string>("");
   const [wordsPlayed, setWordsPlayed] = useState(0);
   const [practicedWords, setPracticedWords] = useState<string[]>([]);
+  const practicedWordsRef = useRef<string[]>([]);
   const gameAreaRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
   const bubbleIdRef = useRef(0);
@@ -173,13 +174,11 @@ export default function WordPop() {
     const targetWordData = playableWords[currentIndex];
     setTargetWord(targetWordData.word);
     setWordsPlayed(prev => prev + 1);
-    // Track this word as practiced (avoid duplicates)
-    setPracticedWords(prev => {
-      if (!prev.includes(targetWordData.word)) {
-        return [...prev, targetWordData.word];
-      }
-      return prev;
-    });
+    // Track this word as practiced (synchronous ref for immediate access + state for render)
+    if (!practicedWordsRef.current.includes(targetWordData.word)) {
+      practicedWordsRef.current = [...practicedWordsRef.current, targetWordData.word];
+    }
+    setPracticedWords([...practicedWordsRef.current]);
     spawnBubbles(targetWordData.word, lvl, round);
     
     setTimeout(() => {
@@ -200,6 +199,7 @@ export default function WordPop() {
     setWordsPlayed(0);
     setBestStreak(0);
     setPracticedWords([]);
+    practicedWordsRef.current = [];
     nextRound(1, 0);
   }, [nextRound]);
   
@@ -254,8 +254,8 @@ export default function WordPop() {
       setLives(prev => {
         const newLives = prev - 1;
         if (newLives <= 0) {
-          // Show celebration if we have practiced words, otherwise go straight to gameover
-          setGameState(practicedWords.length > 0 ? "celebration" : "gameover");
+          // Show celebration if we have practiced words (use ref for synchronous access)
+          setGameState(practicedWordsRef.current.length > 0 ? "celebration" : "gameover");
         }
         return newLives;
       });
@@ -288,8 +288,8 @@ export default function WordPop() {
           setLives(l => {
             const newLives = l - 1;
             if (newLives <= 0) {
-              // Show celebration if we have practiced words
-              setGameState(practicedWords.length > 0 ? "celebration" : "gameover");
+              // Show celebration if we have practiced words (use ref for synchronous access)
+              setGameState(practicedWordsRef.current.length > 0 ? "celebration" : "gameover");
             } else {
               setTimeout(nextRound, 500);
             }

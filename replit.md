@@ -13,6 +13,7 @@ A mobile-first educational web application designed for parents to track their c
 - **Book Library** with Open Library integration, custom cover uploads, and readiness scores
 - **Purchase Links** for Amazon and Bookshop.org generated from book metadata
 - **Community Contributions** allowing users to submit books for moderation approval
+- **Magic Moment Celebration** - After completing Word Pop or Flashcards, children read a custom sentence containing all practiced words
 
 ## User Preferences
 
