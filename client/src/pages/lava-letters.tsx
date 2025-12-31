@@ -9,7 +9,8 @@ import { ArrowLeft, Heart, Play, RotateCcw, Mic, MicOff, Check, X, Flame, Trophy
 import { motion, AnimatePresence } from "framer-motion";
 import { startContinuousListening, playSuccessSound, isSpeechRecognitionSupported } from "@/lib/speech";
 import { SentenceCelebration } from "@/components/SentenceCelebration";
-import type { Word, Child, Book, PresetWordList } from "@shared/schema";
+import { getTheme } from "@/lib/themes";
+import type { Word, Child, Book, PresetWordList, ThemeOption } from "@shared/schema";
 
 interface PrioritizedWord {
   word: string;
@@ -97,6 +98,7 @@ export default function LavaLetters() {
 
   const masteryThreshold = child?.masteryThreshold || 4;
   const deckSize = child?.deckSize || 4;
+  const theme = getTheme((child?.theme as ThemeOption) || "default");
 
   const playableWords = useMemo(() => {
     if (hasValidBookId) {
@@ -481,7 +483,7 @@ export default function LavaLetters() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-orange-900 flex flex-col">
+    <div className={`min-h-screen ${theme.background} flex flex-col`}>
       <div className="flex items-center justify-between p-3 bg-black/30">
         <Button
           variant="ghost"
@@ -544,17 +546,17 @@ export default function LavaLetters() {
 
       {gameState === "ready" && (
         <div className="flex-1 flex items-center justify-center p-4">
-          <Card className="max-w-sm w-full bg-slate-800/80 border-orange-500/50">
+          <Card className={`max-w-sm w-full ${theme.cardBg} ${theme.cardBorder} border`}>
             <CardContent className="p-6 text-center">
               <div className="mb-6">
-                <Flame className="w-20 h-20 mx-auto text-orange-500 animate-pulse" />
+                <Flame className={`w-20 h-20 mx-auto ${theme.accentColor} animate-pulse`} />
               </div>
-              <h1 className="text-3xl font-bold text-white mb-2">Lava Letters</h1>
-              <p className="text-white/70 mb-6">
-                Say the words to save the creatures before they fall into the lava!
+              <h1 className={`text-3xl font-bold ${theme.textColor} mb-2`}>{theme.name} Letters</h1>
+              <p className={`${theme.textColor} opacity-70 mb-6`}>
+                Say the words to save the creatures before they fall!
               </p>
               
-              <div className="space-y-3 mb-6 text-left text-white/80 text-sm">
+              <div className={`space-y-3 mb-6 text-left ${theme.textColor} opacity-80 text-sm`}>
                 <div className="flex items-center gap-2">
                   <Mic className="h-4 w-4 text-green-400" />
                   <span>Speak words to save creatures</span>
@@ -571,7 +573,7 @@ export default function LavaLetters() {
 
               <div className="flex flex-wrap gap-2 justify-center mb-6">
                 {playableWords.map((pw, i) => (
-                  <Badge key={i} variant="outline" className="text-white border-white/30">
+                  <Badge key={i} variant="outline" className={`${theme.textColor} border-white/30`}>
                     {pw.word}
                   </Badge>
                 ))}
@@ -579,7 +581,7 @@ export default function LavaLetters() {
               
               <Button
                 size="lg"
-                className="w-full gap-2 bg-orange-600 hover:bg-orange-700"
+                className={`w-full gap-2 ${theme.creatureGradient} text-white`}
                 onClick={startGame}
                 data-testid="button-start-game"
               >
@@ -593,14 +595,14 @@ export default function LavaLetters() {
 
       {gameState === "paused" && (
         <div className="flex-1 flex items-center justify-center p-4">
-          <Card className="max-w-sm w-full bg-slate-800/90 border-orange-500/50">
+          <Card className={`max-w-sm w-full ${theme.cardBg} ${theme.cardBorder} border`}>
             <CardContent className="p-6 text-center">
-              <Pause className="w-16 h-16 mx-auto text-orange-400 mb-4" />
-              <h2 className="text-2xl font-bold text-white mb-4">Game Paused</h2>
+              <Pause className={`w-16 h-16 mx-auto ${theme.accentColor} mb-4`} />
+              <h2 className={`text-2xl font-bold ${theme.textColor} mb-4`}>Game Paused</h2>
               <div className="space-y-3">
                 <Button
                   size="lg"
-                  className="w-full gap-2 bg-orange-600 hover:bg-orange-700"
+                  className={`w-full gap-2 ${theme.creatureGradient} text-white`}
                   onClick={togglePause}
                   data-testid="button-resume"
                 >
@@ -610,7 +612,7 @@ export default function LavaLetters() {
                 <Button
                   variant="outline"
                   size="lg"
-                  className="w-full gap-2 text-white border-white/30"
+                  className={`w-full gap-2 ${theme.textColor} border-white/30`}
                   onClick={() => {
                     stopListening();
                     setLocation(backPath);
@@ -651,8 +653,8 @@ export default function LavaLetters() {
                   <div 
                     className={`relative rounded-2xl px-4 py-3 ${
                       creature.saved 
-                        ? "bg-green-500" 
-                        : "bg-gradient-to-b from-purple-500 to-purple-700"
+                        ? theme.creatureSavedColor 
+                        : theme.creatureGradient
                     } shadow-lg`}
                   >
                     <span className="text-white font-bold text-lg block text-center">
@@ -696,8 +698,8 @@ export default function LavaLetters() {
               ))}
             </AnimatePresence>
             
-            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-orange-600 via-orange-500 to-transparent">
-              <div className="absolute inset-0 bg-gradient-to-r from-red-600/50 via-orange-500/50 to-red-600/50 animate-pulse" />
+            <div className={`absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t ${theme.dangerZoneColor} to-transparent`}>
+              <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-white/20 to-white/10 animate-pulse" />
             </div>
           </div>
 
@@ -737,21 +739,21 @@ export default function LavaLetters() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
-          <Card className="max-w-sm w-full bg-slate-800 border-orange-500/50">
+          <Card className={`max-w-sm w-full ${theme.cardBg} ${theme.cardBorder} border`}>
             <CardContent className="p-6 text-center">
               {gameState === "victory" ? (
                 <>
                   <Trophy className="w-16 h-16 mx-auto text-yellow-400 mb-4" />
-                  <h2 className="text-2xl font-bold text-white mb-2">Victory!</h2>
-                  <p className="text-white/70 mb-4">
+                  <h2 className={`text-2xl font-bold ${theme.textColor} mb-2`}>Victory!</h2>
+                  <p className={`${theme.textColor} opacity-70 mb-4`}>
                     You saved all the creatures and cleared every word!
                   </p>
                 </>
               ) : (
                 <>
-                  <Flame className="w-16 h-16 mx-auto text-orange-500 mb-4" />
-                  <h2 className="text-2xl font-bold text-white mb-2">Game Over</h2>
-                  <p className="text-white/70 mb-4">
+                  <Flame className={`w-16 h-16 mx-auto ${theme.accentColor} mb-4`} />
+                  <h2 className={`text-2xl font-bold ${theme.textColor} mb-2`}>Game Over</h2>
+                  <p className={`${theme.textColor} opacity-70 mb-4`}>
                     You saved {savedCount} creatures!
                   </p>
                 </>
@@ -769,7 +771,7 @@ export default function LavaLetters() {
                 </Button>
                 <Button
                   onClick={startGame}
-                  className="gap-2 bg-orange-600 hover:bg-orange-700"
+                  className={`gap-2 ${theme.creatureGradient} text-white`}
                   data-testid="button-play-again"
                 >
                   <RotateCcw className="h-4 w-4" />

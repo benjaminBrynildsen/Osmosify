@@ -12,6 +12,7 @@ export interface GameTheme {
   textColor: string;
   cardBg: string;
   cardBorder: string;
+  previewGradient: string;
 }
 
 export const GAME_THEMES: Record<ThemeOption, GameTheme> = {
@@ -27,6 +28,7 @@ export const GAME_THEMES: Record<ThemeOption, GameTheme> = {
     textColor: "text-white",
     cardBg: "bg-slate-800/80",
     cardBorder: "border-orange-500/50",
+    previewGradient: "linear-gradient(to bottom, #1e293b, #334155, #7c2d12)",
   },
   space: {
     name: "Space",
@@ -40,6 +42,7 @@ export const GAME_THEMES: Record<ThemeOption, GameTheme> = {
     textColor: "text-white",
     cardBg: "bg-indigo-900/80",
     cardBorder: "border-cyan-500/50",
+    previewGradient: "linear-gradient(to bottom, #1e1b4b, #3b0764, #000000)",
   },
   jungle: {
     name: "Jungle",
@@ -53,6 +56,7 @@ export const GAME_THEMES: Record<ThemeOption, GameTheme> = {
     textColor: "text-white",
     cardBg: "bg-green-900/80",
     cardBorder: "border-lime-500/50",
+    previewGradient: "linear-gradient(to bottom, #022c22, #14532d, #365314)",
   },
   ocean: {
     name: "Ocean",
@@ -66,6 +70,7 @@ export const GAME_THEMES: Record<ThemeOption, GameTheme> = {
     textColor: "text-white",
     cardBg: "bg-blue-900/80",
     cardBorder: "border-teal-500/50",
+    previewGradient: "linear-gradient(to bottom, #172554, #164e63, #134e4a)",
   },
   candy: {
     name: "Candy",
@@ -79,6 +84,7 @@ export const GAME_THEMES: Record<ThemeOption, GameTheme> = {
     textColor: "text-white",
     cardBg: "bg-fuchsia-600/80",
     cardBorder: "border-yellow-400/50",
+    previewGradient: "linear-gradient(to bottom, #f472b6, #d946ef, #9333ea)",
   },
 };
 

@@ -399,7 +399,8 @@ export function SettingsPanel({ child, onSave, isSaving = false }: SettingsPanel
                           data-testid={`theme-option-${themeOpt.value}`}
                         >
                           <div 
-                            className={`w-full h-12 rounded-md mb-2 ${themeData.background}`}
+                            className="w-full h-12 rounded-md mb-2"
+                            style={{ background: themeData.previewGradient }}
                           />
                           <div className="font-medium text-sm">{themeData.name}</div>
                           <div className="text-xs text-muted-foreground">{themeOpt.description}</div>
