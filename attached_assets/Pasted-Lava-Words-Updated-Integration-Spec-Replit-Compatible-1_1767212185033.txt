@@ -1,0 +1,108 @@
+Lava Words — Updated Integration Spec (Replit-Compatible)
+
+1) Speech Behavior (Clarification)
+
+Lava Words does not speak the words.
+It only listens for the child’s speech and uses that input to “save” creatures.
+
+Suggested behavior:
+	•	Creatures display a word visually.
+	•	The game listens continuously (or via your existing press-to-talk model).
+	•	When the child says a word correctly, the matching creature is cleared.
+
+Fallback remains consistent with the rest of the app:
+	•	Manual ✓ / X (if you already support it elsewhere) can be available if speech is unreliable.
+
+⸻
+
+2) Placement in the Product (Two Access Paths)
+
+A) Lesson Mode (guided journey)
+
+If the user taps Start Lesson, the recommended order is:
+	1.	Word Pop Game
+	2.	Flashcards
+	3.	Lava Words
+	4.	Celebratory sentence / moment
+
+All steps use the same deck / word set for that book/session.
+
+B) Free Play Mode (book page options)
+
+On each Book screen, Lava Words should also appear as a standalone option, alongside the other modes.
+
+Suggested layout at the bottom of each book:
+	•	Play Word Pop
+	•	Play Flashcards
+	•	Play Lava Words
+	•	Start Lesson (runs the full sequence)
+
+This matches your existing pattern (separate play buttons + a guided lesson entry point).
+
+⸻
+
+3) Word Set Consistency (Deck Reuse)
+
+Lava Words should pull from the same active deck the user is working on (whatever your current deck-generation logic provides).
+
+Important constraints:
+	•	Lava Words uses only the words in the deck.
+	•	It does not introduce additional words.
+	•	It repeats the same words until they are cleared.
+
+⸻
+
+4) “Clear a Word” Rule (Linked to Deck Settings)
+
+Instead of a fixed “4 correct,” tie the number of correct saves required to your existing setting.
+
+Suggested setting
+	•	required_correct_to_clear
+	•	range: 3 to 10
+	•	default: 4
+
+Behavior
+	•	Each word in the deck has a session counter:
+	•	correct_saves_for_word
+	•	When correct_saves_for_word >= required_correct_to_clear:
+	•	that word is removed from the active Lava Words loop (no longer spawns)
+	•	The game ends when all deck words are cleared OR the player runs out of lives.
+
+This makes Lava Words automatically adapt to:
+	•	different deck difficulty preferences
+	•	parent/teacher control
+	•	“quick win” mode vs “deep repetition” mode
+
+⸻
+
+5) Lives (Suggested Defaults)
+	•	Default lives: 3
+	•	If a creature hits the lava:
+	•	lose 1 life
+	•	If lives reach 0:
+	•	game ends early
+	•	remaining words stay uncleared (still available next time)
+
+⸻
+
+6) End-of-Game → Celebration
+
+When Lava Words ends (cleared or failed):
+	•	show the celebratory sentence
+	•	optional GIF / animation
+	•	then return to:
+	•	Lesson flow summary (if in Start Lesson), or
+	•	Book screen (if played standalone)
+
+⸻
+
+7) Summary of What’s Now Explicitly True
+	•	Lava Words does not speak words
+	•	Lava Words only listens for speech
+	•	Lava Words is available:
+	•	as standalone play under each book, and
+	•	as Step 3 inside Start Lesson
+	•	Clearing a word uses required_correct_to_clear:
+	•	range 3–10
+	•	default 4
+	•	Lava Words uses only the active deck words and repeats them until cleared
