@@ -145,10 +145,18 @@ export default function Flashcards() {
 
   const handleComplete = (masteredWordIds: string[]) => {
     queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "words"] });
-    toast({
-      title: "Session Complete!",
-      description: `Unlocked ${masteredWordIds.length} words in this session.`,
-    });
+    // Only show toast in standalone mode, not lesson mode
+    if (wordPopWords.length === 0) {
+      toast({
+        title: "Session Complete!",
+        description: `Unlocked ${masteredWordIds.length} words in this session.`,
+      });
+    }
+  };
+
+  // Called after final celebration in lesson mode - navigate back to dashboard
+  const handleLessonComplete = () => {
+    setLocation(`/child/${childId}`);
   };
 
   // Build the deck with prioritization - must be called before any early returns (hooks rule)
@@ -221,6 +229,7 @@ export default function Flashcards() {
             voicePreference={(child?.voicePreference as "nova" | "alloy" | "shimmer") || "nova"}
             initialWordCount={limitedDeck.length}
             wordPopWords={wordPopWords}
+            onLessonComplete={wordPopWords.length > 0 ? handleLessonComplete : undefined}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center p-4">

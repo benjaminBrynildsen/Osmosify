@@ -36,6 +36,7 @@ type FlashcardDisplayProps = {
   voicePreference?: VoiceOption;
   initialWordCount?: number;
   wordPopWords?: string[]; // Words practiced in Word Pop (for combined lesson celebration)
+  onLessonComplete?: () => void; // Called after final celebration in lesson mode
 } & (MasteryModeProps | HistoryModeProps);
 
 interface WordProgress {
@@ -45,7 +46,7 @@ interface WordProgress {
 }
 
 export function FlashcardDisplay(props: FlashcardDisplayProps) {
-  const { words, mode, timerSeconds = 7, voicePreference = "shimmer", initialWordCount: propInitialCount, wordPopWords = [] } = props;
+  const { words, mode, timerSeconds = 7, voicePreference = "shimmer", initialWordCount: propInitialCount, wordPopWords = [], onLessonComplete } = props;
   const masteryThreshold = mode === "mastery" ? (props.masteryThreshold ?? 7) : 1;
 
   const [wordProgress, setWordProgress] = useState<Map<string, WordProgress>>(new Map());
@@ -468,7 +469,11 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     setShowFinalCelebration(false);
     setFinalCelebrationDone(true);
     setSentenceCelebrationWords([]);
-  }, []);
+    // Navigate back to dashboard after lesson celebration
+    if (onLessonComplete) {
+      onLessonComplete();
+    }
+  }, [onLessonComplete]);
 
   useEffect(() => {
     return () => {
