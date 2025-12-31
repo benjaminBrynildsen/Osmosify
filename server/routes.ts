@@ -994,6 +994,29 @@ Example: If required words are "cat, run, big" you might write "The big cat can 
     }
   });
 
+  // Admin endpoint to import books from Project Gutenberg (Gutendex)
+  app.post("/api/admin/import-gutendex", ensureAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!user.length || user[0].role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const { importGutendexBooks, syncGlobalWordStatsAfterImport } = await import("./gutendexImport");
+      const result = await importGutendexBooks();
+      await syncGlobalWordStatsAfterImport();
+      
+      res.json({ 
+        message: "Gutendex import completed",
+        ...result
+      });
+    } catch (error) {
+      console.error("Error importing from Gutendex:", error);
+      res.status(500).json({ error: "Failed to import from Gutendex" });
+    }
+  });
+
   // Get global word stats (for debugging/admin)
   app.get("/api/admin/global-word-stats", ensureAuthenticated, async (req, res) => {
     try {
