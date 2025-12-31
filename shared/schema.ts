@@ -240,6 +240,25 @@ export const insertBookUnlockSchema = createInsertSchema(bookUnlocks).omit({
 export type InsertBookUnlock = z.infer<typeof insertBookUnlockSchema>;
 export type BookUnlock = typeof bookUnlocks.$inferSelect;
 
+// Global word statistics for leverage-based prioritization
+// Tracks word frequency across ALL books in the library
+export const globalWordStats = pgTable("global_word_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  word: text("word").notNull().unique(),
+  bookCount: integer("book_count").notNull().default(0),
+  totalOccurrences: integer("total_occurrences").notNull().default(0),
+  leverageScore: integer("leverage_score").notNull().default(0),
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+});
+
+export const insertGlobalWordStatsSchema = createInsertSchema(globalWordStats).omit({
+  id: true,
+  lastUpdated: true,
+});
+
+export type InsertGlobalWordStats = z.infer<typeof insertGlobalWordStatsSchema>;
+export type GlobalWordStats = typeof globalWordStats.$inferSelect;
+
 // Flashcard result type for frontend
 export interface FlashcardResult {
   wordId: string;
@@ -262,4 +281,12 @@ export interface BookReadiness {
   totalCount: number;
   percent: number;
   isReady: boolean;
+}
+
+// Prioritized word with leverage score for the priority queue
+export interface PrioritizedWord {
+  word: string;
+  leverageScore: number;
+  bookCount: number;
+  totalOccurrences: number;
 }
