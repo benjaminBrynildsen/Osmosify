@@ -166,6 +166,28 @@ export default function Books() {
     },
   });
 
+  const featuredBook = (readiness || []).find(r => 
+    r.book.title.toLowerCase().includes("cat in the hat")
+  );
+
+  useEffect(() => {
+    if (featuredBook) {
+      const book = featuredBook.book;
+      if (book.coverImageUrl || book.customCoverUrl) {
+        setFeaturedCoverUrl(book.coverImageUrl || book.customCoverUrl);
+      } else {
+        const params = new URLSearchParams({ title: book.title });
+        if (book.author) params.append("author", book.author);
+        fetch(`/api/open-library/cover?${params}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data?.coverUrl) setFeaturedCoverUrl(data.coverUrl);
+          })
+          .catch(() => {});
+      }
+    }
+  }, [featuredBook?.book.id]);
+
   if (childLoading || readinessLoading) {
     return <LoadingScreen message="Loading books..." />;
   }
@@ -209,28 +231,6 @@ export default function Books() {
   };
 
   const filteredBooks = filterBooks(readiness || []);
-  
-  const featuredBook = (readiness || []).find(r => 
-    r.book.title.toLowerCase().includes("cat in the hat")
-  );
-
-  useEffect(() => {
-    if (featuredBook) {
-      const book = featuredBook.book;
-      if (book.coverImageUrl || book.customCoverUrl) {
-        setFeaturedCoverUrl(book.coverImageUrl || book.customCoverUrl);
-      } else {
-        const params = new URLSearchParams({ title: book.title });
-        if (book.author) params.append("author", book.author);
-        fetch(`/api/open-library/cover?${params}`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data?.coverUrl) setFeaturedCoverUrl(data.coverUrl);
-          })
-          .catch(() => {});
-      }
-    }
-  }, [featuredBook?.book.id]);
 
   const readyCount = (readiness || []).filter(r => r.percent >= 90).length;
   const almostCount = (readiness || []).filter(r => r.percent >= 70 && r.percent < 90).length;
