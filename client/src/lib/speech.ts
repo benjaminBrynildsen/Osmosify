@@ -250,44 +250,51 @@ export function startListening(
 
   const recognition = new SpeechRecognition();
   recognition.continuous = true;
-  recognition.interimResults = false;
+  recognition.interimResults = true;
   recognition.lang = 'en-US';
   recognition.maxAlternatives = 5;
 
   let stopped = false;
   let currentTargetWord = targetWord;
+  let matchFound = false;
 
   recognition.onresult = (event: SpeechRecognitionEvent) => {
-    if (stopped) return;
+    if (stopped || matchFound) return;
     
-    const lastResultIndex = event.results.length - 1;
-    const results = event.results[lastResultIndex];
+    const target = currentTargetWord.toLowerCase().trim();
     
-    if (!results.isFinal) return;
-    
-    for (let i = 0; i < results.length; i++) {
-      const alternative = results[i];
-      const transcript = alternative.transcript.toLowerCase().trim();
-      const target = currentTargetWord.toLowerCase().trim();
+    for (let resultIndex = 0; resultIndex < event.results.length; resultIndex++) {
+      const results = event.results[resultIndex];
       
-      const isMatch = checkWordMatch(transcript, target);
-      
-      if (isMatch) {
-        onMatch({
-          transcript: alternative.transcript,
-          confidence: alternative.confidence,
-          isMatch: true,
-        });
-        return;
+      for (let i = 0; i < results.length; i++) {
+        const alternative = results[i];
+        const transcript = alternative.transcript.toLowerCase().trim();
+        
+        const isMatch = checkWordMatch(transcript, target);
+        
+        if (isMatch) {
+          matchFound = true;
+          onMatch({
+            transcript: alternative.transcript,
+            confidence: alternative.confidence || 0.9,
+            isMatch: true,
+          });
+          return;
+        }
       }
     }
     
-    const bestResult = results[0];
-    onNoMatch({
-      transcript: bestResult.transcript,
-      confidence: bestResult.confidence,
-      isMatch: false,
-    });
+    const lastResultIndex = event.results.length - 1;
+    const lastResult = event.results[lastResultIndex];
+    
+    if (lastResult.isFinal && !matchFound) {
+      const bestResult = lastResult[0];
+      onNoMatch({
+        transcript: bestResult.transcript,
+        confidence: bestResult.confidence || 0.5,
+        isMatch: false,
+      });
+    }
   };
 
   recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -327,6 +334,7 @@ export function startListening(
     },
     updateTargetWord: (newWord: string) => {
       currentTargetWord = newWord;
+      matchFound = false;
     },
   };
 }
