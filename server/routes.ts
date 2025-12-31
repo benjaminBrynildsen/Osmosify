@@ -210,6 +210,24 @@ Example: If required words are "cat, run, big" you might write "The big cat can 
     }
   });
 
+  // Increment sentences read counter
+  app.post("/api/children/:id/increment-sentences-read", ensureAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const child = await storage.getChildByUser(req.params.id, userId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
+      const updated = await storage.updateChildForUser(req.params.id, userId, {
+        sentencesRead: (child.sentencesRead || 0) + 1,
+      });
+      res.json({ sentencesRead: updated?.sentencesRead || 0 });
+    } catch (error) {
+      console.error("Error incrementing sentences read:", error);
+      res.status(500).json({ error: "Failed to increment sentences read" });
+    }
+  });
+
   // Sessions endpoints (protected)
   app.get("/api/children/:id/sessions", ensureAuthenticated, async (req, res) => {
     try {

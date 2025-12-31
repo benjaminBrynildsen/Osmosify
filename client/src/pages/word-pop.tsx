@@ -542,9 +542,10 @@ export default function WordPop() {
           </div>
         )}
 
-        {gameState === "celebration" && practicedWords.length > 0 && (
+        {gameState === "celebration" && practicedWords.length > 0 && childId && (
           <div className="absolute inset-0 z-30">
             <SentenceCelebration
+              childId={childId}
               masteredWords={practicedWords}
               onComplete={handleCelebrationComplete}
             />

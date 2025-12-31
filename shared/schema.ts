@@ -28,6 +28,7 @@ export const children = pgTable("children", {
   timerSeconds: integer("timer_seconds").notNull().default(7),
   demoteOnMiss: boolean("demote_on_miss").notNull().default(true),
   voicePreference: text("voice_preference").notNull().default("shimmer").$type<VoiceOption>(),
+  sentencesRead: integer("sentences_read").notNull().default(0),
 });
 
 export const childrenRelations = relations(children, ({ many }) => ({

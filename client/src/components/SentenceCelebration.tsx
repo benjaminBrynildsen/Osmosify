@@ -11,12 +11,13 @@ import {
 } from "@/lib/speech";
 
 interface SentenceCelebrationProps {
+  childId: string;
   masteredWords: string[];
   supportWords?: string[];
   onComplete: () => void;
 }
 
-export function SentenceCelebration({ masteredWords, supportWords = [], onComplete }: SentenceCelebrationProps) {
+export function SentenceCelebration({ childId, masteredWords, supportWords = [], onComplete }: SentenceCelebrationProps) {
   const [sentence, setSentence] = useState<string | null>(null);
   const [words, setWords] = useState<string[]>([]);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
@@ -111,10 +112,19 @@ export function SentenceCelebration({ masteredWords, supportWords = [], onComple
       playWordSuccessSound();
       
       if (newCompleted.size >= words.length) {
-        setTimeout(() => {
+        setTimeout(async () => {
           setIsComplete(true);
           playBigCelebrationSound();
           stopListening();
+          // Increment sentences read counter
+          try {
+            await fetch(`/api/children/${childId}/increment-sentences-read`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+            });
+          } catch (err) {
+            console.error("Failed to increment sentences read:", err);
+          }
         }, 300);
       } else {
         // Find the LOWEST incomplete word index (not just next from current match)
