@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,7 @@ import {
   MessageSquareText,
   FolderHeart,
 } from "lucide-react";
-import type { Child, ReadingSession, Word, Book } from "@shared/schema";
+import type { Child, ReadingSession, Word, Book, PresetWordList } from "@shared/schema";
 
 interface GradeLevelResponse {
   gradeLevel: string;
@@ -38,6 +39,22 @@ interface FeaturedBook {
   id: string;
   book: Book;
   expiresAt: string;
+}
+
+interface ChildAddedBook {
+  id: string;
+  childId: string;
+  bookId: string;
+  addedAt: string;
+  book: Book;
+}
+
+interface ChildAddedPreset {
+  id: string;
+  childId: string;
+  presetId: string;
+  addedAt: string;
+  preset: PresetWordList;
 }
 
 export default function ChildDashboard() {
@@ -68,6 +85,52 @@ export default function ChildDashboard() {
     queryKey: ["/api/featured-book"],
   });
 
+  const { data: addedBooks } = useQuery<ChildAddedBook[]>({
+    queryKey: ["/api/children", childId, "added-books"],
+    enabled: !!childId,
+  });
+
+  const { data: addedPresets } = useQuery<ChildAddedPreset[]>({
+    queryKey: ["/api/children", childId, "added-presets"],
+    enabled: !!childId,
+  });
+
+  // Calculate unique words from added books and presets in library
+  const libraryWordCount = useMemo(() => {
+    const wordSet = new Set<string>();
+    
+    // Add words from added books
+    addedBooks?.forEach(ab => {
+      if (ab.book?.words && Array.isArray(ab.book.words)) {
+        ab.book.words.forEach(w => wordSet.add(w.toLowerCase()));
+      }
+    });
+    
+    // Add words from added presets
+    addedPresets?.forEach(ap => {
+      if (ap.preset?.words && Array.isArray(ap.preset.words)) {
+        ap.preset.words.forEach(w => wordSet.add(w.toLowerCase()));
+      }
+    });
+    
+    return wordSet.size;
+  }, [addedBooks, addedPresets]);
+
+  // Get a featured book - prefer global featured, fallback to child's most recent added book
+  const displayFeaturedBook = useMemo(() => {
+    if (featuredBook?.book) {
+      return featuredBook.book;
+    }
+    // Fallback to most recently added book in child's library
+    if (addedBooks && addedBooks.length > 0) {
+      const sorted = [...addedBooks].sort((a, b) => 
+        new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
+      );
+      return sorted[0].book;
+    }
+    return null;
+  }, [featuredBook, addedBooks]);
+
   if (childLoading) {
     return <LoadingScreen message="Loading dashboard..." />;
   }
@@ -96,8 +159,21 @@ export default function ChildDashboard() {
   );
   const recentSessions = sortedSessions.slice(0, 5);
   
-  const lastSession = sortedSessions.find(s => s.bookTitle);
-  const hasRecentActivity = lastSession && lastSession.bookTitle;
+  // Find last session with either bookTitle or bookId for Jump Back In
+  const lastSession = sortedSessions.find(s => s.bookTitle || s.bookId);
+  const hasRecentActivity = lastSession && (lastSession.bookTitle || lastSession.bookId);
+  
+  // Get display title for Jump Back In - use bookTitle or look up from added books
+  const jumpBackInTitle = useMemo(() => {
+    if (!lastSession) return "";
+    if (lastSession.bookTitle) return lastSession.bookTitle;
+    // Look up book title from added books by bookId
+    if (lastSession.bookId && addedBooks) {
+      const foundBook = addedBooks.find(ab => ab.bookId === lastSession.bookId);
+      if (foundBook?.book?.title) return foundBook.book.title;
+    }
+    return "Continue Reading";
+  }, [lastSession, addedBooks]);
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -119,18 +195,18 @@ export default function ChildDashboard() {
 
       <main className="container mx-auto max-w-2xl p-4 space-y-6">
         {/* Featured Book */}
-        {featuredBook && featuredBook.book && (
+        {displayFeaturedBook && (
           <Card 
             className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border-amber-500/30 cursor-pointer hover-elevate overflow-hidden"
-            onClick={() => setLocation(`/child/${childId}/books?openBook=${encodeURIComponent(featuredBook.book.title)}`)}
+            onClick={() => setLocation(`/child/${childId}/books?openBook=${encodeURIComponent(displayFeaturedBook.title)}`)}
             data-testid="card-featured-book"
           >
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
-                {featuredBook.book.coverImageUrl || featuredBook.book.customCoverUrl ? (
+                {displayFeaturedBook.coverImageUrl || displayFeaturedBook.customCoverUrl ? (
                   <img 
-                    src={featuredBook.book.customCoverUrl || featuredBook.book.coverImageUrl || ""} 
-                    alt={featuredBook.book.title}
+                    src={displayFeaturedBook.customCoverUrl || displayFeaturedBook.coverImageUrl || ""} 
+                    alt={displayFeaturedBook.title}
                     className="w-16 h-20 object-cover rounded-md flex-shrink-0"
                   />
                 ) : (
@@ -140,9 +216,9 @@ export default function ChildDashboard() {
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-0.5">Featured Book</p>
-                  <h3 className="font-semibold truncate">{featuredBook.book.title}</h3>
-                  {featuredBook.book.author && (
-                    <p className="text-sm text-muted-foreground truncate">by {featuredBook.book.author}</p>
+                  <h3 className="font-semibold truncate">{displayFeaturedBook.title}</h3>
+                  {displayFeaturedBook.author && (
+                    <p className="text-sm text-muted-foreground truncate">by {displayFeaturedBook.author}</p>
                   )}
                 </div>
                 <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
@@ -154,7 +230,7 @@ export default function ChildDashboard() {
         {/* Stat Boxes */}
         <StatsGrid>
           <StatBlock
-            value={words?.length || 0}
+            value={libraryWordCount}
             label="Words in My Library"
             icon={BookOpen}
           />
@@ -195,7 +271,7 @@ export default function ChildDashboard() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-0.5">Jump Back In</p>
-                  <h3 className="font-semibold truncate">{lastSession.bookTitle}</h3>
+                  <h3 className="font-semibold truncate">{jumpBackInTitle}</h3>
                   <p className="text-sm text-muted-foreground">Continue where you left off</p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
