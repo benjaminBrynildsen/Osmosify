@@ -39,6 +39,7 @@ export const childrenRelations = relations(children, ({ many }) => ({
 export const readingSessions = pgTable("reading_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   childId: varchar("child_id").notNull().references(() => children.id, { onDelete: "cascade" }),
+  bookId: varchar("book_id"),
   bookTitle: text("book_title"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   imageUrls: text("image_urls").array().notNull().default(sql`ARRAY[]::text[]`),

@@ -253,9 +253,17 @@ Example: If required words are "cat, run, big" you might write "The big cat can 
         processed.words
       );
 
-      // Create session
+      // If a book title is provided, create/update the book in the library (scoped to child)
+      let bookId: string | null = null;
+      if (bookTitle && bookTitle.trim()) {
+        const book = await storage.findOrCreateBookByTitle(bookTitle.trim(), processed.words, childId);
+        bookId = book.id;
+      }
+
+      // Create session with bookId reference
       const session = await storage.createSession({
         childId,
+        bookId,
         bookTitle: bookTitle || null,
         imageUrls: [],
         extractedText,
@@ -263,11 +271,6 @@ Example: If required words are "cat, run, big" you might write "The big cat can 
         newWordsCount: newWords.length,
         totalWordsCount: totalWords,
       });
-
-      // If a book title is provided, also create/update the book in the library (scoped to child)
-      if (bookTitle && bookTitle.trim()) {
-        await storage.findOrCreateBookByTitle(bookTitle.trim(), processed.words, childId);
-      }
 
       res.status(201).json({
         ...session,
