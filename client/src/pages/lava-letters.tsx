@@ -184,13 +184,23 @@ export default function LavaLetters() {
     }
     
     setCreatures(prev => {
-      const creatureIndex = prev.findIndex(c => c.word === match.word && !c.saved);
-      if (creatureIndex === -1) return prev;
+      // Find all matching creatures that haven't been saved
+      const matchingCreatures = prev
+        .map((c, i) => ({ creature: c, index: i }))
+        .filter(({ creature }) => creature.word === match.word && !creature.saved);
+      
+      if (matchingCreatures.length === 0) return prev;
+      
+      // Prioritize the creature closest to the bottom (highest Y value = most danger)
+      const closestToBottom = matchingCreatures.reduce((closest, current) => 
+        current.creature.y > closest.creature.y ? current : closest
+      );
       
       // Update the global match time lock
       lastMatchTimeRef.current = now;
       
       const updated = [...prev];
+      const creatureIndex = closestToBottom.index;
       updated[creatureIndex] = { ...updated[creatureIndex], saved: true };
       
       playSuccessSound();
