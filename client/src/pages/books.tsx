@@ -50,11 +50,15 @@ type ViewMode = "grid" | "list";
 
 export default function Books() {
   const params = useParams<{ id: string }>();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const childId = params.id;
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  
+  // Get openBook query parameter
+  const searchParams = new URLSearchParams(location.split('?')[1] || '');
+  const openBookTitle = searchParams.get('openBook');
   const [addWordsBook, setAddWordsBook] = useState<Book | null>(null);
   const [addWordsMode, setAddWordsMode] = useState<"manual" | "upload" | null>(null);
   const [manualWords, setManualWords] = useState("");
@@ -83,6 +87,20 @@ export default function Books() {
       .filter(w => w.status === "mastered")
       .map(w => w.word.toLowerCase())
   );
+
+  // Auto-open book when openBook query param is present
+  useEffect(() => {
+    if (openBookTitle && readiness && !selectedBook) {
+      const matchingBook = readiness.find(
+        r => r.book.title.toLowerCase() === openBookTitle.toLowerCase()
+      );
+      if (matchingBook) {
+        setSelectedBook(matchingBook.book);
+        // Clear the query param from the URL
+        setLocation(`/child/${childId}/books`, { replace: true });
+      }
+    }
+  }, [openBookTitle, readiness, selectedBook, childId, setLocation]);
 
   const createBookMutation = useMutation({
     mutationFn: async () => {

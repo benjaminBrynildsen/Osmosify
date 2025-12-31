@@ -120,7 +120,7 @@ export default function ChildDashboard() {
         {hasRecentActivity && (
           <Card 
             className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-blue-500/30 cursor-pointer hover-elevate"
-            onClick={() => setLocation(`/child/${childId}/books`)}
+            onClick={() => setLocation(`/child/${childId}/books?openBook=${encodeURIComponent(lastSession.bookTitle || '')}`)}
             data-testid="card-jump-back-in"
           >
             <CardContent className="p-4">
