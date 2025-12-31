@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { AppHeader } from "@/components/AppHeader";
 import { StatBlock, StatsGrid } from "@/components/StatBlock";
 import { useGuestModeContext } from "@/hooks/use-guest-mode";
@@ -16,7 +19,6 @@ import {
   Sparkles,
   Unlock,
   Gamepad2,
-  CheckCircle2,
   Lock,
   BookMarked,
   ListPlus,
@@ -24,7 +26,20 @@ import {
   Camera,
   RefreshCw,
   Mail,
+  GraduationCap,
+  ChevronRight,
+  Flame,
+  FolderHeart,
+  TrendingUp,
+  MessageSquareText,
 } from "lucide-react";
+import type { Book } from "@shared/schema";
+
+interface FeaturedBook {
+  id: string;
+  book: Book;
+  expiresAt: string;
+}
 
 export default function GuestDashboard() {
   const params = useParams<{ id: string }>();
@@ -35,6 +50,10 @@ export default function GuestDashboard() {
 
   const child = guestData.child;
   const words = guestData.words;
+
+  const { data: featuredBook } = useQuery<FeaturedBook | null>({
+    queryKey: ["/api/featured-book"],
+  });
 
   if (!child || child.id !== childId) {
     return (
@@ -64,10 +83,43 @@ export default function GuestDashboard() {
       />
 
       <main className="container mx-auto max-w-2xl p-4 space-y-6">
+        {featuredBook?.book && (
+          <Card 
+            className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border-amber-500/30 cursor-pointer hover-elevate overflow-hidden relative"
+            onClick={handleLockedClick}
+            data-testid="card-featured-book"
+          >
+            <Lock className="absolute top-2 right-2 h-4 w-4 text-muted-foreground z-10" />
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                {featuredBook.book.coverImageUrl || featuredBook.book.customCoverUrl ? (
+                  <img 
+                    src={featuredBook.book.customCoverUrl || featuredBook.book.coverImageUrl || ""} 
+                    alt={featuredBook.book.title}
+                    className="w-16 h-20 object-cover rounded-md flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-16 h-20 bg-gradient-to-br from-amber-500 to-orange-500 rounded-md flex items-center justify-center flex-shrink-0">
+                    <BookMarked className="w-6 h-6 text-white" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-0.5">Featured Book</p>
+                  <h3 className="font-semibold truncate">{featuredBook.book.title}</h3>
+                  {featuredBook.book.author && (
+                    <p className="text-sm text-muted-foreground truncate">by {featuredBook.book.author}</p>
+                  )}
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <StatsGrid>
           <StatBlock
             value={words.length}
-            label="Total Words"
+            label="Words in Library"
             icon={BookOpen}
           />
           <StatBlock
@@ -76,30 +128,29 @@ export default function GuestDashboard() {
             icon={Unlock}
           />
           <StatBlock
-            value={newWords.length}
-            label="New Words"
-            icon={Sparkles}
+            value="Pre-K"
+            label="Reading Level"
+            icon={GraduationCap}
+          />
+          <StatBlock
+            value={0}
+            label="Sentences Read"
+            icon={MessageSquareText}
           />
         </StatsGrid>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="relative">
-            <Button
-              size="lg"
-              variant="secondary"
-              className="w-full h-auto py-4 flex-col gap-2"
-              onClick={() => setLocation(`/guest/child/${childId}/flashcards`)}
-              disabled={newWords.length + learningWords.length === 0}
-              data-testid="button-flashcards"
-            >
-              <Sparkles className="h-6 w-6" />
-              <span>Flashcards</span>
-            </Button>
-            {guestData.flashcardSessionCompleted && (
-              <CheckCircle2 className="absolute -top-1 -right-1 h-5 w-5 text-green-500 bg-background rounded-full" />
-            )}
-          </div>
-
+          <Button
+            size="lg"
+            variant="secondary"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/guest/child/${childId}/flashcards`)}
+            disabled={newWords.length + learningWords.length === 0}
+            data-testid="button-flashcards"
+          >
+            <Sparkles className="h-6 w-6" />
+            <span>Flashcards</span>
+          </Button>
           <Button
             size="lg"
             variant="outline"
@@ -115,25 +166,24 @@ export default function GuestDashboard() {
           <Button
             size="lg"
             variant="outline"
-            className="h-auto py-4 flex-col gap-2 relative opacity-60"
-            onClick={handleLockedClick}
-            data-testid="button-presets-locked"
+            className="h-auto py-4 flex-col gap-2 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30"
+            onClick={() => setLocation(`/guest/child/${childId}/word-pop`)}
+            disabled={words.length < 4}
+            data-testid="button-word-pop"
           >
-            <Lock className="absolute top-2 right-2 h-4 w-4 text-muted-foreground" />
-            <ListPlus className="h-6 w-6" />
-            <span>Word Lists</span>
+            <Gamepad2 className="h-6 w-6 text-purple-500" />
+            <span>Word Pop</span>
           </Button>
-
           <Button
             size="lg"
             variant="outline"
             className="h-auto py-4 flex-col gap-2 relative opacity-60"
             onClick={handleLockedClick}
-            data-testid="button-library-locked"
+            data-testid="button-my-library-locked"
           >
             <Lock className="absolute top-2 right-2 h-4 w-4 text-muted-foreground" />
-            <Library className="h-6 w-6" />
-            <span>Word Library</span>
+            <FolderHeart className="h-6 w-6 text-rose-500" />
+            <span>My Library</span>
           </Button>
 
           <Button
@@ -146,7 +196,30 @@ export default function GuestDashboard() {
             <Camera className="h-6 w-6" />
             <span>Upload Book</span>
           </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2 relative opacity-60"
+            onClick={handleLockedClick}
+            data-testid="button-presets-locked"
+          >
+            <Lock className="absolute top-2 right-2 h-4 w-4 text-muted-foreground" />
+            <ListPlus className="h-6 w-6" />
+            <span>Word Lists</span>
+          </Button>
 
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2 bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/30 relative opacity-60"
+            onClick={handleLockedClick}
+            data-testid="button-lava-letters-locked"
+          >
+            <Lock className="absolute top-2 right-2 h-4 w-4 text-muted-foreground" />
+            <Badge className="absolute top-1 left-1 text-xs bg-green-500 text-white">NEW</Badge>
+            <Flame className="h-6 w-6 text-orange-500" />
+            <span>Lava Letters</span>
+          </Button>
           <Button
             size="lg"
             variant="outline"
@@ -159,45 +232,58 @@ export default function GuestDashboard() {
             <span>Keep Words Strong</span>
           </Button>
 
-          <div className="relative col-span-2">
-            <Button
-              size="lg"
-              variant="outline"
-              className="w-full h-auto py-4 flex-col gap-2 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30"
-              onClick={() => setLocation(`/guest/child/${childId}/word-pop`)}
-              disabled={words.length < 4}
-              data-testid="button-word-pop"
-            >
-              <Gamepad2 className="h-6 w-6 text-purple-500" />
-              <span>Word Pop</span>
-            </Button>
-            {guestData.popGameCompleted && (
-              <CheckCircle2 className="absolute -top-1 -right-1 h-5 w-5 text-green-500 bg-background rounded-full" />
-            )}
-          </div>
+          <div className="invisible" />
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2 relative opacity-60"
+            onClick={handleLockedClick}
+            data-testid="button-library-locked"
+          >
+            <Lock className="absolute top-2 right-2 h-4 w-4 text-muted-foreground" />
+            <Library className="h-6 w-6" />
+            <span>Word Library</span>
+          </Button>
         </div>
 
-        {words.length > 0 && (
-          <div className="bg-muted/50 rounded-md p-4">
-            <h3 className="font-medium mb-3">Your Practice Words</h3>
-            <div className="flex flex-wrap gap-2">
-              {words.slice(0, 20).map((word) => (
-                <span
-                  key={word.id}
-                  className={`px-2 py-1 rounded text-sm ${
-                    word.status === "mastered"
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : word.status === "learning"
-                      ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                  data-testid={`word-${word.word}`}
+        {newWords.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Words Ready to Unlock
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {newWords.slice(0, 10).map((word) => (
+                  <span
+                    key={word.id}
+                    className="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-sm font-medium"
+                    data-testid={`badge-new-word-${word.id}`}
+                  >
+                    {word.word}
+                  </span>
+                ))}
+                {newWords.length > 10 && (
+                  <span className="px-3 py-1.5 text-sm text-muted-foreground">
+                    +{newWords.length - 10} more
+                  </span>
+                )}
+              </div>
+              {newWords.length > 0 && (
+                <Button
+                  variant="ghost"
+                  className="px-0 mt-3 text-primary"
+                  onClick={() => setLocation(`/guest/child/${childId}/flashcards`)}
+                  data-testid="link-practice-new-words"
                 >
-                  {word.word}
-                </span>
-              ))}
-            </div>
-          </div>
+                  <TrendingUp className="h-4 w-4 mr-1" />
+                  Start unlocking these words
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         )}
 
         <p className="text-center text-sm text-muted-foreground">

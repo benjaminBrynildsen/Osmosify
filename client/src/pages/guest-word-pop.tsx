@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Volume2, Trophy, Flame, Play, RotateCcw, Star, Circle, Sparkles, X, Gamepad2, Heart } from "lucide-react";
+import { ArrowLeft, Volume2, Trophy, Flame, Play, RotateCcw, Star, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { speak } from "@/lib/voice";
 import { playSuccessSound } from "@/lib/speech";
@@ -43,12 +43,22 @@ export default function GuestWordPop() {
   const ROUNDS_PER_LEVEL = 5;
 
   const playableWords = useMemo(() => {
-    return guestData.words.map((w, index) => ({ 
-      id: index, 
-      word: w.word.toLowerCase(), 
-      status: w.status 
-    }));
+    return guestData.words
+      .filter(w => w.word.length >= 2 && w.word.length <= 12)
+      .map((w, index) => ({ 
+        id: index, 
+        word: w.word.toLowerCase(), 
+        status: w.status 
+      }));
   }, [guestData.words]);
+
+  const getRandomWords = useCallback((count: number, mustInclude: string): string[] => {
+    const available = playableWords.filter(w => w.word !== mustInclude).map(w => w.word);
+    const shuffled = available.sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, count - 1);
+    selected.push(mustInclude);
+    return selected.sort(() => Math.random() - 0.5);
+  }, [playableWords]);
 
   const calculateSpeed = useCallback((lvl: number, round: number) => {
     const completedLevelsBonus = 0.1 * ROUNDS_PER_LEVEL * (lvl - 1) * lvl / 2;
@@ -56,135 +66,158 @@ export default function GuestWordPop() {
     return 1.3 + completedLevelsBonus + currentRoundBonus;
   }, []);
 
-  const getDistractorCount = () => {
-    return 3;
-  };
-
-  const pickNewTarget = useCallback(() => {
-    if (playableWords.length === 0) return;
-    const randomIndex = Math.floor(Math.random() * playableWords.length);
-    const word = playableWords[randomIndex].word;
-    setTargetWord(word);
-    speak(word);
-  }, [playableWords]);
-
-  const spawnBubble = useCallback((word: string) => {
+  const spawnBubbles = useCallback((target: string, currentLevel: number, roundNum?: number) => {
     if (!gameAreaRef.current) return;
-    const area = gameAreaRef.current.getBoundingClientRect();
-    const size = 70 + Math.random() * 30;
-    const x = Math.random() * (area.width - size);
     
-    const baseSpeed = calculateSpeed(level, roundsInLevel);
-    const bubble: Bubble = {
-      id: bubbleIdRef.current++,
-      word,
-      x,
-      y: area.height,
-      speed: baseSpeed + Math.random() * 0.3,
-      size,
-    };
+    const areaWidth = gameAreaRef.current.offsetWidth;
+    const areaHeight = gameAreaRef.current.offsetHeight;
+    const bubbleCount = Math.min(4, playableWords.length);
+    const selectedWords = getRandomWords(bubbleCount, target);
     
-    setBubbles(prev => [...prev, bubble]);
-  }, [level, roundsInLevel, calculateSpeed]);
+    const round = roundNum ?? 0;
+    const baseSpeed = calculateSpeed(currentLevel, round);
+    const speedVariation = 0.3;
+    
+    const newBubbles: Bubble[] = selectedWords.map((word, index) => {
+      const size = 80 + word.length * 4;
+      const sectionWidth = areaWidth / bubbleCount;
+      const x = sectionWidth * index + (sectionWidth - size) / 2 + Math.random() * 20 - 10;
+      
+      return {
+        id: bubbleIdRef.current++,
+        word,
+        x: Math.max(10, Math.min(areaWidth - size - 10, x)),
+        y: areaHeight + 50,
+        speed: baseSpeed + Math.random() * speedVariation,
+        size,
+      };
+    });
+    
+    setBubbles(newBubbles);
+  }, [playableWords, getRandomWords, calculateSpeed]);
 
-  const spawnRound = useCallback(() => {
-    if (playableWords.length === 0) return;
+  const nextRound = useCallback((currentLevel?: number, currentRound?: number) => {
+    if (playableWords.length < 2) return;
     
-    pickNewTarget();
-    setBubbles([]);
+    const lvl = currentLevel ?? level;
+    const round = currentRound ?? roundsInLevel;
+    
+    const randomIndex = Math.floor(Math.random() * playableWords.length);
+    const targetWordData = playableWords[randomIndex];
+    setTargetWord(targetWordData.word);
+    setWordsPlayed(prev => prev + 1);
+    spawnBubbles(targetWordData.word, lvl, round);
     
     setTimeout(() => {
-      const distractorCount = getDistractorCount();
-      const targetIndex = Math.floor(Math.random() * (distractorCount + 1));
-      
-      const randomIndex = Math.floor(Math.random() * playableWords.length);
-      const target = playableWords[randomIndex].word;
-      
-      for (let i = 0; i <= distractorCount; i++) {
-        setTimeout(() => {
-          if (i === targetIndex) {
-            spawnBubble(target);
-          } else {
-            const otherWords = playableWords.filter(w => w.word !== target);
-            if (otherWords.length > 0) {
-              const distractor = otherWords[Math.floor(Math.random() * otherWords.length)];
-              spawnBubble(distractor.word);
-            }
-          }
-        }, i * 300);
-      }
+      speak(targetWordData.word);
     }, 500);
-  }, [pickNewTarget, spawnBubble, level, playableWords]);
+  }, [playableWords, spawnBubbles, level, roundsInLevel]);
 
-  const popBubble = useCallback((bubble: Bubble) => {
-    setBubbles(prev => prev.filter(b => b.id !== bubble.id));
+  const startGame = useCallback(() => {
+    setGameState("playing");
+    setScore(0);
+    setStreak(0);
+    setLives(3);
+    setLevel(1);
+    setRoundsInLevel(0);
+    setWordsPlayed(0);
+    setBestStreak(0);
+    nextRound(1, 0);
+  }, [nextRound]);
+
+  const handleBubbleTap = useCallback((bubble: Bubble) => {
+    if (gameState !== "playing") return;
     
     if (bubble.word === targetWord) {
+      setBubbles([]);
       playSuccessSound();
-      setScore(prev => prev + (10 * level) + (streak * 2));
+      const levelBonus = level * 5;
+      const points = 10 + streak * 2 + levelBonus;
+      setScore(prev => prev + points);
       setStreak(prev => {
         const newStreak = prev + 1;
-        if (newStreak > bestStreak) setBestStreak(newStreak);
+        setBestStreak(best => Math.max(best, newStreak));
         return newStreak;
       });
       setCelebrateWord(bubble.word);
       setFeedback("correct");
-      setWordsPlayed(prev => prev + 1);
       
       setRoundsInLevel(prev => {
         const newRounds = prev + 1;
         if (newRounds >= ROUNDS_PER_LEVEL) {
-          setTimeout(() => {
-            setLevel(l => l + 1);
+          setLevel(lvl => {
+            const newLevel = lvl + 1;
             setLives(currentLives => Math.min(currentLives + 1, 3));
-            setRoundsInLevel(0);
-            setFeedback("levelup");
+            setTimeout(() => {
+              setFeedback("levelup");
+              speak(`Level ${newLevel}!`);
+            }, 1500);
             setTimeout(() => {
               setFeedback(null);
-              spawnRound();
-            }, 1500);
-          }, 800);
+              nextRound(newLevel, 0);
+            }, 3000);
+            return newLevel;
+          });
           return 0;
         } else {
           setTimeout(() => {
             setFeedback(null);
-            spawnRound();
-          }, 800);
+            nextRound(undefined, newRounds);
+          }, 2000);
           return newRounds;
         }
       });
     } else {
-      speak(bubble.word);
       setStreak(0);
-      setFeedback("wrong");
       setLives(prev => {
         const newLives = prev - 1;
         if (newLives <= 0) {
-          setTimeout(() => {
-            setGameState("gameover");
-            markPopGameCompleted();
-          }, 500);
-        } else {
-          setTimeout(() => {
-            setFeedback(null);
-          }, 500);
+          setGameState("gameover");
+          markPopGameCompleted();
         }
         return newLives;
       });
+      setFeedback("wrong");
+      speak("Try again");
+      
+      setTimeout(() => {
+        setFeedback(null);
+      }, 500);
     }
-  }, [targetWord, streak, bestStreak, level, spawnRound, markPopGameCompleted]);
+  }, [gameState, targetWord, streak, nextRound, level, markPopGameCompleted]);
 
   useEffect(() => {
-    if (gameState !== "playing") return;
+    if (gameState !== "playing") {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+      return;
+    }
 
     const animate = () => {
       setBubbles(prev => {
         const updated = prev.map(bubble => ({
           ...bubble,
           y: bubble.y - bubble.speed,
-        })).filter(bubble => bubble.y > -100);
+        }));
         
-        return updated;
+        const escaped = updated.some(b => b.y < -100 && b.word === targetWord);
+        if (escaped) {
+          setLives(l => {
+            const newLives = l - 1;
+            if (newLives <= 0) {
+              setGameState("gameover");
+              markPopGameCompleted();
+            } else {
+              setTimeout(nextRound, 500);
+            }
+            return newLives;
+          });
+          setStreak(0);
+          return [];
+        }
+        
+        return updated.filter(b => b.y > -150);
       });
       
       animationRef.current = requestAnimationFrame(animate);
@@ -197,142 +230,194 @@ export default function GuestWordPop() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [gameState]);
-
-  useEffect(() => {
-    if (gameState === "playing" && bubbles.length === 0 && targetWord && !feedback) {
-      const timer = setTimeout(() => {
-        setLives(prev => {
-          const newLives = prev - 1;
-          if (newLives <= 0) {
-            setGameState("gameover");
-            markPopGameCompleted();
-          } else {
-            spawnRound();
-          }
-          return newLives;
-        });
-      }, 1000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [bubbles.length, gameState, targetWord, feedback, spawnRound, markPopGameCompleted]);
-
-  const startGame = () => {
-    setGameState("playing");
-    setScore(0);
-    setStreak(0);
-    setLives(3);
-    setLevel(1);
-    setRoundsInLevel(0);
-    setWordsPlayed(0);
-    setBubbles([]);
-    spawnRound();
-  };
+  }, [gameState, targetWord, nextRound, markPopGameCompleted]);
 
   const childName = guestData.child?.name || "Guest";
 
-  if (playableWords.length < 3) {
+  if (playableWords.length < 4) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-500/10 to-background">
-        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b">
-          <div className="container max-w-2xl mx-auto p-4 flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setLocation(`/guest/child/${childId}`)}
-              data-testid="button-back"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h1 className="text-lg font-semibold">Pop Game</h1>
-          </div>
-        </div>
-        <div className="container max-w-2xl mx-auto p-4 text-center">
-          <p className="text-muted-foreground">Need at least 3 words to play!</p>
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-lg mx-auto">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setLocation(`/guest/child/${childId}`)}
+            className="mb-4"
+            data-testid="button-back"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          
+          <Card>
+            <CardContent className="p-8 text-center">
+              <Trophy className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+              <h2 className="text-xl font-bold mb-2">Not Enough Words</h2>
+              <p className="text-muted-foreground mb-4">
+                Need at least 4 words to play Word Pop!
+              </p>
+              <Button onClick={() => setLocation(`/guest/child/${childId}`)} data-testid="button-go-back">
+                Go Back
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-500/10 to-background">
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b">
-        <div className="container max-w-2xl mx-auto p-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-background flex flex-col">
+      <header className="p-4 border-b flex items-center justify-between gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setLocation(`/guest/child/${childId}`)}
+          data-testid="button-back"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="gap-1" data-testid="badge-level">
+            Lv.{level}
+          </Badge>
+          
+          <Badge variant="outline" className="gap-1" data-testid="badge-speed">
+            {calculateSpeed(level, roundsInLevel).toFixed(1)}x
+          </Badge>
+          
+          <Badge variant="secondary" className="gap-1" data-testid="badge-score">
+            <Star className="w-3 h-3" />
+            {score}
+          </Badge>
+          
+          {streak > 1 && (
+            <Badge variant="default" className="gap-1 bg-orange-500" data-testid="badge-streak">
+              <Flame className="w-3 h-3" />
+              {streak}x
+            </Badge>
+          )}
+          
+          <div className="flex gap-1" data-testid="lives-display">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <span
+                key={i}
+                className={`text-lg ${i < lives ? "text-red-500" : "text-muted-foreground/30"}`}
+              >
+                ♥
+              </span>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      {gameState === "playing" && targetWord && (
+        <div className="p-4 text-center bg-muted/50">
+          <p className="text-sm text-muted-foreground mb-1">Listen and tap the word:</p>
+          <div className="flex items-center justify-center gap-2">
+            <span 
+              className="text-2xl font-bold blur-sm select-none" 
+              data-testid="target-word"
+            >
+              {targetWord}
+            </span>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setLocation(`/guest/child/${childId}`)}
-              data-testid="button-back"
+              onClick={() => speak(targetWord)}
+              data-testid="button-speak"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <Volume2 className="w-5 h-5" />
             </Button>
-            {gameState === "playing" && (
-              <>
-                <Badge variant="secondary" className="gap-1" data-testid="score-display">
-                  <Trophy className="h-3 w-3" />
-                  {score}
-                </Badge>
-                <Badge variant="outline" className="gap-1" data-testid="streak-display">
-                  <Flame className="h-3 w-3 text-orange-500" />
-                  {streak}
-                </Badge>
-                <Badge variant="outline" data-testid="level-display">
-                  Lv.{level}
-                </Badge>
-                <Badge variant="outline" data-testid="speed-display">
-                  {calculateSpeed(level, roundsInLevel).toFixed(1)}x
-                </Badge>
-              </>
-            )}
           </div>
-          {gameState === "playing" && (
-            <div className="flex gap-1">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Heart 
-                  key={i} 
-                  className={`h-5 w-5 ${i < lives ? "fill-red-500 text-red-500" : "text-muted-foreground/30"}`}
-                />
-              ))}
-            </div>
-          )}
         </div>
-      </div>
+      )}
 
       <div 
         ref={gameAreaRef}
-        className="relative w-full overflow-hidden"
-        style={{ height: "calc(100vh - 80px)" }}
+        className="flex-1 relative overflow-hidden touch-none"
+        style={{ minHeight: "400px" }}
       >
-        {gameState === "ready" && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Card className="w-80">
-              <CardContent className="p-6 text-center space-y-4">
-                <Circle className="h-12 w-12 mx-auto text-blue-500 fill-blue-400" />
-                <h2 className="text-xl font-bold">Pop the Word!</h2>
-                <p className="text-muted-foreground">
-                  Listen for the word, then pop the matching bubble!
-                </p>
-                <Button onClick={startGame} className="w-full gap-2" data-testid="button-start-game">
-                  <Play className="h-4 w-4" />
-                  Start Game
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {gameState === "playing" && targetWord && (
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20">
-            <Button
-              variant="outline"
-              className="gap-2 bg-background/90 backdrop-blur"
-              onClick={() => speak(targetWord)}
-              data-testid="button-hear-word"
+        <AnimatePresence>
+          {feedback === "correct" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20 bg-green-500"
             >
-              <Volume2 className="h-4 w-4" />
-              Hear Word
+              <div className="absolute inset-0 overflow-hidden">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ 
+                      opacity: 0,
+                      scale: 0,
+                      x: `${Math.random() * 100}%`,
+                      y: `${Math.random() * 100}%`
+                    }}
+                    animate={{ 
+                      opacity: [0, 1, 1, 0],
+                      scale: [0, 1.2, 1, 0.8],
+                      rotate: [0, 15, -15, 0]
+                    }}
+                    transition={{ 
+                      duration: 1.5,
+                      delay: i * 0.1,
+                      ease: "easeOut"
+                    }}
+                    className="absolute"
+                    style={{ left: `${10 + (i % 4) * 25}%`, top: `${10 + Math.floor(i / 4) * 30}%` }}
+                  >
+                    <Star className="w-8 h-8 text-yellow-300 fill-yellow-300" />
+                  </motion.div>
+                ))}
+              </div>
+              <motion.p
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                className="text-5xl font-bold text-white drop-shadow-lg z-10"
+              >
+                {celebrateWord}
+              </motion.p>
+            </motion.div>
+          )}
+          
+          {feedback === "levelup" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20 bg-purple-600"
+            >
+              <motion.p
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 200 }}
+                className="text-4xl font-bold text-white drop-shadow-lg"
+              >
+                Level {level}!
+              </motion.p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {gameState === "ready" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
+            <Trophy className="w-20 h-20 text-primary mb-6" />
+            <h1 className="text-3xl font-bold mb-2">Word Pop</h1>
+            <div className="flex items-center gap-2 text-muted-foreground mb-2">
+              <BookOpen className="w-4 h-4" />
+              <span>Guest Mode</span>
+            </div>
+            <p className="text-muted-foreground text-center mb-8 max-w-xs">
+              Listen to the word and tap the matching bubble before it floats away!
+            </p>
+            <Button size="lg" onClick={startGame} data-testid="button-start-game">
+              <Play className="w-5 h-5 mr-2" />
+              Start Game
             </Button>
           </div>
         )}
@@ -344,15 +429,15 @@ export default function GuestWordPop() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0 }}
-              className="absolute rounded-full bg-gradient-to-br from-blue-400 to-purple-500 text-white font-bold shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
+              className="absolute rounded-full bg-gradient-to-br from-blue-400 to-purple-500 text-white font-bold shadow-lg flex items-center justify-center cursor-pointer"
               style={{
                 left: bubble.x,
                 top: bubble.y,
                 width: bubble.size,
                 height: bubble.size,
-                fontSize: Math.max(12, bubble.size / 5),
+                fontSize: Math.max(14, bubble.size / 5),
               }}
-              onClick={() => popBubble(bubble)}
+              onClick={() => handleBubbleTap(bubble)}
               data-testid={`bubble-${bubble.word}`}
             >
               {bubble.word}
@@ -360,75 +445,45 @@ export default function GuestWordPop() {
           ))}
         </AnimatePresence>
 
-        <AnimatePresence>
-          {feedback === "correct" && (
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            >
-              <div className="text-center">
-                <Sparkles className="h-16 w-16 text-yellow-500 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-green-500">{celebrateWord}</div>
-              </div>
-            </motion.div>
-          )}
-
-          {feedback === "wrong" && (
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            >
-              <X className="h-16 w-16 text-red-500" />
-            </motion.div>
-          )}
-
-          {feedback === "levelup" && (
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            >
-              <div className="text-center bg-yellow-100 dark:bg-yellow-900/30 rounded-lg p-6">
-                <Star className="h-12 w-12 text-yellow-500 mx-auto mb-2" />
-                <div className="text-2xl font-bold">Level {level}!</div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {gameState === "gameover" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur">
-            <Card className="w-80">
-              <CardContent className="p-6 text-center space-y-4">
-                <Gamepad2 className="h-12 w-12 mx-auto text-primary" />
-                <h2 className="text-xl font-bold">Game Over!</h2>
-                <div className="space-y-2">
-                  <p className="text-2xl font-bold text-primary">{score} points</p>
-                  <p className="text-muted-foreground">
-                    Best streak: {bestStreak} | Words: {wordsPlayed}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Button onClick={startGame} className="w-full gap-2" data-testid="button-play-again">
-                    <RotateCcw className="h-4 w-4" />
-                    Play Again
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setLocation(`/guest/child/${childId}`)}
-                    data-testid="button-back-to-dashboard"
-                  >
-                    Back to Dashboard
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-8 bg-background/80 backdrop-blur-sm">
+            <Trophy className="w-20 h-20 text-amber-500 mb-4" />
+            <h2 className="text-3xl font-bold mb-2">Game Over!</h2>
+            
+            <div className="grid grid-cols-2 gap-4 my-6 text-center">
+              <div>
+                <p className="text-3xl font-bold text-primary" data-testid="final-score">{score}</p>
+                <p className="text-sm text-muted-foreground">Points</p>
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-purple-500" data-testid="final-level">{level}</p>
+                <p className="text-sm text-muted-foreground">Level Reached</p>
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-orange-500" data-testid="best-streak">{bestStreak}</p>
+                <p className="text-sm text-muted-foreground">Best Streak</p>
+              </div>
+              <div>
+                <p className="text-3xl font-bold" data-testid="words-played">{wordsPlayed}</p>
+                <p className="text-sm text-muted-foreground">Words</p>
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-3 w-full max-w-xs">
+              <Button size="lg" onClick={startGame} className="w-full" data-testid="button-play-again">
+                <RotateCcw className="w-5 h-5 mr-2" />
+                Play Again
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full"
+                onClick={() => setLocation(`/guest/child/${childId}`)}
+                data-testid="button-back-to-dashboard"
+              >
+                Back to Dashboard
+              </Button>
+            </div>
           </div>
         )}
       </div>
