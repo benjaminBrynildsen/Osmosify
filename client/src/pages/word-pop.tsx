@@ -10,7 +10,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { speak } from "@/lib/voice";
 import { playSuccessSound } from "@/lib/speech";
 import { SentenceCelebration } from "@/components/SentenceCelebration";
-import { useGifCelebration } from "@/components/GifCelebration";
 import type { Word, Child, Book, PresetWordList } from "@shared/schema";
 
 interface PrioritizedWord {
@@ -58,8 +57,6 @@ export default function WordPop() {
   const animationRef = useRef<number>();
   const bubbleIdRef = useRef(0);
   
-  // GIF celebration hook
-  const { celebrate, GifCelebrationComponent } = useGifCelebration();
   
   const ROUNDS_PER_LEVEL = 5;
 
@@ -248,7 +245,6 @@ export default function WordPop() {
       });
       setCelebrateWord(bubble.word);
       setFeedback("correct");
-      celebrate("correct");
       
       setRoundsInLevel(prev => {
         const newRounds = prev + 1;
@@ -292,7 +288,6 @@ export default function WordPop() {
       });
       setFeedback("wrong");
       speak("Try again");
-      celebrate("incorrect");
       
       setTimeout(() => {
         setFeedback(null);
@@ -574,6 +569,7 @@ export default function WordPop() {
               childId={childId}
               masteredWords={practicedWords}
               onComplete={handleCelebrationComplete}
+              gifCelebrationsEnabled={child?.gifCelebrationsEnabled ?? true}
             />
           </div>
         )}
@@ -661,8 +657,6 @@ export default function WordPop() {
           </motion.button>
         ))}
       </div>
-      
-      {GifCelebrationComponent}
     </div>
   );
 }

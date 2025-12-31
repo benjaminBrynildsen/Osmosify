@@ -12,13 +12,14 @@ import {
 import { useGifCelebration } from "./GifCelebration";
 
 interface SentenceCelebrationProps {
-  childId: string;
+  childId?: string;
   masteredWords: string[];
   supportWords?: string[];
   onComplete: () => void;
+  gifCelebrationsEnabled?: boolean;
 }
 
-export function SentenceCelebration({ childId, masteredWords, supportWords = [], onComplete }: SentenceCelebrationProps) {
+export function SentenceCelebration({ childId, masteredWords, supportWords = [], onComplete, gifCelebrationsEnabled = true }: SentenceCelebrationProps) {
   const [sentence, setSentence] = useState<string | null>(null);
   const [words, setWords] = useState<string[]>([]);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
@@ -106,7 +107,9 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
         setTimeout(async () => {
           setIsComplete(true);
           playBigCelebrationSound();
-          celebrate("correct");
+          if (gifCelebrationsEnabled) {
+            celebrate("correct");
+          }
           stopListening();
           // Increment sentences read counter
           try {
@@ -326,7 +329,7 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
           </Button>
         </motion.div>
         
-        {GifCelebrationComponent}
+        {gifCelebrationsEnabled && GifCelebrationComponent}
       </motion.div>
     );
   }
@@ -418,7 +421,7 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
         </p>
       </div>
       
-      {GifCelebrationComponent}
+      {gifCelebrationsEnabled && GifCelebrationComponent}
     </div>
   );
 }

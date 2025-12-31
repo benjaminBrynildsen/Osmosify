@@ -243,6 +243,7 @@ export default function Flashcards() {
             initialWordCount={limitedDeck.length}
             wordPopWords={wordPopWords}
             onLessonComplete={wordPopWords.length > 0 ? handleLessonComplete : undefined}
+            gifCelebrationsEnabled={child?.gifCelebrationsEnabled ?? true}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center p-4">

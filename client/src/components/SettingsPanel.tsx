@@ -49,6 +49,7 @@ const settingsSchema = z.object({
   timerSeconds: z.number().min(3).max(10),
   demoteOnMiss: z.boolean(),
   voicePreference: z.enum(["nova", "alloy", "shimmer"]),
+  gifCelebrationsEnabled: z.boolean(),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -72,6 +73,7 @@ export function SettingsPanel({ child, onSave, isSaving = false }: SettingsPanel
       timerSeconds: child.timerSeconds || 7,
       demoteOnMiss: child.demoteOnMiss,
       voicePreference: (child.voicePreference as VoiceOption) || "shimmer",
+      gifCelebrationsEnabled: child.gifCelebrationsEnabled ?? true,
     },
   });
 
@@ -328,6 +330,35 @@ export function SettingsPanel({ child, onSave, isSaving = false }: SettingsPanel
                       </div>
                     ))}
                   </div>
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Celebrations</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <FormField
+              control={form.control}
+              name="gifCelebrationsEnabled"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between">
+                  <div>
+                    <FormLabel>GIF Celebrations</FormLabel>
+                    <FormDescription>
+                      Show animated GIFs when completing lessons
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      data-testid="switch-gif-celebrations"
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />

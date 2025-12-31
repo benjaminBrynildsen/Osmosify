@@ -16,7 +16,6 @@ import {
   type VoiceOption
 } from "@/lib/speech";
 import { SentenceCelebration } from "./SentenceCelebration";
-import { useGifCelebration } from "./GifCelebration";
 
 interface MasteryModeProps {
   mode: "mastery";
@@ -38,6 +37,7 @@ type FlashcardDisplayProps = {
   initialWordCount?: number;
   wordPopWords?: string[]; // Words practiced in Word Pop (for combined lesson celebration)
   onLessonComplete?: () => void; // Called after final celebration in lesson mode
+  gifCelebrationsEnabled?: boolean; // Show GIF celebrations after lessons
 } & (MasteryModeProps | HistoryModeProps);
 
 interface WordProgress {
@@ -47,7 +47,7 @@ interface WordProgress {
 }
 
 export function FlashcardDisplay(props: FlashcardDisplayProps) {
-  const { words, mode, timerSeconds = 7, voicePreference = "shimmer", initialWordCount: propInitialCount, wordPopWords = [], onLessonComplete } = props;
+  const { words, mode, timerSeconds = 7, voicePreference = "shimmer", initialWordCount: propInitialCount, wordPopWords = [], onLessonComplete, gifCelebrationsEnabled = true } = props;
   const masteryThreshold = mode === "mastery" ? (props.masteryThreshold ?? 7) : 1;
 
   const [wordProgress, setWordProgress] = useState<Map<string, WordProgress>>(new Map());
@@ -83,9 +83,6 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
   const processingRef = useRef(false);
   const currentWordIdRef = useRef<string | null>(null);
   const recognitionStartedRef = useRef(false);
-  
-  // GIF celebration hook
-  const { celebrate, GifCelebrationComponent } = useGifCelebration();
 
   const prevWordIdsRef = useRef<string>("");
   const wordProgressRef = useRef<Map<string, WordProgress>>(new Map());
@@ -261,9 +258,6 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
           setMasteredIds(newMasteredIds);
           (props as MasteryModeProps).onWordMastered(wordId);
           
-          // Show celebratory GIF when a word is mastered
-          celebrate("correct");
-          
           const filteredQueue = newQueue.filter(id => id !== wordId);
           
           // Skip mid-session celebrations in lesson mode (when wordPopWords exist)
@@ -351,9 +345,6 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     if (isCorrect) {
       setTotalCorrect(prev => prev + 1);
       playSuccessSound();
-    } else {
-      // Show encouraging GIF for incorrect answers
-      celebrate("incorrect");
     }
 
     processAnswer(isCorrect, wordId, wordProg);
@@ -539,6 +530,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
       <SentenceCelebration
         masteredWords={sentenceCelebrationWords}
         onComplete={handleSentenceCelebrationComplete}
+        gifCelebrationsEnabled={gifCelebrationsEnabled}
       />
     );
   }
@@ -549,6 +541,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
       <SentenceCelebration
         masteredWords={sentenceCelebrationWords}
         onComplete={handleFinalCelebrationComplete}
+        gifCelebrationsEnabled={gifCelebrationsEnabled}
       />
     );
   }
@@ -895,8 +888,6 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
           </Button>
         </div>
       </div>
-      
-      {GifCelebrationComponent}
     </div>
   );
 }

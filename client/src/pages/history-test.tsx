@@ -106,6 +106,7 @@ export default function HistoryTest() {
             mode="history"
             timerSeconds={child?.timerSeconds || 7}
             voicePreference={(child?.voicePreference as "nova" | "alloy" | "shimmer") || "nova"}
+            gifCelebrationsEnabled={child?.gifCelebrationsEnabled ?? true}
           />
         ) : (
           <HistoryTestSetup
