@@ -158,8 +158,23 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     }
   }, [words, timerSeconds, stopTimer, stopListening, propInitialCount]);
 
+  // Track if we're in lesson completion state to prevent re-initialization
+  const isLessonCompleteRef = useRef(false);
+  
+  // Update ref when lesson is completing
+  useEffect(() => {
+    if (isComplete && wordPopWords.length > 0) {
+      isLessonCompleteRef.current = true;
+    }
+  }, [isComplete, wordPopWords]);
+  
   useEffect(() => {
     const currentWordIds = words.map(w => w.id).sort().join(",");
+    
+    // Don't re-initialize if lesson is complete - navigation will happen
+    if (isLessonCompleteRef.current) {
+      return;
+    }
     
     if (currentWordIds !== prevWordIdsRef.current) {
       prevWordIdsRef.current = currentWordIds;
