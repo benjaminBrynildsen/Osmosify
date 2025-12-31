@@ -4,10 +4,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, Volume2, ArrowRight, Mic, MicOff } from "lucide-react";
 import { 
-  startContinuousListening, 
+  startCollectiveListening, 
   isSpeechRecognitionSupported,
   speakWord,
-  type MultiWordMatch 
 } from "@/lib/speech";
 import { useGifCelebration } from "./GifCelebration";
 
@@ -22,20 +21,18 @@ interface SentenceCelebrationProps {
 export function SentenceCelebration({ childId, masteredWords, supportWords = [], onComplete, gifCelebrationsEnabled = true }: SentenceCelebrationProps) {
   const [sentence, setSentence] = useState<string | null>(null);
   const [words, setWords] = useState<string[]>([]);
-  const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [completedWords, setCompletedWords] = useState<Set<number>>(new Set());
   const [isListening, setIsListening] = useState(false);
   const [spokenText, setSpokenText] = useState("");
   const [isComplete, setIsComplete] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   
-  const recognitionRef = useRef<{ stop: () => void; updateTargetWords: (words: string[]) => void } | null>(null);
+  const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const speechSupported = isSpeechRecognitionSupported();
   const recognitionStartedRef = useRef(false);
+  const completionTriggeredRef = useRef(false);
   
-  // GIF celebration hook
   const { celebrate, GifCelebrationComponent } = useGifCelebration();
 
   useEffect(() => {
@@ -44,7 +41,6 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
 
   const generateSentence = async () => {
     setIsLoading(true);
-    setError(null);
     try {
       const response = await fetch("/api/generate-sentence", {
         method: "POST",
@@ -90,59 +86,46 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
     recognitionStartedRef.current = false;
   }, []);
 
-  // Get all incomplete words for continuous listening
-  const getIncompleteWords = useCallback((allWords: string[], completed: Set<number>): string[] => {
-    return allWords.filter((_, index) => !completed.has(index));
-  }, []);
+  const handleCompletion = useCallback(async () => {
+    if (completionTriggeredRef.current) return;
+    completionTriggeredRef.current = true;
+    
+    setIsComplete(true);
+    playBigCelebrationSound();
+    if (gifCelebrationsEnabled) {
+      celebrate("correct");
+    }
+    stopListening();
+    
+    if (childId) {
+      try {
+        await fetch(`/api/children/${childId}/increment-sentences-read`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        console.error("Failed to increment sentences read:", err);
+      }
+    }
+  }, [childId, gifCelebrationsEnabled, celebrate, stopListening]);
 
-  const markWordComplete = useCallback((index: number) => {
+  const handleWordsMatched = useCallback((matchedIndices: Set<number>) => {
     setCompletedWords(prev => {
-      const newCompleted = new Set(prev);
-      if (newCompleted.has(index)) return prev;
-      newCompleted.add(index);
+      const newCompleted = new Set([...Array.from(prev), ...Array.from(matchedIndices)]);
       
-      playWordSuccessSound();
+      // Play sound for new matches
+      if (newCompleted.size > prev.size) {
+        playWordSuccessSound();
+      }
       
-      if (newCompleted.size >= words.length) {
-        setTimeout(async () => {
-          setIsComplete(true);
-          playBigCelebrationSound();
-          if (gifCelebrationsEnabled) {
-            celebrate("correct");
-          }
-          stopListening();
-          // Increment sentences read counter
-          try {
-            await fetch(`/api/children/${childId}/increment-sentences-read`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-            });
-          } catch (err) {
-            console.error("Failed to increment sentences read:", err);
-          }
-        }, 300);
-      } else {
-        // Find the LOWEST incomplete word index for visual highlighting
-        let lowestIncomplete = 0;
-        while (lowestIncomplete < words.length && newCompleted.has(lowestIncomplete)) {
-          lowestIncomplete++;
-        }
-        if (lowestIncomplete < words.length) {
-          setCurrentWordIndex(lowestIncomplete);
-          // Update recognition with all remaining incomplete words
-          if (recognitionRef.current) {
-            const incompleteWords = words.filter((_, i) => !newCompleted.has(i));
-            if (incompleteWords.length > 0) {
-              recognitionRef.current.updateTargetWords(incompleteWords);
-            }
-          }
-        }
+      // Check if all words are complete
+      if (newCompleted.size >= words.length && words.length > 0 && !completionTriggeredRef.current) {
+        setTimeout(() => handleCompletion(), 300);
       }
       
       return newCompleted;
     });
-    setSpokenText("");
-  }, [words, stopListening]);
+  }, [words.length, handleCompletion]);
 
   const startRecognition = useCallback(() => {
     if (!speechSupported || !voiceEnabled || words.length === 0) return;
@@ -151,21 +134,9 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
     recognitionStartedRef.current = true;
     setIsListening(true);
     
-    // Listen for ALL words in the sentence (not just a window)
-    const allWords = getIncompleteWords(words, completedWords);
-    
-    recognitionRef.current = startContinuousListening(
-      allWords,
-      (match: MultiWordMatch) => {
-        // Find the word in the full sentence that matches (search all words)
-        for (let i = 0; i < words.length; i++) {
-          const wordClean = words[i].replace(/[.,!?;:'"]/g, "").toLowerCase();
-          if (wordClean === match.word) {
-            markWordComplete(i);
-            break;
-          }
-        }
-      },
+    recognitionRef.current = startCollectiveListening(
+      words,
+      handleWordsMatched,
       (transcript: string) => {
         setSpokenText(transcript);
       },
@@ -177,9 +148,9 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
         recognitionStartedRef.current = false;
       }
     );
-  }, [speechSupported, voiceEnabled, words, completedWords, getIncompleteWords, markWordComplete]);
+  }, [speechSupported, voiceEnabled, words, handleWordsMatched]);
 
-  // Start continuous recognition once when words are loaded
+  // Start collective recognition once when words are loaded
   useEffect(() => {
     if (!isComplete && words.length > 0 && voiceEnabled && speechSupported && !recognitionStartedRef.current) {
       const timer = setTimeout(() => {
@@ -205,10 +176,10 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
       oscillator.type = 'sine';
       oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
       oscillator.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.1);
-      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+      gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
       oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.15);
+      oscillator.stop(audioContext.currentTime + 0.1);
     } catch (e) {}
   };
 
@@ -237,10 +208,10 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
     }
   };
 
-  const handleManualWordComplete = () => {
-    if (currentWordIndex < words.length) {
-      markWordComplete(currentWordIndex);
-    }
+  const handleMarkAllRead = () => {
+    const allIndices = new Set(words.map((_, i) => i));
+    setCompletedWords(allIndices);
+    setTimeout(() => handleCompletion(), 300);
   };
 
   if (isLoading) {
@@ -370,7 +341,6 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
           <div className="flex flex-wrap gap-2 justify-center text-2xl">
             {words.map((word, index) => {
               const isCompleted = completedWords.has(index);
-              const isCurrent = index === currentWordIndex && !isComplete;
               
               return (
                 <motion.span
@@ -378,12 +348,10 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
                   className={`px-2 py-1 rounded transition-colors ${
                     isCompleted
                       ? "bg-emerald-500 text-white"
-                      : isCurrent
-                      ? "bg-primary/20 text-primary underline"
                       : "text-foreground"
                   }`}
-                  animate={isCompleted ? { scale: [1, 1.2, 1] } : {}}
-                  transition={{ duration: 0.3 }}
+                  animate={isCompleted ? { scale: [1, 1.15, 1] } : {}}
+                  transition={{ duration: 0.2 }}
                   data-testid={`sentence-word-${index}`}
                 >
                   {word}
@@ -400,7 +368,7 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
             {spokenText ? (
               <span>Heard: "<span className="font-medium text-foreground">{spokenText}</span>"</span>
             ) : (
-              <span className="animate-pulse">Listening... say "{words[currentWordIndex]?.replace(/[.,!?;:'"]/g, "")}"</span>
+              <span className="animate-pulse">Listening... read the sentence naturally</span>
             )}
           </p>
         </div>
@@ -410,14 +378,14 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
         <Button
           className="w-full"
           size="lg"
-          onClick={handleManualWordComplete}
-          disabled={currentWordIndex >= words.length}
-          data-testid="button-mark-word-read"
+          variant="outline"
+          onClick={handleMarkAllRead}
+          data-testid="button-mark-all-read"
         >
-          Mark "{words[currentWordIndex]?.replace(/[.,!?;:'"]/g, "")}" as Read
+          Mark Sentence as Read
         </Button>
         <p className="text-center text-xs text-muted-foreground mt-2">
-          {completedWords.size} of {words.length} words read
+          {completedWords.size} of {words.length} words recognized
         </p>
       </div>
       

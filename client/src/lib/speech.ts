@@ -318,6 +318,116 @@ export interface MultiWordMatch {
   confidence: number;
 }
 
+// Collective listening for sentence reading - doesn't halt after each word
+// Accumulates all spoken words and marks matches in real-time
+export function startCollectiveListening(
+  targetWords: string[],
+  onWordsMatched: (matchedIndices: Set<number>) => void,
+  onTranscriptUpdate: (fullTranscript: string) => void,
+  onError: (error: string) => void,
+  onEnd: () => void
+): { stop: () => void } {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  
+  if (!SpeechRecognition) {
+    onError('Speech recognition not supported');
+    onEnd();
+    return { stop: () => {} };
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+  recognition.maxAlternatives = 3;
+
+  let stopped = false;
+  const cleanTargets = targetWords.map(w => w.toLowerCase().replace(/[.,!?;:'"]/g, ''));
+  const matchedIndices = new Set<number>();
+  // Track all words ever heard across recognition restarts
+  const allHeardWords = new Set<string>();
+  let displayTranscript = '';
+
+  recognition.onresult = (event: SpeechRecognitionEvent) => {
+    if (stopped) return;
+    
+    // Build current transcript from this recognition session
+    let currentTranscript = '';
+    for (let i = 0; i < event.results.length; i++) {
+      currentTranscript += event.results[i][0].transcript + ' ';
+    }
+    currentTranscript = currentTranscript.trim();
+    
+    // Extract words from current transcript and add to cumulative set
+    const currentWords = currentTranscript.toLowerCase().split(/\s+/)
+      .map(w => w.replace(/[.,!?;:'"]/g, ''))
+      .filter(w => w.length > 0);
+    
+    for (const word of currentWords) {
+      allHeardWords.add(word);
+    }
+    
+    // Update display transcript (just show current session for readability)
+    displayTranscript = currentTranscript;
+    onTranscriptUpdate(displayTranscript);
+    
+    // Check all target words against ALL words ever heard
+    let hasNewMatches = false;
+    for (let i = 0; i < cleanTargets.length; i++) {
+      if (matchedIndices.has(i)) continue;
+      
+      const target = cleanTargets[i];
+      // Check if any heard word matches this target (using the full cumulative set)
+      for (const heardWord of Array.from(allHeardWords)) {
+        if (checkWordMatch(heardWord, target) || checkWordMatch(target, heardWord)) {
+          matchedIndices.add(i);
+          hasNewMatches = true;
+          break;
+        }
+      }
+    }
+    
+    if (hasNewMatches) {
+      onWordsMatched(new Set(Array.from(matchedIndices)));
+    }
+  };
+
+  recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    if (stopped) return;
+    if (event.error === 'no-speech' || event.error === 'aborted') return;
+    onError(event.error);
+  };
+
+  recognition.onend = () => {
+    if (stopped) return;
+    // Auto-restart to keep listening - words are preserved in allHeardWords
+    setTimeout(() => {
+      if (stopped) return;
+      try {
+        recognition.start();
+      } catch (e) {
+        onEnd();
+      }
+    }, 100);
+  };
+
+  try {
+    recognition.start();
+  } catch (e) {
+    onError('Failed to start recognition');
+    onEnd();
+  }
+
+  return {
+    stop: () => {
+      stopped = true;
+      try {
+        recognition.abort();
+      } catch (e) {}
+    },
+  };
+}
+
 export function startContinuousListening(
   targetWords: string[],
   onWordMatch: (match: MultiWordMatch) => void,
