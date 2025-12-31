@@ -285,6 +285,7 @@ export default function ChildDashboard() {
 
         {/* Action Buttons Grid */}
         <div className="grid grid-cols-2 gap-3">
+          {/* Row 1: Flashcards | Book Library */}
           <Button
             size="lg"
             variant="secondary"
@@ -306,46 +307,8 @@ export default function ChildDashboard() {
             <BookMarked className="h-6 w-6" />
             <span>Book Library</span>
           </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            className="h-auto py-4 flex-col gap-2"
-            onClick={() => setLocation(`/child/${childId}/presets`)}
-            data-testid="button-presets"
-          >
-            <ListPlus className="h-6 w-6" />
-            <span>Word Lists</span>
-          </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            className="h-auto py-4 flex-col gap-2"
-            onClick={() => setLocation(`/child/${childId}/library`)}
-            data-testid="button-word-library"
-          >
-            <Library className="h-6 w-6" />
-            <span>Word Library</span>
-          </Button>
-          <Button
-            size="lg"
-            className="h-auto py-4 flex-col gap-2"
-            onClick={() => setLocation(`/child/${childId}/upload`)}
-            data-testid="button-new-session"
-          >
-            <Camera className="h-6 w-6" />
-            <span>Upload Book</span>
-          </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            className="h-auto py-4 flex-col gap-2"
-            onClick={() => setLocation(`/child/${childId}/history-test`)}
-            disabled={unlockedWords.length + learningWords.length === 0}
-            data-testid="button-history-test"
-          >
-            <RefreshCw className="h-6 w-6" />
-            <span>Keep Words Strong</span>
-          </Button>
+          
+          {/* Row 2: Word Pop | My Library */}
           <Button
             size="lg"
             variant="outline"
@@ -366,6 +329,54 @@ export default function ChildDashboard() {
           >
             <FolderHeart className="h-6 w-6 text-rose-500" />
             <span>My Library</span>
+          </Button>
+          
+          {/* Row 3: Upload Book | Word Lists */}
+          <Button
+            size="lg"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/child/${childId}/upload`)}
+            data-testid="button-new-session"
+          >
+            <Camera className="h-6 w-6" />
+            <span>Upload Book</span>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/child/${childId}/presets`)}
+            data-testid="button-presets"
+          >
+            <ListPlus className="h-6 w-6" />
+            <span>Word Lists</span>
+          </Button>
+          
+          {/* Row 4: (empty) | Keep Words Strong */}
+          <div className="invisible" />
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/child/${childId}/history-test`)}
+            disabled={unlockedWords.length + learningWords.length === 0}
+            data-testid="button-history-test"
+          >
+            <RefreshCw className="h-6 w-6" />
+            <span>Keep Words Strong</span>
+          </Button>
+          
+          {/* Row 5: (empty) | Word Library */}
+          <div className="invisible" />
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/child/${childId}/library`)}
+            data-testid="button-word-library"
+          >
+            <Library className="h-6 w-6" />
+            <span>Word Library</span>
           </Button>
         </div>
 
