@@ -220,6 +220,9 @@ export default function LavaLetters() {
       playSuccessSound();
       setSavedCount(s => s + 1);
       
+      // Clear the "heard" display so it's ready for fresh input
+      setTimeout(() => setSpokenText(""), 300);
+      
       setWordProgress(wp => {
         const newProgress = new Map(wp);
         const current = newProgress.get(closestToBottom.matchWord) || { word: closestToBottom.matchWord, correctSaves: 0, cleared: false };

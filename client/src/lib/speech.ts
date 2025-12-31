@@ -391,6 +391,12 @@ export function startContinuousListening(
             matchedWords.add(firstMatch.index);
             onWordMatch(firstMatch);
           }
+          
+          // CRITICAL: Restart recognition after a match to clear the buffer
+          // This prevents old transcripts from blocking new word detection
+          try {
+            recognition.abort();
+          } catch (e) {}
         }
       }
     }
@@ -406,11 +412,15 @@ export function startContinuousListening(
 
   recognition.onend = () => {
     if (stopped) return;
-    try {
-      recognition.start();
-    } catch (e) {
-      onEnd();
-    }
+    // Small delay before restarting to ensure clean slate
+    setTimeout(() => {
+      if (stopped) return;
+      try {
+        recognition.start();
+      } catch (e) {
+        onEnd();
+      }
+    }, 100);
   };
 
   try {
