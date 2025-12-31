@@ -4,10 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, Volume2, ArrowRight, Mic, MicOff } from "lucide-react";
 import { 
-  startListening, 
+  startContinuousListening, 
   isSpeechRecognitionSupported,
   speakWord,
-  type RecognitionResult 
+  type MultiWordMatch 
 } from "@/lib/speech";
 
 interface SentenceCelebrationProps {
@@ -28,8 +28,9 @@ export function SentenceCelebration({ masteredWords, supportWords = [], onComple
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const recognitionRef = useRef<{ stop: () => void; updateTargetWord: (word: string) => void } | null>(null);
+  const recognitionRef = useRef<{ stop: () => void; updateTargetWords: (words: string[]) => void } | null>(null);
   const speechSupported = isSpeechRecognitionSupported();
+  const recognitionStartedRef = useRef(false);
 
   useEffect(() => {
     generateSentence();
@@ -80,70 +81,114 @@ export function SentenceCelebration({ masteredWords, supportWords = [], onComple
       recognitionRef.current = null;
     }
     setIsListening(false);
+    recognitionStartedRef.current = false;
   }, []);
 
-  const startRecognition = useCallback(() => {
-    if (!speechSupported || !voiceEnabled || currentWordIndex >= words.length) return;
+  // Get the 3-word sliding window: previous word, current word, next word
+  const getWindowWords = useCallback((centerIndex: number, allWords: string[]): string[] => {
+    const windowWords: string[] = [];
+    // Previous word (if exists and not completed)
+    if (centerIndex > 0) {
+      windowWords.push(allWords[centerIndex - 1]);
+    }
+    // Current word
+    if (centerIndex < allWords.length) {
+      windowWords.push(allWords[centerIndex]);
+    }
+    // Next word (if exists)
+    if (centerIndex + 1 < allWords.length) {
+      windowWords.push(allWords[centerIndex + 1]);
+    }
+    return windowWords;
+  }, []);
 
-    const targetWord = words[currentWordIndex].replace(/[.,!?;:'"]/g, "").toLowerCase();
-    
-    setIsListening(true);
-    
-    recognitionRef.current = startListening(
-      targetWord,
-      (result: RecognitionResult) => {
-        setSpokenText(result.transcript);
-        markWordComplete(currentWordIndex);
-      },
-      (result: RecognitionResult) => {
-        if (result.transcript) {
-          setSpokenText(result.transcript);
-          const spoken = result.transcript.toLowerCase();
-          if (spoken.includes(targetWord)) {
-            markWordComplete(currentWordIndex);
+  const markWordComplete = useCallback((index: number) => {
+    setCompletedWords(prev => {
+      const newCompleted = new Set(prev);
+      if (newCompleted.has(index)) return prev;
+      newCompleted.add(index);
+      
+      playWordSuccessSound();
+      
+      if (newCompleted.size >= words.length) {
+        setTimeout(() => {
+          setIsComplete(true);
+          playBigCelebrationSound();
+          stopListening();
+        }, 300);
+      } else {
+        // Find the LOWEST incomplete word index (not just next from current match)
+        let lowestIncomplete = 0;
+        while (lowestIncomplete < words.length && newCompleted.has(lowestIncomplete)) {
+          lowestIncomplete++;
+        }
+        if (lowestIncomplete < words.length) {
+          setCurrentWordIndex(lowestIncomplete);
+          // Update the window for continuous recognition - centered on lowest incomplete
+          if (recognitionRef.current) {
+            // Get window of incomplete words only
+            const windowWords: string[] = [];
+            for (let i = Math.max(0, lowestIncomplete - 1); i <= Math.min(words.length - 1, lowestIncomplete + 1); i++) {
+              if (!newCompleted.has(i)) {
+                windowWords.push(words[i]);
+              }
+            }
+            if (windowWords.length > 0) {
+              recognitionRef.current.updateTargetWords(windowWords);
+            }
           }
         }
+      }
+      
+      return newCompleted;
+    });
+    setSpokenText("");
+  }, [words, stopListening]);
+
+  const startRecognition = useCallback(() => {
+    if (!speechSupported || !voiceEnabled || words.length === 0) return;
+    if (recognitionStartedRef.current) return;
+    
+    recognitionStartedRef.current = true;
+    setIsListening(true);
+    
+    // Get initial 3-word window
+    const windowWords = getWindowWords(currentWordIndex, words);
+    
+    recognitionRef.current = startContinuousListening(
+      windowWords,
+      (match: MultiWordMatch) => {
+        // Find the word in the full sentence that matches (search all words)
+        for (let i = 0; i < words.length; i++) {
+          const wordClean = words[i].replace(/[.,!?;:'"]/g, "").toLowerCase();
+          if (wordClean === match.word) {
+            markWordComplete(i);
+            break;
+          }
+        }
+      },
+      (transcript: string) => {
+        setSpokenText(transcript);
       },
       (error: string) => {
         console.warn('Recognition error:', error);
       },
       () => {
         setIsListening(false);
+        recognitionStartedRef.current = false;
       }
     );
-  }, [speechSupported, voiceEnabled, currentWordIndex, words]);
+  }, [speechSupported, voiceEnabled, words, currentWordIndex, getWindowWords, markWordComplete]);
 
-  const markWordComplete = useCallback((index: number) => {
-    stopListening();
-    
-    const newCompleted = new Set(completedWords);
-    newCompleted.add(index);
-    setCompletedWords(newCompleted);
-    setSpokenText("");
-    
-    playWordSuccessSound();
-    
-    if (newCompleted.size >= words.length) {
-      setTimeout(() => {
-        setIsComplete(true);
-        playBigCelebrationSound();
-      }, 500);
-    } else {
-      const nextIndex = index + 1;
-      if (nextIndex < words.length) {
-        setCurrentWordIndex(nextIndex);
-      }
-    }
-  }, [completedWords, words.length, stopListening]);
-
+  // Start continuous recognition once when words are loaded
   useEffect(() => {
-    if (!isComplete && words.length > 0 && currentWordIndex < words.length && voiceEnabled && speechSupported) {
+    if (!isComplete && words.length > 0 && voiceEnabled && speechSupported && !recognitionStartedRef.current) {
       const timer = setTimeout(() => {
         startRecognition();
-      }, 300);
+      }, 100);
       return () => clearTimeout(timer);
     }
-  }, [currentWordIndex, words.length, isComplete, voiceEnabled, speechSupported, startRecognition]);
+  }, [words.length, isComplete, voiceEnabled, speechSupported, startRecognition]);
 
   useEffect(() => {
     return () => {

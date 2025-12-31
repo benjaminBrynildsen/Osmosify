@@ -311,6 +311,106 @@ export interface RecognitionResult {
   isMatch: boolean;
 }
 
+export interface MultiWordMatch {
+  word: string;
+  index: number;
+  transcript: string;
+  confidence: number;
+}
+
+export function startContinuousListening(
+  targetWords: string[],
+  onWordMatch: (match: MultiWordMatch) => void,
+  onInterimResult: (transcript: string) => void,
+  onError: (error: string) => void,
+  onEnd: () => void
+): { stop: () => void; updateTargetWords: (words: string[]) => void } {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  
+  if (!SpeechRecognition) {
+    onError('Speech recognition not supported');
+    onEnd();
+    return { stop: () => {}, updateTargetWords: () => {} };
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+  recognition.maxAlternatives = 5;
+
+  let stopped = false;
+  let currentTargetWords = targetWords.map(w => w.toLowerCase().replace(/[.,!?;:'"]/g, ''));
+  let matchedWords = new Set<number>();
+
+  recognition.onresult = (event: SpeechRecognitionEvent) => {
+    if (stopped) return;
+    
+    for (let resultIndex = 0; resultIndex < event.results.length; resultIndex++) {
+      const results = event.results[resultIndex];
+      
+      for (let i = 0; i < results.length; i++) {
+        const alternative = results[i];
+        const transcript = alternative.transcript.toLowerCase().trim();
+        
+        onInterimResult(alternative.transcript);
+        
+        for (let wordIdx = 0; wordIdx < currentTargetWords.length; wordIdx++) {
+          if (matchedWords.has(wordIdx)) continue;
+          
+          const target = currentTargetWords[wordIdx];
+          if (checkWordMatch(transcript, target)) {
+            matchedWords.add(wordIdx);
+            onWordMatch({
+              word: target,
+              index: wordIdx,
+              transcript: alternative.transcript,
+              confidence: alternative.confidence || 0.9,
+            });
+          }
+        }
+      }
+    }
+  };
+
+  recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    if (stopped) return;
+    if (event.error === 'no-speech') return;
+    if (event.error !== 'aborted') {
+      onError(event.error);
+    }
+  };
+
+  recognition.onend = () => {
+    if (stopped) return;
+    try {
+      recognition.start();
+    } catch (e) {
+      onEnd();
+    }
+  };
+
+  try {
+    recognition.start();
+  } catch (e) {
+    onError('Failed to start recognition');
+    onEnd();
+  }
+
+  return {
+    stop: () => {
+      stopped = true;
+      try {
+        recognition.abort();
+      } catch (e) {}
+    },
+    updateTargetWords: (words: string[]) => {
+      currentTargetWords = words.map(w => w.toLowerCase().replace(/[.,!?;:'"]/g, ''));
+      matchedWords.clear();
+    },
+  };
+}
+
 export function startListening(
   targetWord: string,
   onMatch: (result: RecognitionResult) => void,
