@@ -48,6 +48,29 @@ Server-side text processor (`server/textProcessor.ts`) handles:
 - Frequency counting across sessions
 - Grade-level vocabulary filtering
 
+### Word Prioritization Algorithm (Leverage-Based)
+The system maintains a global word statistics table across all books to prioritize which words to teach first:
+
+**Algorithm:**
+1. **Global frequency table** tracks for each word:
+   - `bookCount`: Number of books containing the word
+   - `totalOccurrences`: Total appearances across all books
+   - `leverageScore`: Calculated as `book_count × log(1 + total_occurrences) × 1000`
+
+2. **Prioritized word queue** for any book:
+   - Retrieves all words from the selected book
+   - Removes words already mastered by the child
+   - Sorts remaining words by leverage score (descending)
+
+**Key principle:** Osmosify decides priority (which words unlock the most books), not volume. Games/flashcards pull from the top of the priority queue; deck size controls how many at once.
+
+**API Endpoints:**
+- `GET /api/children/:childId/books/:bookId/prioritized-words` - Get prioritized word queue for a book
+- `POST /api/admin/sync-global-word-stats` - Manually sync global stats (admin only)
+- `GET /api/admin/global-word-stats` - View top leverage words (admin only)
+
+Stats auto-sync on startup and whenever books are created/updated/deleted.
+
 ### Key Design Decisions
 
 **Client-Server Separation:** Frontend in `/client/src`, backend in `/server`, shared types in `/shared/schema.ts`. Path aliases configured: `@/` for client, `@shared/` for shared code.

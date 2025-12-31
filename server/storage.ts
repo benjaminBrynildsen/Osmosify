@@ -415,6 +415,10 @@ export class DatabaseStorage implements IStorage {
       isBeta: false,
     };
     const [created] = await db.insert(books).values(insertData).returning();
+    
+    // Trigger global word stats sync (non-blocking)
+    this.syncGlobalWordStats().catch(err => console.error("Failed to sync global word stats:", err));
+    
     return created;
   }
 
@@ -451,6 +455,12 @@ export class DatabaseStorage implements IStorage {
       .set(updateData as Partial<Book>)
       .where(eq(books.id, id))
       .returning();
+    
+    // Trigger global word stats sync if words changed (non-blocking)
+    if (words) {
+      this.syncGlobalWordStats().catch(err => console.error("Failed to sync global word stats:", err));
+    }
+    
     return updated;
   }
 
@@ -470,11 +480,18 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(books.id, id))
       .returning();
+    
+    // Trigger global word stats sync (non-blocking)
+    this.syncGlobalWordStats().catch(err => console.error("Failed to sync global word stats:", err));
+    
     return updated;
   }
 
   async deleteBook(id: string): Promise<void> {
     await db.delete(books).where(eq(books.id, id));
+    
+    // Trigger global word stats sync (non-blocking)
+    this.syncGlobalWordStats().catch(err => console.error("Failed to sync global word stats:", err));
   }
 
   async findOrCreateBookByTitle(title: string, words: string[], childId: string): Promise<Book> {
@@ -771,8 +788,8 @@ export class DatabaseStorage implements IStorage {
   // This is computed and stored as an integer (multiplied by 1000 for precision)
 
   async syncGlobalWordStats(): Promise<void> {
-    // Get all preset books (shared library)
-    const allBooks = await this.getPresetBooks();
+    // Get ALL books (preset + user-created + community) for comprehensive stats
+    const allBooks = await this.getBooks();
     
     // Build word frequency map
     const wordStats = new Map<string, { bookCount: number; totalOccurrences: number }>();
@@ -798,22 +815,27 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    // Calculate leverage scores and upsert to database
-    const now = new Date();
+    // Get all existing stats to reconcile removals
+    const existingStats = await db.select().from(globalWordStats);
+    const existingWordsMap = new Map<string, string>(); // word -> id
+    for (const stat of existingStats) {
+      existingWordsMap.set(stat.word, stat.id);
+    }
     
+    const now = new Date();
+    const wordsToKeep = new Set<string>();
+    
+    // Calculate leverage scores and upsert to database
     for (const [word, stats] of wordStats) {
+      wordsToKeep.add(word);
+      
       // leverage_score = book_count × log(1 + total_occurrences)
       // Multiply by 1000 to store as integer with precision
       const leverageScore = Math.round(stats.bookCount * Math.log(1 + stats.totalOccurrences) * 1000);
       
-      // Upsert: insert or update if exists
-      const existing = await db
-        .select()
-        .from(globalWordStats)
-        .where(eq(globalWordStats.word, word))
-        .limit(1);
+      const existingId = existingWordsMap.get(word);
       
-      if (existing.length > 0) {
+      if (existingId) {
         await db
           .update(globalWordStats)
           .set({
@@ -822,7 +844,7 @@ export class DatabaseStorage implements IStorage {
             leverageScore,
             lastUpdated: now,
           })
-          .where(eq(globalWordStats.id, existing[0].id));
+          .where(eq(globalWordStats.id, existingId));
       } else {
         await db.insert(globalWordStats).values({
           word,
@@ -831,6 +853,13 @@ export class DatabaseStorage implements IStorage {
           leverageScore,
           lastUpdated: now,
         });
+      }
+    }
+    
+    // Remove stale stats for words no longer in any book
+    for (const [word, id] of existingWordsMap) {
+      if (!wordsToKeep.has(word)) {
+        await db.delete(globalWordStats).where(eq(globalWordStats.id, id));
       }
     }
   }
