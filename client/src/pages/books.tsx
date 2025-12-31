@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,7 @@ export default function Books() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [searchQuery, setSearchQuery] = useState("");
+  const [featuredCoverUrl, setFeaturedCoverUrl] = useState<string | null>(null);
 
   const { data: child, isLoading: childLoading } = useQuery<Child>({
     queryKey: ["/api/children", childId],
@@ -212,6 +213,25 @@ export default function Books() {
   const featuredBook = (readiness || []).find(r => 
     r.book.title.toLowerCase().includes("cat in the hat")
   );
+
+  useEffect(() => {
+    if (featuredBook) {
+      const book = featuredBook.book;
+      if (book.coverImageUrl || book.customCoverUrl) {
+        setFeaturedCoverUrl(book.coverImageUrl || book.customCoverUrl);
+      } else {
+        const params = new URLSearchParams({ title: book.title });
+        if (book.author) params.append("author", book.author);
+        fetch(`/api/open-library/cover?${params}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data?.coverUrl) setFeaturedCoverUrl(data.coverUrl);
+          })
+          .catch(() => {});
+      }
+    }
+  }, [featuredBook?.book.id]);
+
   const readyCount = (readiness || []).filter(r => r.percent >= 90).length;
   const almostCount = (readiness || []).filter(r => r.percent >= 70 && r.percent < 90).length;
   const progressCount = (readiness || []).filter(r => r.percent < 70).length;
@@ -256,8 +276,16 @@ export default function Books() {
           >
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
-                <div className="flex-shrink-0 w-16 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-md flex items-center justify-center shadow-md">
-                  <BookOpen className="w-8 h-8 text-white" />
+                <div className="flex-shrink-0 w-16 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-md flex items-center justify-center shadow-md overflow-hidden">
+                  {featuredCoverUrl ? (
+                    <img 
+                      src={featuredCoverUrl} 
+                      alt={featuredBook.book.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <BookOpen className="w-8 h-8 text-white" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
