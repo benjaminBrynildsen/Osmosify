@@ -342,6 +342,57 @@ Example: If required words are "cat, run, big" you might write "The big cat can 
     }
   });
 
+  // Calculate grade level based on mastered words
+  app.get("/api/children/:id/grade-level", ensureAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const child = await storage.getChildByUser(req.params.id, userId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
+      const words = await storage.getWordsByChild(req.params.id);
+      const masteredWords = words.filter(w => w.status === "mastered");
+      
+      // Simple grade level calculation based on:
+      // 1. Number of mastered words
+      // 2. Average word length of mastered words
+      if (masteredWords.length === 0) {
+        return res.json({ gradeLevel: "Pre-K", numericLevel: 0 });
+      }
+      
+      const avgLength = masteredWords.reduce((sum, w) => sum + w.word.length, 0) / masteredWords.length;
+      const masteredCount = masteredWords.length;
+      
+      // Score based on word count and complexity
+      // Pre-K: 0-10 words
+      // K: 10-50 words
+      // 1st: 50-100 words + avg length > 3
+      // 2nd: 100-200 words + avg length > 4
+      // 3rd+: 200+ words + avg length > 5
+      let gradeLevel = "Pre-K";
+      let numericLevel = 0;
+      
+      if (masteredCount >= 200 && avgLength > 5) {
+        gradeLevel = "3rd+";
+        numericLevel = 3;
+      } else if (masteredCount >= 100 && avgLength > 4) {
+        gradeLevel = "2nd";
+        numericLevel = 2;
+      } else if (masteredCount >= 50 && avgLength > 3) {
+        gradeLevel = "1st";
+        numericLevel = 1;
+      } else if (masteredCount >= 10) {
+        gradeLevel = "K";
+        numericLevel = 0.5;
+      }
+      
+      res.json({ gradeLevel, numericLevel, masteredCount, avgWordLength: avgLength.toFixed(1) });
+    } catch (error) {
+      console.error("Error calculating grade level:", error);
+      res.status(500).json({ error: "Failed to calculate grade level" });
+    }
+  });
+
   // Words endpoints (protected)
   app.get("/api/children/:id/words", ensureAuthenticated, async (req, res) => {
     try {
