@@ -22,6 +22,7 @@ import Presets from "@/pages/presets";
 import Books from "@/pages/books";
 import WordPop from "@/pages/word-pop";
 import PresetBooks from "@/pages/preset-books";
+import MyLibrary from "@/pages/my-library";
 import Moderation from "@/pages/moderation";
 import GuestOnboarding from "@/pages/guest-onboarding";
 import GuestFlashcards from "@/pages/guest-flashcards";
@@ -46,6 +47,7 @@ function AuthenticatedRouter() {
       <Route path="/child/:id/books" component={Books} />
       <Route path="/child/:id/word-pop" component={WordPop} />
       <Route path="/child/:id/preset-books" component={PresetBooks} />
+      <Route path="/child/:id/my-library" component={MyLibrary} />
       <Route path="/session/:id" component={SessionDetails} />
       <Route path="/moderation" component={Moderation} />
       <Route component={NotFound} />

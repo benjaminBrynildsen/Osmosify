@@ -8,17 +8,22 @@ import { StatBlock, StatsGrid } from "@/components/StatBlock";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingScreen } from "@/components/LoadingSpinner";
 import {
+  Camera,
   BookOpen,
+  Sparkles,
   Unlock,
+  RefreshCw,
   Library,
   Settings,
   GraduationCap,
+  TrendingUp,
+  ListPlus,
   BookMarked,
+  Gamepad2,
   Play,
   ChevronRight,
   MessageSquareText,
   FolderHeart,
-  ListPlus,
 } from "lucide-react";
 import type { Child, ReadingSession, Word, Book } from "@shared/schema";
 
@@ -82,11 +87,14 @@ export default function ChildDashboard() {
     );
   }
 
+  const newWords = words?.filter((w) => w.status === "new") || [];
+  const learningWords = words?.filter((w) => w.status === "learning") || [];
   const unlockedWords = words?.filter((w) => w.status === "mastered") || [];
   
   const sortedSessions = [...(sessions || [])].sort((a, b) => 
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
+  const recentSessions = sortedSessions.slice(0, 5);
   
   const lastSession = sortedSessions.find(s => s.bookTitle);
   const hasRecentActivity = lastSession && lastSession.bookTitle;
@@ -110,7 +118,7 @@ export default function ChildDashboard() {
       />
 
       <main className="container mx-auto max-w-2xl p-4 space-y-6">
-        {/* 1. Featured Book */}
+        {/* Featured Book */}
         {featuredBook && featuredBook.book && (
           <Card 
             className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border-amber-500/30 cursor-pointer hover-elevate overflow-hidden"
@@ -143,7 +151,7 @@ export default function ChildDashboard() {
           </Card>
         )}
 
-        {/* 2. Stat Boxes: Words in My Library, Words Unlocked, Grade Level, Sentences Read */}
+        {/* Stat Boxes */}
         <StatsGrid>
           <StatBlock
             value={words?.length || 0}
@@ -167,7 +175,7 @@ export default function ChildDashboard() {
           />
         </StatsGrid>
 
-        {/* 3. Jump Back In */}
+        {/* Jump Back In */}
         {hasRecentActivity && (
           <Card 
             className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-blue-500/30 cursor-pointer hover-elevate"
@@ -196,74 +204,157 @@ export default function ChildDashboard() {
           </Card>
         )}
 
-        {/* 4. Book Library */}
-        <Card 
-          className="cursor-pointer hover-elevate"
-          onClick={() => setLocation(`/child/${childId}/books`)}
-          data-testid="card-book-library"
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center">
-                <BookMarked className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold">Book Library</h3>
-                <p className="text-sm text-muted-foreground">Browse and add new books</p>
-              </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 5. My Library Section */}
-        <div>
-          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <FolderHeart className="w-5 h-5 text-primary" />
-            My Library
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-auto py-4 flex-col gap-2"
-              onClick={() => setLocation(`/child/${childId}/library`)}
-              data-testid="button-my-words"
-            >
-              <Library className="h-6 w-6" />
-              <span>My Words</span>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-auto py-4 flex-col gap-2"
-              onClick={() => setLocation(`/child/${childId}/presets`)}
-              data-testid="button-word-lists"
-            >
-              <ListPlus className="h-6 w-6" />
-              <span>Word Lists</span>
-            </Button>
-          </div>
+        {/* Action Buttons Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            size="lg"
+            variant="secondary"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/child/${childId}/flashcards`)}
+            disabled={newWords.length + learningWords.length === 0}
+            data-testid="button-flashcards"
+          >
+            <Sparkles className="h-6 w-6" />
+            <span>Flashcards</span>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/child/${childId}/books`)}
+            data-testid="button-books"
+          >
+            <BookMarked className="h-6 w-6" />
+            <span>Book Library</span>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/child/${childId}/presets`)}
+            data-testid="button-presets"
+          >
+            <ListPlus className="h-6 w-6" />
+            <span>Word Lists</span>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/child/${childId}/library`)}
+            data-testid="button-word-library"
+          >
+            <Library className="h-6 w-6" />
+            <span>Word Library</span>
+          </Button>
+          <Button
+            size="lg"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/child/${childId}/upload`)}
+            data-testid="button-new-session"
+          >
+            <Camera className="h-6 w-6" />
+            <span>Upload Book</span>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => setLocation(`/child/${childId}/history-test`)}
+            disabled={unlockedWords.length + learningWords.length === 0}
+            data-testid="button-history-test"
+          >
+            <RefreshCw className="h-6 w-6" />
+            <span>Keep Words Strong</span>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30"
+            onClick={() => setLocation(`/child/${childId}/word-pop`)}
+            disabled={(words?.length || 0) < 4}
+            data-testid="button-word-pop"
+          >
+            <Gamepad2 className="h-6 w-6 text-purple-500" />
+            <span>Word Pop</span>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2 bg-gradient-to-br from-rose-500/10 to-orange-500/10 border-rose-500/30"
+            onClick={() => setLocation(`/child/${childId}/my-library`)}
+            data-testid="button-my-library"
+          >
+            <FolderHeart className="h-6 w-6 text-rose-500" />
+            <span>My Library</span>
+          </Button>
         </div>
 
-        {/* Recent Sessions */}
-        {sortedSessions.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Recent Sessions</h3>
-              {sessions && sessions.length > 5 && (
-                <Button variant="ghost" className="px-0 text-primary" onClick={() => setLocation(`/child/${childId}/sessions`)}>
-                  View all
+        {/* Words Ready to Unlock */}
+        {newWords.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Words Ready to Unlock
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {newWords.slice(0, 10).map((word) => (
+                  <span
+                    key={word.id}
+                    className="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-sm font-medium"
+                    data-testid={`badge-new-word-${word.id}`}
+                  >
+                    {word.word}
+                  </span>
+                ))}
+                {newWords.length > 10 && (
+                  <span className="px-3 py-1.5 text-sm text-muted-foreground">
+                    +{newWords.length - 10} more
+                  </span>
+                )}
+              </div>
+              {newWords.length > 0 && (
+                <Button
+                  variant="ghost"
+                  className="px-0 mt-3 text-primary"
+                  onClick={() => setLocation(`/child/${childId}/flashcards`)}
+                  data-testid="link-practice-new-words"
+                >
+                  <TrendingUp className="h-4 w-4 mr-1" />
+                  Start unlocking these words
                 </Button>
               )}
-            </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Recent Sessions */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Recent Sessions</h3>
+            {sessions && sessions.length > 5 && (
+              <Button variant="ghost" className="px-0 text-primary" onClick={() => setLocation(`/child/${childId}/sessions`)}>
+                View all
+              </Button>
+            )}
+          </div>
+          {recentSessions.length > 0 ? (
             <div className="space-y-3">
-              {sortedSessions.slice(0, 3).map((session) => (
+              {recentSessions.map((session) => (
                 <SessionCard key={session.id} session={session} />
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <EmptyState
+              type="sessions"
+              title="No reading sessions yet"
+              description="Upload pages from a book to start tracking vocabulary."
+            />
+          )}
+        </div>
       </main>
     </div>
   );
