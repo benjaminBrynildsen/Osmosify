@@ -98,7 +98,7 @@ export default function WordPop() {
     const selectedWords = getRandomWords(bubbleCount, target);
     
     const round = roundNum ?? 0;
-    const baseSpeed = 0.8 + (currentLevel - 1) * 0.25 + round * 0.1;
+    const baseSpeed = 1.3 + (currentLevel - 1) * 0.2 + round * 0.1;
     const speedVariation = 0.3;
     
     const newBubbles: Bubble[] = selectedWords.map((word, index) => {

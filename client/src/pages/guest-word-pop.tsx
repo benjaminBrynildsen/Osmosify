@@ -51,8 +51,8 @@ export default function GuestWordPop() {
   }, [guestData.words]);
 
   const getSpeedForLevel = (lvl: number) => {
-    const baseSpeed = 0.3;
-    return baseSpeed + (lvl - 1) * 0.1;
+    const baseSpeed = 1.3;
+    return baseSpeed + (lvl - 1) * 0.2;
   };
 
   const getDistractorCount = () => {
