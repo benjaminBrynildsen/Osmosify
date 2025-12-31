@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { processText, getTopRepeatedWords } from "./textProcessor";
 import { extractTextFromImages } from "./ocrService";
-import { insertChildSchema, insertBookSchema } from "@shared/schema";
+import { insertChildSchema, insertBookSchema, users } from "@shared/schema";
 import { presetWordLists as presetData } from "./presetData";
 import { presetBooks as presetBooksData } from "./presetBooks";
 import { z } from "zod";
@@ -11,6 +11,8 @@ import { setupAuth, registerAuthRoutes, ensureAuthenticated } from "./replit_int
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { searchBooksForDisplay, fetchCoverForBook } from "./openLibrary";
 import { synthesizeSpeech, AVAILABLE_VOICES, VoiceOption } from "./ttsService";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 // Helper to get userId from authenticated request (supports email, phone, and Replit auth)
 function getUserId(req: any): string {
@@ -759,6 +761,70 @@ Example format: "The cat ran to the big tree."`;
     } catch (error) {
       console.error("Error fetching preset books:", error);
       res.status(500).json({ error: "Failed to fetch preset books" });
+    }
+  });
+
+  // Prioritized words for a book (leverage-based ordering)
+  // Returns words sorted by leverage score, excluding mastered words
+  app.get("/api/children/:childId/books/:bookId/prioritized-words", ensureAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { childId, bookId } = req.params;
+      
+      const child = await storage.getChildByUser(childId, userId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
+      
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      const prioritizedWords = await storage.getPrioritizedWordsForBook(bookId, childId);
+      res.json(prioritizedWords);
+    } catch (error) {
+      console.error("Error fetching prioritized words:", error);
+      res.status(500).json({ error: "Failed to fetch prioritized words" });
+    }
+  });
+
+  // Admin endpoint to sync global word stats
+  app.post("/api/admin/sync-global-word-stats", ensureAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!user.length || user[0].role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      await storage.syncGlobalWordStats();
+      const stats = await storage.getAllGlobalWordStats();
+      res.json({ 
+        message: "Global word stats synced successfully",
+        totalWords: stats.length 
+      });
+    } catch (error) {
+      console.error("Error syncing global word stats:", error);
+      res.status(500).json({ error: "Failed to sync global word stats" });
+    }
+  });
+
+  // Get global word stats (for debugging/admin)
+  app.get("/api/admin/global-word-stats", ensureAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!user.length || user[0].role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const limit = parseInt(req.query.limit as string) || 100;
+      const stats = await storage.getAllGlobalWordStats();
+      res.json(stats.slice(0, limit));
+    } catch (error) {
+      console.error("Error fetching global word stats:", error);
+      res.status(500).json({ error: "Failed to fetch global word stats" });
     }
   });
 
