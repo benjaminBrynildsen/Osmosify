@@ -476,7 +476,66 @@ export default function Books() {
                 )}
               </DialogHeader>
 
-              <div className="mt-4">
+              <div className="mt-4 flex flex-col gap-2">
+                <Button
+                  className="w-full gap-2 bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
+                  onClick={() => {
+                    setSelectedBook(null);
+                    setLocation(`/child/${childId}/word-pop?bookId=${selectedBook.id}&lessonMode=true`);
+                  }}
+                  data-testid="button-start-lesson"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  Start Lesson
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => {
+                    setSelectedBook(null);
+                    setLocation(`/child/${childId}/flashcards?bookId=${selectedBook.id}`);
+                  }}
+                  data-testid="button-unlock-words"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Flashcards
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30"
+                  onClick={() => {
+                    setSelectedBook(null);
+                    setLocation(`/child/${childId}/word-pop?bookId=${selectedBook.id}`);
+                  }}
+                  data-testid="button-play-word-pop"
+                >
+                  <Gamepad2 className="h-4 w-4 text-purple-500" />
+                  Play Word Pop
+                </Button>
+                {!selectedBook.isPreset && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={() => {
+                        setAddWordsBook(selectedBook);
+                        setSelectedBook(null);
+                      }}
+                      data-testid="button-add-words-to-book"
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                      Add More Words
+                    </Button>
+                    <BookCoverUpload 
+                      book={selectedBook} 
+                      childId={childId!}
+                      onSuccess={() => setSelectedBook(null)}
+                    />
+                  </>
+                )}
+              </div>
+
+              <div className="mt-4 pt-4 border-t">
                 <h4 className="text-sm font-medium mb-3">
                   Words in this book ({selectedBook.words.length})
                 </h4>
@@ -511,65 +570,6 @@ export default function Books() {
 
                 <div className="mt-4 pt-4 border-t">
                   <BookPurchaseLinks book={selectedBook} />
-                </div>
-
-                <div className="mt-4 flex flex-col gap-2">
-                  <Button
-                    className="w-full gap-2 bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
-                    onClick={() => {
-                      setSelectedBook(null);
-                      setLocation(`/child/${childId}/word-pop?bookId=${selectedBook.id}&lessonMode=true`);
-                    }}
-                    data-testid="button-start-lesson"
-                  >
-                    <BookOpen className="h-4 w-4" />
-                    Start Lesson
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2"
-                    onClick={() => {
-                      setSelectedBook(null);
-                      setLocation(`/child/${childId}/flashcards?bookId=${selectedBook.id}`);
-                    }}
-                    data-testid="button-unlock-words"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Flashcards
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30"
-                    onClick={() => {
-                      setSelectedBook(null);
-                      setLocation(`/child/${childId}/word-pop?bookId=${selectedBook.id}`);
-                    }}
-                    data-testid="button-play-word-pop"
-                  >
-                    <Gamepad2 className="h-4 w-4 text-purple-500" />
-                    Play Word Pop
-                  </Button>
-                  {!selectedBook.isPreset && (
-                    <>
-                      <Button
-                        variant="outline"
-                        className="w-full gap-2"
-                        onClick={() => {
-                          setAddWordsBook(selectedBook);
-                          setSelectedBook(null);
-                        }}
-                        data-testid="button-add-words-to-book"
-                      >
-                        <PlusCircle className="h-4 w-4" />
-                        Add More Words
-                      </Button>
-                      <BookCoverUpload 
-                        book={selectedBook} 
-                        childId={childId!}
-                        onSuccess={() => setSelectedBook(null)}
-                      />
-                    </>
-                  )}
                 </div>
               </div>
             </>
