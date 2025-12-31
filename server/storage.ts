@@ -93,6 +93,9 @@ export interface IStorage {
   seedPresetBooks(bookList: PresetBookData[]): Promise<void>;
   findOrCreateBookByTitle(title: string, words: string[], childId: string): Promise<Book>;
 
+  // Book Cover Caching
+  updateBookCover(bookId: string, coverUrl: string, isbn?: string): Promise<Book | undefined>;
+
   // Book Progress & Readiness
   getChildBookProgress(childId: string): Promise<ChildBookProgress[]>;
   calculateBookReadiness(childId: string): Promise<BookReadiness[]>;
@@ -492,6 +495,21 @@ export class DatabaseStorage implements IStorage {
     
     // Trigger global word stats sync (non-blocking)
     this.syncGlobalWordStats().catch(err => console.error("Failed to sync global word stats:", err));
+  }
+
+  async updateBookCover(bookId: string, coverUrl: string, isbn?: string): Promise<Book | undefined> {
+    const updateData: { coverImageUrl: string; isbn?: string } = { coverImageUrl: coverUrl };
+    if (isbn) {
+      updateData.isbn = isbn;
+    }
+    
+    const [updated] = await db
+      .update(books)
+      .set(updateData)
+      .where(eq(books.id, bookId))
+      .returning();
+    
+    return updated;
   }
 
   async findOrCreateBookByTitle(title: string, words: string[], childId: string): Promise<Book> {

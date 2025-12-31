@@ -64,8 +64,6 @@ export default function Books() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [searchQuery, setSearchQuery] = useState("");
-  const [featuredCoverUrl, setFeaturedCoverUrl] = useState<string | null>(null);
-
   const { data: child, isLoading: childLoading } = useQuery<Child>({
     queryKey: ["/api/children", childId],
   });
@@ -170,13 +168,18 @@ export default function Books() {
     r.book.title.toLowerCase().includes("cat in the hat")
   );
 
+  // Use cached cover from DB, or fetch and cache it if not available
+  const [featuredCoverUrl, setFeaturedCoverUrl] = useState<string | null>(null);
+  
   useEffect(() => {
     if (featuredBook) {
       const book = featuredBook.book;
+      // If already have a cached cover, use it immediately
       if (book.coverImageUrl || book.customCoverUrl) {
         setFeaturedCoverUrl(book.coverImageUrl || book.customCoverUrl);
       } else {
-        const params = new URLSearchParams({ title: book.title });
+        // Fetch from Open Library and cache it for next time
+        const params = new URLSearchParams({ title: book.title, bookId: book.id });
         if (book.author) params.append("author", book.author);
         fetch(`/api/open-library/cover?${params}`)
           .then(res => res.ok ? res.json() : null)
@@ -186,7 +189,7 @@ export default function Books() {
           .catch(() => {});
       }
     }
-  }, [featuredBook?.book.id]);
+  }, [featuredBook?.book.id, featuredBook?.book.coverImageUrl]);
 
   if (childLoading || readinessLoading) {
     return <LoadingScreen message="Loading books..." />;

@@ -851,12 +851,24 @@ Example format: "The cat ran to the big tree."`;
       const title = req.query.title as string;
       const author = req.query.author as string | undefined;
       const isbn = req.query.isbn as string | undefined;
+      const bookId = req.query.bookId as string | undefined;
       
       if (!title) {
         return res.status(400).json({ error: "Title is required" });
       }
       
       const result = await fetchCoverForBook(title, author, isbn);
+      
+      // Cache the cover URL to the book if bookId provided and cover found
+      if (bookId && result.coverUrl) {
+        try {
+          await storage.updateBookCover(bookId, result.coverUrl, result.isbn || undefined);
+        } catch (cacheError) {
+          console.error("Failed to cache book cover:", cacheError);
+          // Don't fail the request if caching fails
+        }
+      }
+      
       res.json(result);
     } catch (error) {
       console.error("Open Library cover fetch error:", error);
