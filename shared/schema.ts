@@ -242,6 +242,35 @@ export const insertBookUnlockSchema = createInsertSchema(bookUnlocks).omit({
 export type InsertBookUnlock = z.infer<typeof insertBookUnlockSchema>;
 export type BookUnlock = typeof bookUnlocks.$inferSelect;
 
+// Track which preset word lists a child has added to their library
+export const childAddedPresets = pgTable("child_added_presets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  childId: varchar("child_id").notNull().references(() => children.id, { onDelete: "cascade" }),
+  presetId: varchar("preset_id").notNull().references(() => presetWordLists.id, { onDelete: "cascade" }),
+  addedAt: timestamp("added_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("child_added_presets_child_preset_idx").on(table.childId, table.presetId),
+]);
+
+export const childAddedPresetsRelations = relations(childAddedPresets, ({ one }) => ({
+  child: one(children, {
+    fields: [childAddedPresets.childId],
+    references: [children.id],
+  }),
+  preset: one(presetWordLists, {
+    fields: [childAddedPresets.presetId],
+    references: [presetWordLists.id],
+  }),
+}));
+
+export const insertChildAddedPresetSchema = createInsertSchema(childAddedPresets).omit({
+  id: true,
+  addedAt: true,
+});
+
+export type InsertChildAddedPreset = z.infer<typeof insertChildAddedPresetSchema>;
+export type ChildAddedPreset = typeof childAddedPresets.$inferSelect;
+
 // Global word statistics for leverage-based prioritization
 // Tracks word frequency across ALL books in the library
 export const globalWordStats = pgTable("global_word_stats", {

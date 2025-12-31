@@ -12,7 +12,15 @@ import {
   FolderHeart,
   Play,
 } from "lucide-react";
-import type { Child, ReadingSession } from "@shared/schema";
+import type { Child, ReadingSession, PresetWordList } from "@shared/schema";
+
+interface ChildAddedPreset {
+  id: string;
+  childId: string;
+  presetId: string;
+  addedAt: string;
+  preset: PresetWordList;
+}
 
 export default function MyLibrary() {
   const params = useParams<{ id: string }>();
@@ -25,6 +33,11 @@ export default function MyLibrary() {
 
   const { data: sessions, isLoading: sessionsLoading } = useQuery<ReadingSession[]>({
     queryKey: ["/api/children", childId, "sessions"],
+    enabled: !!childId,
+  });
+
+  const { data: addedPresets, isLoading: presetsLoading } = useQuery<ChildAddedPreset[]>({
+    queryKey: ["/api/children", childId, "added-presets"],
     enabled: !!childId,
   });
 
@@ -47,7 +60,7 @@ export default function MyLibrary() {
     );
   }
 
-  const isLoading = sessionsLoading;
+  const isLoading = sessionsLoading || presetsLoading;
   
   // Get unique books from sessions (by title)
   const uniqueBooks = sessions?.reduce((acc, session) => {
@@ -62,7 +75,9 @@ export default function MyLibrary() {
     return acc;
   }, [] as { title: string; bookId: string | null; lastRead: Date; wordCount: number }[]) || [];
 
-  const hasContent = uniqueBooks.length > 0;
+  const hasBooks = uniqueBooks.length > 0;
+  const hasPresets = addedPresets && addedPresets.length > 0;
+  const hasContent = hasBooks || hasPresets;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -79,7 +94,7 @@ export default function MyLibrary() {
           </div>
           <div>
             <h2 className="font-semibold">{child.name}'s Library</h2>
-            <p className="text-sm text-muted-foreground">Books and word lists you've explored</p>
+            <p className="text-sm text-muted-foreground">Books and word lists you've added</p>
           </div>
         </div>
 
@@ -93,50 +108,88 @@ export default function MyLibrary() {
           <EmptyState
             type="sessions"
             title="Your library is empty"
-            description="Start reading books to add them to your library."
+            description="Start reading books or add word lists to see them here."
           />
         ) : (
           <>
             {/* My Books */}
-            <div>
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <BookMarked className="w-5 h-5 text-emerald-500" />
-                My Books ({uniqueBooks.length})
-              </h3>
-              <div className="space-y-3">
-                {uniqueBooks.map((book, index) => (
-                  <Card 
-                    key={`${book.title}-${index}`}
-                    className="cursor-pointer hover-elevate"
-                    onClick={() => {
-                      if (book.bookId) {
-                        setLocation(`/child/${childId}/word-pop?bookId=${book.bookId}&lessonMode=true`);
-                      } else {
-                        setLocation(`/child/${childId}/books?openBook=${encodeURIComponent(book.title)}`);
-                      }
-                    }}
-                    data-testid={`card-my-book-${index}`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-md flex items-center justify-center flex-shrink-0">
-                          <BookMarked className="w-5 h-5 text-white" />
+            {hasBooks && (
+              <div>
+                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  <BookMarked className="w-5 h-5 text-emerald-500" />
+                  My Books ({uniqueBooks.length})
+                </h3>
+                <div className="space-y-3">
+                  {uniqueBooks.map((book, index) => (
+                    <Card 
+                      key={`${book.title}-${index}`}
+                      className="cursor-pointer hover-elevate"
+                      onClick={() => {
+                        if (book.bookId) {
+                          setLocation(`/child/${childId}/word-pop?bookId=${book.bookId}&lessonMode=true`);
+                        } else {
+                          setLocation(`/child/${childId}/books?openBook=${encodeURIComponent(book.title)}`);
+                        }
+                      }}
+                      data-testid={`card-my-book-${index}`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-md flex items-center justify-center flex-shrink-0">
+                            <BookMarked className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium truncate">{book.title}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {book.wordCount > 0 ? `${book.wordCount} words learned` : "Tap to continue"}
+                            </p>
+                          </div>
+                          <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                            <Play className="w-4 h-4 text-white ml-0.5" />
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium truncate">{book.title}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {book.wordCount > 0 ? `${book.wordCount} words learned` : "Tap to continue"}
-                          </p>
-                        </div>
-                        <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                          <Play className="w-4 h-4 text-white ml-0.5" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* My Word Lists */}
+            {hasPresets && (
+              <div>
+                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  <ListPlus className="w-5 h-5 text-blue-500" />
+                  My Word Lists ({addedPresets.length})
+                </h3>
+                <div className="space-y-3">
+                  {addedPresets.map((ap) => (
+                    <Card 
+                      key={ap.id}
+                      className="cursor-pointer hover-elevate"
+                      onClick={() => setLocation(`/child/${childId}/presets`)}
+                      data-testid={`card-my-preset-${ap.id}`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-md flex items-center justify-center flex-shrink-0">
+                            <ListPlus className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium truncate">{ap.preset.name}</h4>
+                            {ap.preset.description && (
+                              <p className="text-sm text-muted-foreground truncate">{ap.preset.description}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-1">{ap.preset.words?.length || 0} words</p>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
 

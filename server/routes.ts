@@ -589,6 +589,9 @@ Example: If required words are "cat, run, big" you might write "The big cat can 
       }
 
       const { newWords, totalWords } = await storage.bulkUpsertWords(childId, preset.words);
+      
+      // Track that this preset was added to the child's library
+      await storage.addPresetToChild(childId, presetId);
 
       res.json({
         added: newWords.length,
@@ -598,6 +601,22 @@ Example: If required words are "cat, run, big" you might write "The big cat can 
     } catch (error) {
       console.error("Error adding preset:", error);
       res.status(500).json({ error: "Failed to add preset words" });
+    }
+  });
+
+  // Get child's added presets (word lists in their library)
+  app.get("/api/children/:id/added-presets", ensureAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const child = await storage.getChildByUser(req.params.id, userId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
+      const addedPresets = await storage.getChildAddedPresets(req.params.id);
+      res.json(addedPresets);
+    } catch (error) {
+      console.error("Error fetching added presets:", error);
+      res.status(500).json({ error: "Failed to fetch added presets" });
     }
   });
 

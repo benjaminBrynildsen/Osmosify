@@ -17,6 +17,7 @@ import {
   type UserRole,
   type GlobalWordStats,
   type PrioritizedWord,
+  type ChildAddedPreset,
   children,
   readingSessions,
   words,
@@ -26,6 +27,7 @@ import {
   bookUnlocks,
   users,
   globalWordStats,
+  childAddedPresets,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray, isNull, asc } from "drizzle-orm";
@@ -106,6 +108,10 @@ export interface IStorage {
   getGlobalWordStats(word: string): Promise<GlobalWordStats | undefined>;
   getAllGlobalWordStats(): Promise<GlobalWordStats[]>;
   getPrioritizedWordsForBook(bookId: string, childId: string): Promise<PrioritizedWord[]>;
+
+  // Child Added Presets (tracking which word lists a child has added)
+  getChildAddedPresets(childId: string): Promise<Array<ChildAddedPreset & { preset: PresetWordList }>>;
+  addPresetToChild(childId: string, presetId: string): Promise<ChildAddedPreset>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -948,6 +954,67 @@ export class DatabaseStorage implements IStorage {
     prioritizedWords.sort((a, b) => b.leverageScore - a.leverageScore);
     
     return prioritizedWords;
+  }
+
+  // Child Added Presets
+  async getChildAddedPresets(childId: string): Promise<Array<ChildAddedPreset & { preset: PresetWordList }>> {
+    const results = await db
+      .select({
+        id: childAddedPresets.id,
+        childId: childAddedPresets.childId,
+        presetId: childAddedPresets.presetId,
+        addedAt: childAddedPresets.addedAt,
+        presetId2: presetWordLists.id,
+        presetName: presetWordLists.name,
+        presetCategory: presetWordLists.category,
+        presetDescription: presetWordLists.description,
+        presetWords: presetWordLists.words,
+        presetGradeLevel: presetWordLists.gradeLevel,
+        presetSortOrder: presetWordLists.sortOrder,
+      })
+      .from(childAddedPresets)
+      .innerJoin(presetWordLists, eq(childAddedPresets.presetId, presetWordLists.id))
+      .where(eq(childAddedPresets.childId, childId))
+      .orderBy(desc(childAddedPresets.addedAt));
+    
+    // Transform flat result into nested structure
+    return results.map(row => ({
+      id: row.id,
+      childId: row.childId,
+      presetId: row.presetId,
+      addedAt: row.addedAt,
+      preset: {
+        id: row.presetId2,
+        name: row.presetName,
+        category: row.presetCategory,
+        description: row.presetDescription,
+        words: row.presetWords,
+        gradeLevel: row.presetGradeLevel,
+        sortOrder: row.presetSortOrder,
+      },
+    }));
+  }
+
+  async addPresetToChild(childId: string, presetId: string): Promise<ChildAddedPreset> {
+    const [added] = await db
+      .insert(childAddedPresets)
+      .values({ childId, presetId })
+      .onConflictDoNothing()
+      .returning();
+    
+    if (!added) {
+      // Already exists, fetch it
+      const [existing] = await db
+        .select()
+        .from(childAddedPresets)
+        .where(and(
+          eq(childAddedPresets.childId, childId),
+          eq(childAddedPresets.presetId, presetId)
+        ));
+      return existing;
+    }
+    
+    return added;
   }
 }
 
