@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Volume2, Trophy, Flame, Play, RotateCcw, Star, BookOpen } from "lucide-react";
+import { ArrowLeft, Volume2, Trophy, Flame, Play, RotateCcw, Star, BookOpen, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { speak } from "@/lib/voice";
 import { playSuccessSound } from "@/lib/speech";
@@ -26,6 +26,7 @@ export default function WordPop() {
   const searchParams = new URLSearchParams(searchString);
   const bookId = searchParams.get("bookId");
   const presetId = searchParams.get("presetId");
+  const lessonMode = searchParams.get("lessonMode") === "true";
   const childId = id || "";
 
   const [gameState, setGameState] = useState<"ready" | "playing" | "gameover">("ready");
@@ -93,9 +94,7 @@ export default function WordPop() {
     
     const areaWidth = gameAreaRef.current.offsetWidth;
     const areaHeight = gameAreaRef.current.offsetHeight;
-    const baseBubbleCount = 4;
-    const extraBubbles = Math.min(Math.floor((currentLevel - 1) / 2), 2);
-    const bubbleCount = Math.min(baseBubbleCount + extraBubbles, playableWords.length);
+    const bubbleCount = Math.min(4, playableWords.length);
     const selectedWords = getRandomWords(bubbleCount, target);
     
     const round = roundNum ?? 0;
@@ -169,6 +168,7 @@ export default function WordPop() {
         if (newRounds >= ROUNDS_PER_LEVEL) {
           setLevel(lvl => {
             const newLevel = lvl + 1;
+            setLives(currentLives => Math.min(currentLives + 1, 3));
             setTimeout(() => {
               setFeedback("levelup");
               speak(`Level ${newLevel}!`);
@@ -446,7 +446,9 @@ export default function WordPop() {
         {gameState === "gameover" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-8 bg-background/80 backdrop-blur-sm">
             <Trophy className="w-20 h-20 text-amber-500 mb-4" />
-            <h2 className="text-3xl font-bold mb-2">Game Over!</h2>
+            <h2 className="text-3xl font-bold mb-2">
+              {lessonMode ? "Great Warm-Up!" : "Game Over!"}
+            </h2>
             
             <div className="grid grid-cols-2 gap-4 my-6 text-center">
               <div>
@@ -467,15 +469,36 @@ export default function WordPop() {
               </div>
             </div>
             
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setLocation(backPath)} data-testid="button-exit">
-                Exit
-              </Button>
-              <Button onClick={startGame} data-testid="button-play-again">
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Play Again
-              </Button>
-            </div>
+            {lessonMode && bookId ? (
+              <div className="flex flex-col gap-3 w-full max-w-xs">
+                <Button 
+                  size="lg"
+                  className="w-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
+                  onClick={() => setLocation(`/child/${childId}/flashcards?bookId=${bookId}`)}
+                  data-testid="button-continue-flashcards"
+                >
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  Continue to Flashcards
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setLocation(backPath)} 
+                  data-testid="button-exit"
+                >
+                  Exit Lesson
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setLocation(backPath)} data-testid="button-exit">
+                  Exit
+                </Button>
+                <Button onClick={startGame} data-testid="button-play-again">
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Play Again
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

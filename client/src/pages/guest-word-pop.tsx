@@ -55,8 +55,8 @@ export default function GuestWordPop() {
     return baseSpeed + (lvl - 1) * 0.1;
   };
 
-  const getDistractorCount = (lvl: number) => {
-    return Math.min(2 + Math.floor(lvl / 2), 6);
+  const getDistractorCount = () => {
+    return 3;
   };
 
   const pickNewTarget = useCallback(() => {
@@ -92,7 +92,7 @@ export default function GuestWordPop() {
     setBubbles([]);
     
     setTimeout(() => {
-      const distractorCount = getDistractorCount(level);
+      const distractorCount = getDistractorCount();
       const targetIndex = Math.floor(Math.random() * (distractorCount + 1));
       
       const randomIndex = Math.floor(Math.random() * playableWords.length);
@@ -134,6 +134,7 @@ export default function GuestWordPop() {
         if (newRounds >= ROUNDS_PER_LEVEL) {
           setTimeout(() => {
             setLevel(l => l + 1);
+            setLives(currentLives => Math.min(currentLives + 1, 3));
             setRoundsInLevel(0);
             setFeedback("levelup");
             setTimeout(() => {

@@ -428,6 +428,17 @@ export default function Books() {
 
                 <div className="mt-4 flex flex-col gap-2">
                   <Button
+                    className="w-full gap-2 bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
+                    onClick={() => {
+                      setSelectedBook(null);
+                      setLocation(`/child/${childId}/word-pop?bookId=${selectedBook.id}&lessonMode=true`);
+                    }}
+                    data-testid="button-start-lesson"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    Start Lesson
+                  </Button>
+                  <Button
                     variant="outline"
                     className="w-full gap-2"
                     onClick={() => {

@@ -692,7 +692,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
                 showFeedback === "correct"
                   ? "bg-emerald-500 border-emerald-500"
                   : showFeedback === "incorrect"
-                  ? "bg-red-500/20 border-red-500"
+                  ? "bg-amber-500/20 border-amber-500"
                   : ""
               }`}
               data-testid="flashcard-word-display"
@@ -741,7 +741,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
                     animate={{ opacity: 1, scale: 1 }}
                     className="absolute -top-2 left-1/2 -translate-x-1/2"
                   >
-                    <p className="text-xl font-bold text-red-600 dark:text-red-400">Try again!</p>
+                    <p className="text-xl font-bold text-amber-600 dark:text-amber-400">Try again!</p>
                   </motion.div>
                 )}
 
@@ -750,7 +750,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
                     showFeedback === "correct" 
                       ? "text-white" 
                       : showFeedback === "incorrect"
-                      ? "text-red-600 dark:text-red-400"
+                      ? "text-amber-600 dark:text-amber-400"
                       : "text-foreground"
                   }`}
                   data-testid="text-flashcard-word"
@@ -791,7 +791,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
           <Button
             size="lg"
             variant="outline"
-            className="h-16 text-lg font-semibold border-red-500/30 text-red-600 dark:text-red-400"
+            className="h-16 text-lg font-semibold border-amber-500/30 text-amber-600 dark:text-amber-400"
             onClick={() => handleAnswer(false)}
             disabled={showFeedback !== null || isPaused}
             data-testid="button-incorrect"
