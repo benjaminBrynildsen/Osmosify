@@ -23,7 +23,7 @@ export const children = pgTable("children", {
   gradeLevel: text("grade_level"),
   stopWordsEnabled: boolean("stop_words_enabled").notNull().default(false),
   gradeLevelFilterEnabled: boolean("grade_level_filter_enabled").notNull().default(false),
-  masteryThreshold: integer("mastery_threshold").notNull().default(7),
+  masteryThreshold: integer("mastery_threshold").notNull().default(4),
   deckSize: integer("deck_size").notNull().default(4),
   timerSeconds: integer("timer_seconds").notNull().default(7),
   demoteOnMiss: boolean("demote_on_miss").notNull().default(true),

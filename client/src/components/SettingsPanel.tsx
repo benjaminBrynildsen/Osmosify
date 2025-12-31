@@ -44,8 +44,8 @@ const settingsSchema = z.object({
   gradeLevel: z.string().optional(),
   stopWordsEnabled: z.boolean(),
   gradeLevelFilterEnabled: z.boolean(),
-  masteryThreshold: z.number().min(1).max(20),
-  deckSize: z.number().min(3).max(10),
+  masteryThreshold: z.number().min(3).max(10),
+  deckSize: z.number().min(3).max(7),
   timerSeconds: z.number().min(3).max(10),
   demoteOnMiss: z.boolean(),
   voicePreference: z.enum(["nova", "alloy", "shimmer"]),
@@ -196,8 +196,8 @@ export function SettingsPanel({ child, onSave, isSaving = false }: SettingsPanel
                     <Slider
                       value={[field.value]}
                       onValueChange={([value]) => field.onChange(value)}
-                      min={1}
-                      max={20}
+                      min={3}
+                      max={10}
                       step={1}
                       data-testid="slider-mastery-threshold"
                     />
@@ -222,7 +222,7 @@ export function SettingsPanel({ child, onSave, isSaving = false }: SettingsPanel
                       value={[field.value]}
                       onValueChange={([value]) => field.onChange(value)}
                       min={3}
-                      max={10}
+                      max={7}
                       step={1}
                       data-testid="slider-deck-size"
                     />
