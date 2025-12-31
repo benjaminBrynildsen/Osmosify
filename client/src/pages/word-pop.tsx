@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useLocation, useSearch } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -83,6 +84,25 @@ export default function WordPop() {
     queryKey: ["/api/children", childId, "books", bookId, "prioritized-words"],
     enabled: hasValidBookId && !!childId,
   });
+
+  // Auto-add book to library when lesson starts
+  const addBookToLibraryMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/children/${childId}/added-books`, { bookId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "added-books"] });
+    },
+  });
+
+  // Auto-add book to library when the game page loads with a book
+  const [libraryAdded, setLibraryAdded] = useState(false);
+  useEffect(() => {
+    if (bookId && book && !libraryAdded && !addBookToLibraryMutation.isPending) {
+      addBookToLibraryMutation.mutate();
+      setLibraryAdded(true);
+    }
+  }, [bookId, book, libraryAdded]);
   
   // Track which priority index we're at for deterministic progression
   const priorityIndexRef = useRef(0);

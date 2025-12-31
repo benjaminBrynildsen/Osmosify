@@ -118,15 +118,28 @@ export default function Flashcards() {
     setWordsImported(false);
   }, [bookId, presetId]);
 
+  // Auto-add book to library when lesson starts
+  const addBookToLibraryMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/children/${childId}/added-books`, { bookId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "added-books"] });
+    },
+  });
+
   useEffect(() => {
     if (bookId && book && !wordsImported && !importBookWordsMutation.isPending) {
       importBookWordsMutation.mutate();
+      // Auto-add book to library
+      addBookToLibraryMutation.mutate();
     }
   }, [bookId, book, wordsImported]);
 
   useEffect(() => {
     if (presetId && preset && !wordsImported && !importPresetWordsMutation.isPending) {
       importPresetWordsMutation.mutate();
+      // Note: presets are already auto-added to library when add-preset is called
     }
   }, [presetId, preset, wordsImported]);
 
