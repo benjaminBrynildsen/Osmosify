@@ -38,7 +38,7 @@ export default function GuestFlashcards() {
   const words = sessionWordsRef.current;
 
   const handleWordMastered = (wordId: string) => {
-    updateGuestWordStatus(wordId, 7, "mastered");
+    updateGuestWordStatus(wordId, 4, "mastered");
   };
 
   const handleComplete = (masteredWordIds: string[]) => {
@@ -87,8 +87,8 @@ export default function GuestFlashcards() {
           mode="mastery"
           onWordMastered={handleWordMastered}
           onComplete={handleComplete}
-          masteryThreshold={3}
-          timerSeconds={10}
+          masteryThreshold={4}
+          timerSeconds={7}
           voicePreference="shimmer"
           initialWordCount={words.length}
         />
