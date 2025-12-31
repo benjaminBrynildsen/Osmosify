@@ -5,7 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Heart, Play, RotateCcw, Mic, MicOff, Check, X, Flame, Trophy, Star, Pause } from "lucide-react";
+import { ArrowLeft, Heart, Play, RotateCcw, Mic, MicOff, Flame, Trophy, Star, Pause } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { startContinuousListening, playSuccessSound, isSpeechRecognitionSupported } from "@/lib/speech";
 import { SentenceCelebration } from "@/components/SentenceCelebration";
@@ -691,29 +691,6 @@ export default function LavaLetters() {
                       {creature.word}
                     </span>
                     
-                    {!creature.saved && (
-                      <div className="absolute -bottom-8 left-0 right-0 flex justify-center gap-2">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 bg-green-500/80 hover:bg-green-600 text-white rounded-full"
-                          onClick={() => handleManualSave(creature)}
-                          data-testid={`button-save-${creature.id}`}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 bg-red-500/80 hover:bg-red-600 text-white rounded-full"
-                          onClick={() => handleManualMiss(creature)}
-                          data-testid={`button-miss-${creature.id}`}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                    
                     {creature.saved && (
                       <motion.div
                         className="absolute -top-2 -right-2"
@@ -754,7 +731,7 @@ export default function LavaLetters() {
                     variant={cleared ? "default" : "outline"}
                     className={cleared ? "bg-green-600 text-white" : "text-white border-white/30"}
                   >
-                    {pw.word} {cleared ? <Check className="h-3 w-3 ml-1" /> : `${saves}/${masteryThreshold}`}
+                    {pw.word} {cleared ? "" : `${saves}/${masteryThreshold}`}
                   </Badge>
                 );
               })}
