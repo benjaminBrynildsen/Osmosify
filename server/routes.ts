@@ -50,10 +50,10 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to update role" });
     }
   });
-  // Sentence generation endpoint for flashcard celebration (public for guest mode)
+  // Magic sentence generation endpoint for post-lesson celebration
   app.post("/api/generate-sentence", async (req, res) => {
     try {
-      const { words } = req.body;
+      const { words, supportWords } = req.body;
       
       if (!words || !Array.isArray(words) || words.length === 0) {
         return res.status(400).json({ error: "No words provided" });
@@ -61,28 +61,60 @@ export async function registerRoutes(
 
       const { ai } = await import("./replit_integrations/image/client");
       
-      const prompt = `Create a simple, short sentence (6-12 words) that a young child can read. 
-The sentence MUST include at least 2-3 of these words: ${words.slice(0, 5).join(", ")}.
-Use simple vocabulary appropriate for early readers (ages 5-8).
-Only respond with the sentence, nothing else.
-Example format: "The cat ran to the big tree."`;
+      // Limit to reasonable number of words for sentence generation
+      const practicedWords = words.slice(0, 8).map((w: string) => w.toLowerCase());
+      const helperWords = (supportWords || []).slice(0, 5).map((w: string) => w.toLowerCase());
+      
+      const prompt = `Create a simple sentence that a young child (ages 5-8) can read aloud.
+
+REQUIRED WORDS (must include ALL of these): ${practicedWords.join(", ")}
+
+OPTIONAL helper words you may also use: ${helperWords.length > 0 ? helperWords.join(", ") : "none"}
+
+Rules:
+- The sentence MUST contain every required word at least once
+- Keep it short and simple (under 20 words if possible)
+- Use age-appropriate vocabulary
+- Make it meaningful and fun to read
+- Only respond with the sentence, nothing else
+
+Example: If required words are "cat, run, big" you might write "The big cat can run fast."`;
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
       });
 
-      const sentence = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 
-        `I can read ${words[0] || "words"} and ${words[1] || "more"}.`;
+      let sentence = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+      
+      // Verify all required words are included, fallback if not
+      const sentenceLower = sentence.toLowerCase();
+      const allIncluded = practicedWords.every((w: string) => sentenceLower.includes(w));
+      
+      if (!sentence || !allIncluded) {
+        // Fallback: create a simple sentence with all words
+        sentence = createMagicSentenceFallback(practicedWords);
+      }
       
       res.json({ sentence });
     } catch (error) {
       console.error("Sentence generation error:", error);
-      const words = req.body?.words || ["word"];
-      const fallback = `I can read ${words[0] || "words"} and ${words[1] || "more"}.`;
+      const words = (req.body?.words || ["word"]).slice(0, 8);
+      const fallback = createMagicSentenceFallback(words);
       res.json({ sentence: fallback });
     }
   });
+  
+  function createMagicSentenceFallback(words: string[]): string {
+    if (words.length === 0) return "I can read!";
+    if (words.length === 1) return `I can read the word ${words[0]}.`;
+    if (words.length === 2) return `I can read ${words[0]} and ${words[1]}.`;
+    if (words.length === 3) return `I see ${words[0]}, ${words[1]}, and ${words[2]}.`;
+    // For 4+ words, create a list
+    const lastWord = words[words.length - 1];
+    const restWords = words.slice(0, -1).join(", ");
+    return `I can read ${restWords}, and ${lastWord}.`;
+  }
 
   // OCR endpoint - extract text from images using Gemini Vision (protected)
   app.post("/api/ocr", ensureAuthenticated, async (req, res) => {

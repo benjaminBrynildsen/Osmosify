@@ -12,10 +12,11 @@ import {
 
 interface SentenceCelebrationProps {
   masteredWords: string[];
+  supportWords?: string[];
   onComplete: () => void;
 }
 
-export function SentenceCelebration({ masteredWords, onComplete }: SentenceCelebrationProps) {
+export function SentenceCelebration({ masteredWords, supportWords = [], onComplete }: SentenceCelebrationProps) {
   const [sentence, setSentence] = useState<string | null>(null);
   const [words, setWords] = useState<string[]>([]);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
@@ -41,7 +42,7 @@ export function SentenceCelebration({ masteredWords, onComplete }: SentenceCeleb
       const response = await fetch("/api/generate-sentence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ words: masteredWords }),
+        body: JSON.stringify({ words: masteredWords, supportWords }),
       });
       
       if (!response.ok) {
