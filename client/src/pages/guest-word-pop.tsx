@@ -50,10 +50,11 @@ export default function GuestWordPop() {
     }));
   }, [guestData.words]);
 
-  const getSpeedForLevel = (lvl: number) => {
-    const baseSpeed = 1.3;
-    return baseSpeed + (lvl - 1) * 0.2;
-  };
+  const calculateSpeed = useCallback((lvl: number, round: number) => {
+    const completedLevelsBonus = 0.1 * ROUNDS_PER_LEVEL * (lvl - 1) * lvl / 2;
+    const currentRoundBonus = round * lvl * 0.1;
+    return 1.3 + completedLevelsBonus + currentRoundBonus;
+  }, []);
 
   const getDistractorCount = () => {
     return 3;
@@ -73,17 +74,18 @@ export default function GuestWordPop() {
     const size = 70 + Math.random() * 30;
     const x = Math.random() * (area.width - size);
     
+    const baseSpeed = calculateSpeed(level, roundsInLevel);
     const bubble: Bubble = {
       id: bubbleIdRef.current++,
       word,
       x,
       y: area.height,
-      speed: getSpeedForLevel(level) * (0.8 + Math.random() * 0.4),
+      speed: baseSpeed + Math.random() * 0.3,
       size,
     };
     
     setBubbles(prev => [...prev, bubble]);
-  }, [level]);
+  }, [level, roundsInLevel, calculateSpeed]);
 
   const spawnRound = useCallback(() => {
     if (playableWords.length === 0) return;
@@ -280,7 +282,7 @@ export default function GuestWordPop() {
                   Lv.{level}
                 </Badge>
                 <Badge variant="outline" data-testid="speed-display">
-                  {(1.3 + (level - 1) * 0.2).toFixed(1)}x
+                  {calculateSpeed(level, roundsInLevel).toFixed(1)}x
                 </Badge>
               </>
             )}

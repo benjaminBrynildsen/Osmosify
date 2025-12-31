@@ -89,6 +89,12 @@ export default function WordPop() {
     return selected.sort(() => Math.random() - 0.5);
   }, [playableWords]);
 
+  const calculateSpeed = useCallback((lvl: number, round: number) => {
+    const completedLevelsBonus = 0.1 * ROUNDS_PER_LEVEL * (lvl - 1) * lvl / 2;
+    const currentRoundBonus = round * lvl * 0.1;
+    return 1.3 + completedLevelsBonus + currentRoundBonus;
+  }, []);
+
   const spawnBubbles = useCallback((target: string, currentLevel: number, roundNum?: number) => {
     if (!gameAreaRef.current) return;
     
@@ -98,7 +104,7 @@ export default function WordPop() {
     const selectedWords = getRandomWords(bubbleCount, target);
     
     const round = roundNum ?? 0;
-    const baseSpeed = 1.3 + (currentLevel - 1) * 0.2 + round * 0.1;
+    const baseSpeed = calculateSpeed(currentLevel, round);
     const speedVariation = 0.3;
     
     const newBubbles: Bubble[] = selectedWords.map((word, index) => {
@@ -117,7 +123,7 @@ export default function WordPop() {
     });
     
     setBubbles(newBubbles);
-  }, [playableWords, getRandomWords]);
+  }, [playableWords, getRandomWords, calculateSpeed]);
 
   const nextRound = useCallback((currentLevel?: number, currentRound?: number) => {
     if (playableWords.length < 2) return;
@@ -307,7 +313,7 @@ export default function WordPop() {
           </Badge>
           
           <Badge variant="outline" className="gap-1" data-testid="badge-speed">
-            {(1.3 + (level - 1) * 0.2 + roundsInLevel * 0.1).toFixed(1)}x
+            {calculateSpeed(level, roundsInLevel).toFixed(1)}x
           </Badge>
           
           <Badge variant="secondary" className="gap-1" data-testid="badge-score">
