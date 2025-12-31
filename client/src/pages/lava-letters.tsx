@@ -173,7 +173,10 @@ export default function LavaLetters() {
     });
   }, [unclearedWords, speedMultiplier]);
 
-  const handleAllMatches = useCallback((matches: { word: string; index: number; transcript: string; confidence: number }[]) => {
+  const handleAllMatches = useCallback((
+    matches: { word: string; index: number; transcript: string; confidence: number }[],
+    markWordMatched?: (wordIndex: number) => void
+  ) => {
     if (matches.length === 0) return;
     
     setSpokenText(matches[0].transcript);
@@ -186,12 +189,12 @@ export default function LavaLetters() {
     
     setCreatures(prev => {
       // Find all creatures that match ANY of the detected words, prioritize by Y position
-      const allMatchingCreatures: { creature: Creature; creatureIdx: number; matchWord: string }[] = [];
+      const allMatchingCreatures: { creature: Creature; creatureIdx: number; matchWord: string; matchIndex: number }[] = [];
       
       for (const match of matches) {
         prev.forEach((creature, idx) => {
           if (creature.word === match.word && !creature.saved) {
-            allMatchingCreatures.push({ creature, creatureIdx: idx, matchWord: match.word });
+            allMatchingCreatures.push({ creature, creatureIdx: idx, matchWord: match.word, matchIndex: match.index });
           }
         });
       }
@@ -202,6 +205,11 @@ export default function LavaLetters() {
       const closestToBottom = allMatchingCreatures.reduce((closest, current) => 
         current.creature.y > closest.creature.y ? current : closest
       );
+      
+      // Mark this word as matched in speech recognition so it won't match again
+      if (markWordMatched) {
+        markWordMatched(closestToBottom.matchIndex);
+      }
       
       // Update the global match time lock
       lastMatchTimeRef.current = now;

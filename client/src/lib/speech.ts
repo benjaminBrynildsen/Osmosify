@@ -324,7 +324,7 @@ export function startContinuousListening(
   onInterimResult: (transcript: string) => void,
   onError: (error: string) => void,
   onEnd: () => void,
-  onAllMatches?: (matches: MultiWordMatch[]) => void
+  onAllMatches?: (matches: MultiWordMatch[], markWordMatched: (wordIndex: number) => void) => void
 ): { stop: () => void; updateTargetWords: (words: string[]) => void } {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   
@@ -380,7 +380,11 @@ export function startContinuousListening(
           
           if (onAllMatches) {
             // New callback: pass all matches to the game for prioritization
-            onAllMatches(allMatchesThisEvent);
+            // Also pass a function to mark words as matched
+            const markWordMatched = (wordIndex: number) => {
+              matchedWords.add(wordIndex);
+            };
+            onAllMatches(allMatchesThisEvent, markWordMatched);
           } else {
             // Legacy: just use the first match
             const firstMatch = allMatchesThisEvent[0];
