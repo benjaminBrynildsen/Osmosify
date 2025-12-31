@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation, useSearch } from "wouter";
 import { AppHeader } from "@/components/AppHeader";
@@ -8,6 +8,13 @@ import { EmptyState } from "@/components/EmptyState";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Child, Word, Book, PresetWordList } from "@shared/schema";
+
+interface PrioritizedWord {
+  word: string;
+  leverageScore: number;
+  bookCount: number;
+  totalOccurrences: number;
+}
 
 export default function Flashcards() {
   const params = useParams<{ id: string }>();
@@ -37,6 +44,14 @@ export default function Flashcards() {
   const { data: preset, isLoading: presetLoading } = useQuery<PresetWordList>({
     queryKey: [`/api/presets/${presetId}`],
     enabled: !!presetId,
+  });
+
+  // Fetch prioritized words for this book (sorted by leverage score)
+  // Only fetch when we have both a valid bookId and childId
+  const hasValidBookId = bookId !== null && bookId !== "" && bookId !== undefined;
+  const { data: prioritizedWords, isLoading: prioritizedLoading } = useQuery<PrioritizedWord[]>({
+    queryKey: ["/api/children", childId, "books", bookId, "prioritized-words"],
+    enabled: hasValidBookId && !!childId,
   });
 
   const importBookWordsMutation = useMutation({
@@ -109,7 +124,7 @@ export default function Flashcards() {
     }
   }, [presetId, preset, wordsImported]);
 
-  const isLoading = wordsLoading || (bookId && bookLoading) || (bookId && !wordsImported) || (presetId && presetLoading) || (presetId && !wordsImported);
+  const isLoading = wordsLoading || (hasValidBookId && bookLoading) || (hasValidBookId && !wordsImported) || (hasValidBookId && prioritizedLoading) || (presetId && presetLoading) || (presetId && !wordsImported);
 
   const masterWordMutation = useMutation({
     mutationFn: async (wordId: string) => {
@@ -134,15 +149,45 @@ export default function Flashcards() {
     return <LoadingScreen message={bookId ? "Preparing book words..." : "Preparing words..."} />;
   }
 
-  let deckWords = words?.filter((w) => w.status === "new" || w.status === "learning") || [];
+  // Get words that need learning (new or learning status)
+  const learningWords = words?.filter((w) => w.status === "new" || w.status === "learning") || [];
   
-  if (book && book.words) {
-    const bookWordsSet = new Set(book.words.map(w => w.toLowerCase()));
-    deckWords = deckWords.filter(w => bookWordsSet.has(w.word.toLowerCase()));
-  } else if (preset && preset.words) {
-    const presetWordsSet = new Set(preset.words.map(w => w.toLowerCase()));
-    deckWords = deckWords.filter(w => presetWordsSet.has(w.word.toLowerCase()));
-  }
+  // Build the deck with prioritization
+  const deckWords = useMemo(() => {
+    let filtered: Word[] = [];
+    
+    if (book && book.words && prioritizedWords) {
+      // For books: use leverage-based prioritization
+      // Create a map of word -> priority index from prioritized list
+      const priorityMap = new Map<string, number>();
+      prioritizedWords.forEach((pw, index) => {
+        priorityMap.set(pw.word.toLowerCase(), index);
+      });
+      
+      // Filter to book words that are still learning
+      const bookWordsSet = new Set(book.words.map(w => w.toLowerCase()));
+      filtered = learningWords.filter(w => bookWordsSet.has(w.word.toLowerCase()));
+      
+      // Sort by leverage priority (words appearing in more books come first)
+      filtered.sort((a, b) => {
+        const priorityA = priorityMap.get(a.word.toLowerCase()) ?? Infinity;
+        const priorityB = priorityMap.get(b.word.toLowerCase()) ?? Infinity;
+        return priorityA - priorityB;
+      });
+    } else if (book && book.words) {
+      // Fallback for books without prioritized data yet
+      const bookWordsSet = new Set(book.words.map(w => w.toLowerCase()));
+      filtered = learningWords.filter(w => bookWordsSet.has(w.word.toLowerCase()));
+    } else if (preset && preset.words) {
+      // For presets: just filter to preset words (no cross-book prioritization)
+      const presetWordsSet = new Set(preset.words.map(w => w.toLowerCase()));
+      filtered = learningWords.filter(w => presetWordsSet.has(w.word.toLowerCase()));
+    } else {
+      filtered = learningWords;
+    }
+    
+    return filtered;
+  }, [learningWords, book, prioritizedWords, preset]);
   
   const deckSize = child?.deckSize || 4;
   const masteryThreshold = child?.masteryThreshold || 4;

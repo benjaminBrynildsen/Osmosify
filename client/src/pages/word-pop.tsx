@@ -10,6 +10,13 @@ import { speak } from "@/lib/voice";
 import { playSuccessSound } from "@/lib/speech";
 import type { Word, Child, Book, PresetWordList } from "@shared/schema";
 
+interface PrioritizedWord {
+  word: string;
+  leverageScore: number;
+  bookCount: number;
+  totalOccurrences: number;
+}
+
 interface Bubble {
   id: number;
   word: string;
@@ -65,21 +72,46 @@ export default function WordPop() {
     enabled: !!presetId,
   });
 
+  // Fetch prioritized words for this book (sorted by leverage score)
+  // Only fetch when we have both a valid bookId and childId
+  const hasValidBookId = bookId !== null && bookId !== "" && bookId !== undefined;
+  const { data: prioritizedWords, isLoading: prioritizedLoading } = useQuery<PrioritizedWord[]>({
+    queryKey: ["/api/children", childId, "books", bookId, "prioritized-words"],
+    enabled: hasValidBookId && !!childId,
+  });
+  
+  // Track which priority index we're at for deterministic progression
+  const priorityIndexRef = useRef(0);
+
   const playableWords = useMemo(() => {
-    if (book && book.words) {
-      return book.words
-        .filter(w => w.length >= 2 && w.length <= 12)
-        .map((word, index) => ({ id: index, word: word.toLowerCase(), status: "new" as const }));
+    // For book-based practice: ONLY use prioritized words from the API
+    // This ensures mastered words are excluded and leverage ordering is maintained
+    if (hasValidBookId) {
+      // If prioritized data exists, use it (could be empty if all words are mastered)
+      if (prioritizedWords !== undefined) {
+        return prioritizedWords
+          .filter(pw => pw.word.length >= 2 && pw.word.length <= 12)
+          .map((pw, index) => ({ 
+            id: index, 
+            word: pw.word.toLowerCase(), 
+            status: "new" as const,
+            leverageScore: pw.leverageScore 
+          }));
+      }
+      // Still loading - return empty to trigger loading state
+      return [];
     }
     
+    // For preset-based practice (no leverage-based prioritization)
     if (preset && preset.words) {
       return preset.words
         .filter(w => w.length >= 2 && w.length <= 12)
         .map((word, index) => ({ id: index, word: word.toLowerCase(), status: "new" as const }));
     }
     
+    // General practice from child's word library
     return words.filter(w => w.word.length >= 2 && w.word.length <= 12);
-  }, [words, book, preset]);
+  }, [words, preset, prioritizedWords, hasValidBookId]);
 
   const getRandomWords = useCallback((count: number, mustInclude: string): string[] => {
     const available = playableWords.filter(w => w.word !== mustInclude).map(w => w.word);
@@ -130,17 +162,26 @@ export default function WordPop() {
     
     const lvl = currentLevel ?? level;
     const round = currentRound ?? roundsInLevel;
-    const randomWord = playableWords[Math.floor(Math.random() * playableWords.length)];
-    setTargetWord(randomWord.word);
+    
+    // Deterministic progression through prioritized words
+    // Cycle through the list in order, so highest-leverage words come first
+    const currentIndex = priorityIndexRef.current % playableWords.length;
+    priorityIndexRef.current = currentIndex + 1;
+    
+    const targetWordData = playableWords[currentIndex];
+    setTargetWord(targetWordData.word);
     setWordsPlayed(prev => prev + 1);
-    spawnBubbles(randomWord.word, lvl, round);
+    spawnBubbles(targetWordData.word, lvl, round);
     
     setTimeout(() => {
-      speak(randomWord.word);
+      speak(targetWordData.word);
     }, 500);
   }, [playableWords, spawnBubbles, level, roundsInLevel]);
 
   const startGame = useCallback(() => {
+    // Reset priority index to start from the highest-leverage words
+    priorityIndexRef.current = 0;
+    
     setGameState("playing");
     setScore(0);
     setStreak(0);
@@ -259,8 +300,26 @@ export default function WordPop() {
 
   const backPath = bookId ? `/child/${childId}/books` : presetId ? `/child/${childId}/presets` : `/child/${childId}`;
   const sourceName = book?.title || preset?.name;
+  
+  // Wait for prioritized words to load before allowing game start (for book-based games)
+  const isLoadingPrioritizedData = hasValidBookId && prioritizedLoading;
+
+  if (isLoadingPrioritizedData) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div className="animate-pulse text-center">
+          <Trophy className="w-16 h-16 mx-auto text-primary mb-4" />
+          <h2 className="text-xl font-bold mb-2">Preparing Word Pop</h2>
+          <p className="text-muted-foreground">Loading prioritized words...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (playableWords.length < 4) {
+    // Determine if it's because all words are mastered (for book-based practice)
+    const allWordsMastered = hasValidBookId && prioritizedWords !== undefined && prioritizedWords.length === 0;
+    
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="max-w-lg mx-auto">
@@ -278,15 +337,19 @@ export default function WordPop() {
           <Card>
             <CardContent className="p-8 text-center">
               <Trophy className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <h2 className="text-xl font-bold mb-2">Not Enough Words</h2>
+              <h2 className="text-xl font-bold mb-2">
+                {allWordsMastered ? "All Words Mastered!" : "Not Enough Words"}
+              </h2>
               <p className="text-muted-foreground mb-4">
-                {sourceName 
-                  ? `"${sourceName}" needs at least 4 words to play Word Pop!`
-                  : `Add at least 4 words to ${child?.name}'s library to play Word Pop!`
+                {allWordsMastered
+                  ? `Great job! All words in "${sourceName}" have been mastered. Try another book or use "Keep Words Strong" to review.`
+                  : sourceName 
+                    ? `"${sourceName}" needs at least 4 words to play Word Pop!`
+                    : `Add at least 4 words to ${child?.name}'s library to play Word Pop!`
                 }
               </p>
-              <Button onClick={() => setLocation(`/child/${childId}/presets`)} data-testid="button-add-words">
-                Add Word Lists
+              <Button onClick={() => setLocation(backPath)} data-testid="button-go-back">
+                {allWordsMastered ? "Choose Another Book" : "Go Back"}
               </Button>
             </CardContent>
           </Card>
