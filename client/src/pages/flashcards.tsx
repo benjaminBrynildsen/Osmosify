@@ -145,15 +145,10 @@ export default function Flashcards() {
     });
   };
 
-  if (isLoading) {
-    return <LoadingScreen message={bookId ? "Preparing book words..." : "Preparing words..."} />;
-  }
-
-  // Get words that need learning (new or learning status)
-  const learningWords = words?.filter((w) => w.status === "new" || w.status === "learning") || [];
-  
-  // Build the deck with prioritization
+  // Build the deck with prioritization - must be called before any early returns (hooks rule)
   const deckWords = useMemo(() => {
+    // Get words that need learning (new or learning status)
+    const learningWords = words?.filter((w) => w.status === "new" || w.status === "learning") || [];
     let filtered: Word[] = [];
     
     if (book && book.words && prioritizedWords) {
@@ -187,7 +182,11 @@ export default function Flashcards() {
     }
     
     return filtered;
-  }, [learningWords, book, prioritizedWords, preset]);
+  }, [words, book, prioritizedWords, preset]);
+
+  if (isLoading) {
+    return <LoadingScreen message={bookId ? "Preparing book words..." : "Preparing words..."} />;
+  }
   
   const deckSize = child?.deckSize || 4;
   const masteryThreshold = child?.masteryThreshold || 4;
