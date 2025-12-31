@@ -306,6 +306,10 @@ export default function WordPop() {
             Lv.{level}
           </Badge>
           
+          <Badge variant="outline" className="gap-1" data-testid="badge-speed">
+            {(1.3 + (level - 1) * 0.2 + roundsInLevel * 0.1).toFixed(1)}x
+          </Badge>
+          
           <Badge variant="secondary" className="gap-1" data-testid="badge-score">
             <Star className="w-3 h-3" />
             {score}

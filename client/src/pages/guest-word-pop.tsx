@@ -279,6 +279,9 @@ export default function GuestWordPop() {
                 <Badge variant="outline" data-testid="level-display">
                   Lv.{level}
                 </Badge>
+                <Badge variant="outline" data-testid="speed-display">
+                  {(1.3 + (level - 1) * 0.2).toFixed(1)}x
+                </Badge>
               </>
             )}
           </div>
