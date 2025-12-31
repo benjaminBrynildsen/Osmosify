@@ -8,6 +8,7 @@ import { ArrowLeft, Volume2, Trophy, Flame, Play, RotateCcw, Star, BookOpen, Spa
 import { motion, AnimatePresence } from "framer-motion";
 import { speak } from "@/lib/voice";
 import { playSuccessSound } from "@/lib/speech";
+import { SentenceCelebration } from "@/components/SentenceCelebration";
 import type { Word, Child, Book, PresetWordList } from "@shared/schema";
 
 interface PrioritizedWord {
@@ -36,7 +37,7 @@ export default function WordPop() {
   const lessonMode = searchParams.get("lessonMode") === "true";
   const childId = id || "";
 
-  const [gameState, setGameState] = useState<"ready" | "playing" | "gameover">("ready");
+  const [gameState, setGameState] = useState<"ready" | "playing" | "gameover" | "celebration">("ready");
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
@@ -48,6 +49,7 @@ export default function WordPop() {
   const [feedback, setFeedback] = useState<"correct" | "wrong" | "levelup" | null>(null);
   const [celebrateWord, setCelebrateWord] = useState<string>("");
   const [wordsPlayed, setWordsPlayed] = useState(0);
+  const [practicedWords, setPracticedWords] = useState<string[]>([]);
   const gameAreaRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
   const bubbleIdRef = useRef(0);
@@ -171,6 +173,13 @@ export default function WordPop() {
     const targetWordData = playableWords[currentIndex];
     setTargetWord(targetWordData.word);
     setWordsPlayed(prev => prev + 1);
+    // Track this word as practiced (avoid duplicates)
+    setPracticedWords(prev => {
+      if (!prev.includes(targetWordData.word)) {
+        return [...prev, targetWordData.word];
+      }
+      return prev;
+    });
     spawnBubbles(targetWordData.word, lvl, round);
     
     setTimeout(() => {
@@ -190,8 +199,13 @@ export default function WordPop() {
     setRoundsInLevel(0);
     setWordsPlayed(0);
     setBestStreak(0);
+    setPracticedWords([]);
     nextRound(1, 0);
   }, [nextRound]);
+  
+  const handleCelebrationComplete = useCallback(() => {
+    setGameState("gameover");
+  }, []);
 
   const handleBubbleTap = useCallback((bubble: Bubble) => {
     if (gameState !== "playing") return;
@@ -240,7 +254,8 @@ export default function WordPop() {
       setLives(prev => {
         const newLives = prev - 1;
         if (newLives <= 0) {
-          setGameState("gameover");
+          // Show celebration if we have practiced words, otherwise go straight to gameover
+          setGameState(practicedWords.length > 0 ? "celebration" : "gameover");
         }
         return newLives;
       });
@@ -273,7 +288,8 @@ export default function WordPop() {
           setLives(l => {
             const newLives = l - 1;
             if (newLives <= 0) {
-              setGameState("gameover");
+              // Show celebration if we have practiced words
+              setGameState(practicedWords.length > 0 ? "celebration" : "gameover");
             } else {
               setTimeout(nextRound, 500);
             }
@@ -513,6 +529,15 @@ export default function WordPop() {
               <Play className="w-5 h-5 mr-2" />
               Start Game
             </Button>
+          </div>
+        )}
+
+        {gameState === "celebration" && practicedWords.length > 0 && (
+          <div className="absolute inset-0 z-30">
+            <SentenceCelebration
+              masteredWords={practicedWords}
+              onComplete={handleCelebrationComplete}
+            />
           </div>
         )}
 
