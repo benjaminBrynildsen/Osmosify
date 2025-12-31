@@ -167,9 +167,13 @@ export default function Flashcards() {
     }
   };
 
-  // Called after final celebration in lesson mode - navigate back to dashboard
+  // Called after final celebration in lesson mode - navigate to Lava Letters
   const handleLessonComplete = () => {
-    setLocation(`/child/${childId}`);
+    // Combine wordPop words with flashcard deck words for Lava Letters
+    const flashcardWords = limitedDeck.map(w => w.word);
+    const allPracticedWords = Array.from(new Set([...wordPopWords, ...flashcardWords]));
+    const wordsParam = encodeURIComponent(allPracticedWords.join(","));
+    setLocation(`/child/${childId}/lava-letters?bookId=${bookId}&lessonMode=true&practicedWords=${wordsParam}`);
   };
 
   // Build the deck with prioritization - must be called before any early returns (hooks rule)

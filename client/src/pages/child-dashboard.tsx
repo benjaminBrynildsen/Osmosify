@@ -25,6 +25,7 @@ import {
   ChevronRight,
   MessageSquareText,
   FolderHeart,
+  Flame,
 } from "lucide-react";
 import type { Child, ReadingSession, Word, Book, PresetWordList } from "@shared/schema";
 
@@ -352,8 +353,18 @@ export default function ChildDashboard() {
             <span>Word Lists</span>
           </Button>
           
-          {/* Row 4: (empty) | Keep Words Strong */}
-          <div className="invisible" />
+          {/* Row 4: Lava Letters | Keep Words Strong */}
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2 bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/30"
+            onClick={() => setLocation(`/child/${childId}/lava-letters`)}
+            disabled={(words?.length || 0) < 2}
+            data-testid="button-lava-letters"
+          >
+            <Flame className="h-6 w-6 text-orange-500" />
+            <span>Lava Letters</span>
+          </Button>
           <Button
             size="lg"
             variant="outline"

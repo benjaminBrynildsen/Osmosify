@@ -21,6 +21,7 @@ import ChildSettings from "@/pages/child-settings";
 import Presets from "@/pages/presets";
 import Books from "@/pages/books";
 import WordPop from "@/pages/word-pop";
+import LavaLetters from "@/pages/lava-letters";
 import PresetBooks from "@/pages/preset-books";
 import MyLibrary from "@/pages/my-library";
 import Moderation from "@/pages/moderation";
@@ -46,6 +47,7 @@ function AuthenticatedRouter() {
       <Route path="/child/:id/presets" component={Presets} />
       <Route path="/child/:id/books" component={Books} />
       <Route path="/child/:id/word-pop" component={WordPop} />
+      <Route path="/child/:id/lava-letters" component={LavaLetters} />
       <Route path="/child/:id/preset-books" component={PresetBooks} />
       <Route path="/child/:id/my-library" component={MyLibrary} />
       <Route path="/session/:id" component={SessionDetails} />

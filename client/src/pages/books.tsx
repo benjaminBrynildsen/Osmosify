@@ -42,6 +42,7 @@ import {
   List,
   Search,
   Crown,
+  Flame,
 } from "lucide-react";
 import type { Child, BookReadiness, Word, Book } from "@shared/schema";
 
@@ -533,6 +534,18 @@ export default function Books() {
                 >
                   <Gamepad2 className="h-4 w-4 text-purple-500" />
                   Play Word Pop
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/30"
+                  onClick={() => {
+                    setSelectedBook(null);
+                    setLocation(`/child/${childId}/lava-letters?bookId=${selectedBook.id}`);
+                  }}
+                  data-testid="button-play-lava-letters"
+                >
+                  <Flame className="h-4 w-4 text-orange-500" />
+                  Play Lava Letters
                 </Button>
                 {!selectedBook.isPreset && (
                   <>
