@@ -85,22 +85,9 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
     recognitionStartedRef.current = false;
   }, []);
 
-  // Get the 3-word sliding window: previous word, current word, next word
-  const getWindowWords = useCallback((centerIndex: number, allWords: string[]): string[] => {
-    const windowWords: string[] = [];
-    // Previous word (if exists and not completed)
-    if (centerIndex > 0) {
-      windowWords.push(allWords[centerIndex - 1]);
-    }
-    // Current word
-    if (centerIndex < allWords.length) {
-      windowWords.push(allWords[centerIndex]);
-    }
-    // Next word (if exists)
-    if (centerIndex + 1 < allWords.length) {
-      windowWords.push(allWords[centerIndex + 1]);
-    }
-    return windowWords;
+  // Get all incomplete words for continuous listening
+  const getIncompleteWords = useCallback((allWords: string[], completed: Set<number>): string[] => {
+    return allWords.filter((_, index) => !completed.has(index));
   }, []);
 
   const markWordComplete = useCallback((index: number) => {
@@ -127,24 +114,18 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
           }
         }, 300);
       } else {
-        // Find the LOWEST incomplete word index (not just next from current match)
+        // Find the LOWEST incomplete word index for visual highlighting
         let lowestIncomplete = 0;
         while (lowestIncomplete < words.length && newCompleted.has(lowestIncomplete)) {
           lowestIncomplete++;
         }
         if (lowestIncomplete < words.length) {
           setCurrentWordIndex(lowestIncomplete);
-          // Update the window for continuous recognition - centered on lowest incomplete
+          // Update recognition with all remaining incomplete words
           if (recognitionRef.current) {
-            // Get window of incomplete words only
-            const windowWords: string[] = [];
-            for (let i = Math.max(0, lowestIncomplete - 1); i <= Math.min(words.length - 1, lowestIncomplete + 1); i++) {
-              if (!newCompleted.has(i)) {
-                windowWords.push(words[i]);
-              }
-            }
-            if (windowWords.length > 0) {
-              recognitionRef.current.updateTargetWords(windowWords);
+            const incompleteWords = words.filter((_, i) => !newCompleted.has(i));
+            if (incompleteWords.length > 0) {
+              recognitionRef.current.updateTargetWords(incompleteWords);
             }
           }
         }
@@ -162,11 +143,11 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
     recognitionStartedRef.current = true;
     setIsListening(true);
     
-    // Get initial 3-word window
-    const windowWords = getWindowWords(currentWordIndex, words);
+    // Listen for ALL words in the sentence (not just a window)
+    const allWords = getIncompleteWords(words, completedWords);
     
     recognitionRef.current = startContinuousListening(
-      windowWords,
+      allWords,
       (match: MultiWordMatch) => {
         // Find the word in the full sentence that matches (search all words)
         for (let i = 0; i < words.length; i++) {
@@ -188,7 +169,7 @@ export function SentenceCelebration({ childId, masteredWords, supportWords = [],
         recognitionStartedRef.current = false;
       }
     );
-  }, [speechSupported, voiceEnabled, words, currentWordIndex, getWindowWords, markWordComplete]);
+  }, [speechSupported, voiceEnabled, words, completedWords, getIncompleteWords, markWordComplete]);
 
   // Start continuous recognition once when words are loaded
   useEffect(() => {
