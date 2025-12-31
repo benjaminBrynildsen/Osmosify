@@ -144,7 +144,7 @@ export default function Flashcards() {
     deckWords = deckWords.filter(w => presetWordsSet.has(w.word.toLowerCase()));
   }
   
-  const deckSize = child?.deckSize || 7;
+  const deckSize = child?.deckSize || 4;
   const masteryThreshold = child?.masteryThreshold || 7;
   const timerSeconds = child?.timerSeconds || 7;
   const limitedDeck = deckWords.slice(0, deckSize);

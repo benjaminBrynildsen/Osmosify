@@ -14,7 +14,7 @@ export default function GuestFlashcards() {
   const childId = params.id || guestData.child?.id || "";
 
   const sessionWordsRef = useRef<Word[] | null>(null);
-  const deckSize = 7;
+  const deckSize = 4;
   
   if (sessionWordsRef.current === null) {
     const allWords = guestData.words

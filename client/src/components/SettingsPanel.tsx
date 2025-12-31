@@ -45,7 +45,7 @@ const settingsSchema = z.object({
   stopWordsEnabled: z.boolean(),
   gradeLevelFilterEnabled: z.boolean(),
   masteryThreshold: z.number().min(1).max(20),
-  deckSize: z.number().min(5).max(50),
+  deckSize: z.number().min(3).max(10),
   timerSeconds: z.number().min(3).max(10),
   demoteOnMiss: z.boolean(),
   voicePreference: z.enum(["nova", "alloy", "shimmer"]),
@@ -221,9 +221,9 @@ export function SettingsPanel({ child, onSave, isSaving = false }: SettingsPanel
                     <Slider
                       value={[field.value]}
                       onValueChange={([value]) => field.onChange(value)}
-                      min={5}
-                      max={50}
-                      step={5}
+                      min={3}
+                      max={10}
+                      step={1}
                       data-testid="slider-deck-size"
                     />
                   </FormControl>
