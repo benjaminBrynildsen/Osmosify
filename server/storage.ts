@@ -15,6 +15,8 @@ import {
   type BookUnlock,
   type User,
   type UserRole,
+  type GlobalWordStats,
+  type PrioritizedWord,
   children,
   readingSessions,
   words,
@@ -23,9 +25,10 @@ import {
   childBookProgress,
   bookUnlocks,
   users,
+  globalWordStats,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, inArray, isNull } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, isNull, asc } from "drizzle-orm";
 
 export interface PresetBookData {
   title: string;
@@ -94,6 +97,12 @@ export interface IStorage {
   getChildBookProgress(childId: string): Promise<ChildBookProgress[]>;
   calculateBookReadiness(childId: string): Promise<BookReadiness[]>;
   updateChildBookProgress(childId: string, bookId: string): Promise<ChildBookProgress>;
+
+  // Global Word Stats (leverage-based prioritization)
+  syncGlobalWordStats(): Promise<void>;
+  getGlobalWordStats(word: string): Promise<GlobalWordStats | undefined>;
+  getAllGlobalWordStats(): Promise<GlobalWordStats[]>;
+  getPrioritizedWordsForBook(bookId: string, childId: string): Promise<PrioritizedWord[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -755,6 +764,143 @@ export class DatabaseStorage implements IStorage {
         sql`${books.unlockCount} >= 1000`
       ))
       .orderBy(desc(books.unlockCount));
+  }
+
+  // Global Word Stats (leverage-based prioritization)
+  // Algorithm: leverage_score = book_count × log(1 + total_occurrences)
+  // This is computed and stored as an integer (multiplied by 1000 for precision)
+
+  async syncGlobalWordStats(): Promise<void> {
+    // Get all preset books (shared library)
+    const allBooks = await this.getPresetBooks();
+    
+    // Build word frequency map
+    const wordStats = new Map<string, { bookCount: number; totalOccurrences: number }>();
+    
+    for (const book of allBooks) {
+      const bookWordSet = new Set<string>();
+      
+      for (const word of book.words) {
+        const lowerWord = word.toLowerCase().trim();
+        if (!lowerWord) continue;
+        
+        // Track book count (only count once per book)
+        if (!bookWordSet.has(lowerWord)) {
+          bookWordSet.add(lowerWord);
+          const existing = wordStats.get(lowerWord) || { bookCount: 0, totalOccurrences: 0 };
+          existing.bookCount++;
+          wordStats.set(lowerWord, existing);
+        }
+        
+        // Track total occurrences
+        const existing = wordStats.get(lowerWord)!;
+        existing.totalOccurrences++;
+      }
+    }
+    
+    // Calculate leverage scores and upsert to database
+    const now = new Date();
+    
+    for (const [word, stats] of wordStats) {
+      // leverage_score = book_count × log(1 + total_occurrences)
+      // Multiply by 1000 to store as integer with precision
+      const leverageScore = Math.round(stats.bookCount * Math.log(1 + stats.totalOccurrences) * 1000);
+      
+      // Upsert: insert or update if exists
+      const existing = await db
+        .select()
+        .from(globalWordStats)
+        .where(eq(globalWordStats.word, word))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        await db
+          .update(globalWordStats)
+          .set({
+            bookCount: stats.bookCount,
+            totalOccurrences: stats.totalOccurrences,
+            leverageScore,
+            lastUpdated: now,
+          })
+          .where(eq(globalWordStats.id, existing[0].id));
+      } else {
+        await db.insert(globalWordStats).values({
+          word,
+          bookCount: stats.bookCount,
+          totalOccurrences: stats.totalOccurrences,
+          leverageScore,
+          lastUpdated: now,
+        });
+      }
+    }
+  }
+
+  async getGlobalWordStats(word: string): Promise<GlobalWordStats | undefined> {
+    const [stats] = await db
+      .select()
+      .from(globalWordStats)
+      .where(eq(globalWordStats.word, word.toLowerCase()));
+    return stats;
+  }
+
+  async getAllGlobalWordStats(): Promise<GlobalWordStats[]> {
+    return db
+      .select()
+      .from(globalWordStats)
+      .orderBy(desc(globalWordStats.leverageScore));
+  }
+
+  async getPrioritizedWordsForBook(bookId: string, childId: string): Promise<PrioritizedWord[]> {
+    // 1. Get the book
+    const book = await this.getBook(bookId);
+    if (!book) {
+      return [];
+    }
+    
+    // 2. Get child's mastered words
+    const childWords = await this.getWordsByChild(childId);
+    const masteredWordSet = new Set(
+      childWords
+        .filter(w => w.status === "mastered")
+        .map(w => w.word.toLowerCase())
+    );
+    
+    // 3. Get unique words from the book (excluding mastered)
+    const bookWords = book.words
+      .map(w => w.toLowerCase().trim())
+      .filter(w => w && !masteredWordSet.has(w));
+    const uniqueBookWords = Array.from(new Set(bookWords));
+    
+    if (uniqueBookWords.length === 0) {
+      return [];
+    }
+    
+    // 4. Join with global_word_stats to get leverage scores
+    const statsResult = await db
+      .select()
+      .from(globalWordStats)
+      .where(inArray(globalWordStats.word, uniqueBookWords));
+    
+    const statsMap = new Map<string, GlobalWordStats>();
+    for (const stat of statsResult) {
+      statsMap.set(stat.word, stat);
+    }
+    
+    // 5. Build prioritized list, sorted by leverage score (descending)
+    const prioritizedWords: PrioritizedWord[] = uniqueBookWords.map(word => {
+      const stats = statsMap.get(word);
+      return {
+        word,
+        leverageScore: stats?.leverageScore ?? 0,
+        bookCount: stats?.bookCount ?? 1,
+        totalOccurrences: stats?.totalOccurrences ?? 1,
+      };
+    });
+    
+    // Sort by leverage score descending (highest priority first)
+    prioritizedWords.sort((a, b) => b.leverageScore - a.leverageScore);
+    
+    return prioritizedWords;
   }
 }
 
