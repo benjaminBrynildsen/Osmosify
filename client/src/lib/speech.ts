@@ -346,10 +346,12 @@ export function startContinuousListening(
   recognition.onresult = (event: SpeechRecognitionEvent) => {
     if (stopped) return;
     
-    for (let resultIndex = 0; resultIndex < event.results.length; resultIndex++) {
+    let matchFoundThisEvent = false;
+    
+    for (let resultIndex = 0; resultIndex < event.results.length && !matchFoundThisEvent; resultIndex++) {
       const results = event.results[resultIndex];
       
-      for (let i = 0; i < results.length; i++) {
+      for (let i = 0; i < results.length && !matchFoundThisEvent; i++) {
         const alternative = results[i];
         const transcript = alternative.transcript.toLowerCase().trim();
         
@@ -367,6 +369,9 @@ export function startContinuousListening(
               transcript: alternative.transcript,
               confidence: alternative.confidence || 0.9,
             });
+            // Only allow ONE match per recognition event
+            matchFoundThisEvent = true;
+            break;
           }
         }
       }
