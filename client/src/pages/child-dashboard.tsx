@@ -131,6 +131,27 @@ export default function ChildDashboard() {
     return null;
   }, [featuredBook, addedBooks]);
 
+  // Calculate derived values for sessions (must be before early returns to keep hooks consistent)
+  const sortedSessions = useMemo(() => 
+    [...(sessions || [])].sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    ), [sessions]);
+  
+  const lastSession = useMemo(() => 
+    sortedSessions.find(s => s.bookTitle || s.bookId), [sortedSessions]);
+  
+  // Get display title for Jump Back In - use bookTitle or look up from added books
+  const jumpBackInTitle = useMemo(() => {
+    if (!lastSession) return "";
+    if (lastSession.bookTitle) return lastSession.bookTitle;
+    // Look up book title from added books by bookId
+    if (lastSession.bookId && addedBooks) {
+      const foundBook = addedBooks.find(ab => ab.bookId === lastSession.bookId);
+      if (foundBook?.book?.title) return foundBook.book.title;
+    }
+    return "Continue Reading";
+  }, [lastSession, addedBooks]);
+
   if (childLoading) {
     return <LoadingScreen message="Loading dashboard..." />;
   }
@@ -154,26 +175,8 @@ export default function ChildDashboard() {
   const learningWords = words?.filter((w) => w.status === "learning") || [];
   const unlockedWords = words?.filter((w) => w.status === "mastered") || [];
   
-  const sortedSessions = [...(sessions || [])].sort((a, b) => 
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
   const recentSessions = sortedSessions.slice(0, 5);
-  
-  // Find last session with either bookTitle or bookId for Jump Back In
-  const lastSession = sortedSessions.find(s => s.bookTitle || s.bookId);
   const hasRecentActivity = lastSession && (lastSession.bookTitle || lastSession.bookId);
-  
-  // Get display title for Jump Back In - use bookTitle or look up from added books
-  const jumpBackInTitle = useMemo(() => {
-    if (!lastSession) return "";
-    if (lastSession.bookTitle) return lastSession.bookTitle;
-    // Look up book title from added books by bookId
-    if (lastSession.bookId && addedBooks) {
-      const foundBook = addedBooks.find(ab => ab.bookId === lastSession.bookId);
-      if (foundBook?.book?.title) return foundBook.book.title;
-    }
-    return "Continue Reading";
-  }, [lastSession, addedBooks]);
 
   return (
     <div className="min-h-screen bg-background pb-24">
