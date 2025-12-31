@@ -20,6 +20,8 @@ import {
   ListPlus,
   BookMarked,
   Gamepad2,
+  Play,
+  ChevronRight,
 } from "lucide-react";
 import type { Child, ReadingSession, Word } from "@shared/schema";
 
@@ -64,7 +66,14 @@ export default function ChildDashboard() {
   const newWords = words?.filter((w) => w.status === "new") || [];
   const learningWords = words?.filter((w) => w.status === "learning") || [];
   const unlockedWords = words?.filter((w) => w.status === "mastered") || [];
-  const recentSessions = sessions?.slice(0, 5) || [];
+  
+  const sortedSessions = [...(sessions || [])].sort((a, b) => 
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  const recentSessions = sortedSessions.slice(0, 5);
+  
+  const lastSession = sortedSessions.find(s => s.bookTitle);
+  const hasRecentActivity = lastSession && lastSession.bookTitle;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -107,6 +116,28 @@ export default function ChildDashboard() {
             icon={GraduationCap}
           />
         </StatsGrid>
+
+        {hasRecentActivity && (
+          <Card 
+            className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-blue-500/30 cursor-pointer hover-elevate"
+            onClick={() => setLocation(`/child/${childId}/books`)}
+            data-testid="card-jump-back-in"
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                  <Play className="w-5 h-5 text-white ml-0.5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-0.5">Jump Back In</p>
+                  <h3 className="font-semibold truncate">{lastSession.bookTitle}</h3>
+                  <p className="text-sm text-muted-foreground">Continue where you left off</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <Button

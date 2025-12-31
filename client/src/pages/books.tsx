@@ -40,6 +40,8 @@ import {
   Upload,
   Grid3X3,
   List,
+  Search,
+  Crown,
 } from "lucide-react";
 import type { Child, BookReadiness, Word, Book } from "@shared/schema";
 
@@ -61,6 +63,7 @@ export default function Books() {
   const [newWords, setNewWords] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: child, isLoading: childLoading } = useQuery<Child>({
     queryKey: ["/api/children", childId],
@@ -178,23 +181,37 @@ export default function Books() {
   }
 
   const filterBooks = (items: BookReadiness[]) => {
+    let result = items;
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(r => 
+        r.book.title.toLowerCase().includes(query) ||
+        (r.book.author && r.book.author.toLowerCase().includes(query))
+      );
+    }
+    
     switch (filter) {
       case "ready":
-        return items.filter(r => r.percent >= 90);
+        return result.filter(r => r.percent >= 90);
       case "almost":
-        return items.filter(r => r.percent >= 70 && r.percent < 90);
+        return result.filter(r => r.percent >= 70 && r.percent < 90);
       case "progress":
-        return items.filter(r => r.percent < 70);
+        return result.filter(r => r.percent < 70);
       case "mybooks":
-        return items.filter(r => !r.book.isPreset);
+        return result.filter(r => !r.book.isPreset);
       case "beta":
-        return items.filter(r => r.book.isBeta);
+        return result.filter(r => r.book.isBeta);
       default:
-        return items;
+        return result;
     }
   };
 
   const filteredBooks = filterBooks(readiness || []);
+  
+  const featuredBook = (readiness || []).find(r => 
+    r.book.title.toLowerCase().includes("cat in the hat")
+  );
   const readyCount = (readiness || []).filter(r => r.percent >= 90).length;
   const almostCount = (readiness || []).filter(r => r.percent >= 70 && r.percent < 90).length;
   const progressCount = (readiness || []).filter(r => r.percent < 70).length;
@@ -231,6 +248,48 @@ export default function Books() {
       />
 
       <main className="container mx-auto max-w-4xl p-4 space-y-4">
+        {featuredBook && (
+          <Card 
+            className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-500/30 cursor-pointer hover-elevate"
+            onClick={() => setSelectedBook(featuredBook.book)}
+            data-testid="card-featured-book"
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0 w-16 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-md flex items-center justify-center shadow-md">
+                  <BookOpen className="w-8 h-8 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Crown className="w-4 h-4 text-amber-500" />
+                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide">Featured Book</span>
+                  </div>
+                  <h3 className="font-bold text-lg truncate">{featuredBook.book.title}</h3>
+                  {featuredBook.book.author && (
+                    <p className="text-sm text-muted-foreground">by {featuredBook.book.author}</p>
+                  )}
+                  <div className="flex items-center gap-2 mt-2">
+                    <Progress value={featuredBook.percent} className="h-2 flex-1" />
+                    <span className="text-sm font-medium">{featuredBook.percent}%</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search books by title or author..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+            data-testid="input-search-books"
+          />
+        </div>
+
         <Button
           variant="outline"
           className="w-full justify-start gap-2"
