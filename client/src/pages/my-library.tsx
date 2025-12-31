@@ -12,7 +12,7 @@ import {
   FolderHeart,
   Play,
 } from "lucide-react";
-import type { Child, ReadingSession, PresetWordList } from "@shared/schema";
+import type { Child, PresetWordList, Book } from "@shared/schema";
 
 interface ChildAddedPreset {
   id: string;
@@ -20,6 +20,14 @@ interface ChildAddedPreset {
   presetId: string;
   addedAt: string;
   preset: PresetWordList;
+}
+
+interface ChildAddedBook {
+  id: string;
+  childId: string;
+  bookId: string;
+  addedAt: string;
+  book: Book;
 }
 
 export default function MyLibrary() {
@@ -31,8 +39,8 @@ export default function MyLibrary() {
     queryKey: ["/api/children", childId],
   });
 
-  const { data: sessions, isLoading: sessionsLoading } = useQuery<ReadingSession[]>({
-    queryKey: ["/api/children", childId, "sessions"],
+  const { data: addedBooks, isLoading: booksLoading } = useQuery<ChildAddedBook[]>({
+    queryKey: ["/api/children", childId, "added-books"],
     enabled: !!childId,
   });
 
@@ -60,22 +68,9 @@ export default function MyLibrary() {
     );
   }
 
-  const isLoading = sessionsLoading || presetsLoading;
+  const isLoading = booksLoading || presetsLoading;
   
-  // Get unique books from sessions (by title)
-  const uniqueBooks = sessions?.reduce((acc, session) => {
-    if (session.bookTitle && !acc.some(b => b.title === session.bookTitle)) {
-      acc.push({
-        title: session.bookTitle,
-        bookId: session.bookId,
-        lastRead: session.createdAt,
-        wordCount: session.newWordsCount || 0,
-      });
-    }
-    return acc;
-  }, [] as { title: string; bookId: string | null; lastRead: Date; wordCount: number }[]) || [];
-
-  const hasBooks = uniqueBooks.length > 0;
+  const hasBooks = addedBooks && addedBooks.length > 0;
   const hasPresets = addedPresets && addedPresets.length > 0;
   const hasContent = hasBooks || hasPresets;
 
@@ -117,32 +112,37 @@ export default function MyLibrary() {
               <div>
                 <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
                   <BookMarked className="w-5 h-5 text-emerald-500" />
-                  My Books ({uniqueBooks.length})
+                  My Books ({addedBooks.length})
                 </h3>
                 <div className="space-y-3">
-                  {uniqueBooks.map((book, index) => (
+                  {addedBooks.map((ab) => (
                     <Card 
-                      key={`${book.title}-${index}`}
+                      key={ab.id}
                       className="cursor-pointer hover-elevate"
                       onClick={() => {
-                        if (book.bookId) {
-                          setLocation(`/child/${childId}/word-pop?bookId=${book.bookId}&lessonMode=true`);
-                        } else {
-                          setLocation(`/child/${childId}/books?openBook=${encodeURIComponent(book.title)}`);
-                        }
+                        setLocation(`/child/${childId}/word-pop?bookId=${ab.bookId}&lessonMode=true`);
                       }}
-                      data-testid={`card-my-book-${index}`}
+                      data-testid={`card-my-book-${ab.id}`}
                     >
                       <CardContent className="p-4">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-md flex items-center justify-center flex-shrink-0">
-                            <BookMarked className="w-5 h-5 text-white" />
-                          </div>
+                          {ab.book.coverImageUrl || ab.book.customCoverUrl ? (
+                            <img 
+                              src={ab.book.customCoverUrl || ab.book.coverImageUrl || ""} 
+                              alt={ab.book.title}
+                              className="w-12 h-16 object-cover rounded-md flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-12 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-md flex items-center justify-center flex-shrink-0">
+                              <BookMarked className="w-5 h-5 text-white" />
+                            </div>
+                          )}
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-medium truncate">{book.title}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {book.wordCount > 0 ? `${book.wordCount} words learned` : "Tap to continue"}
-                            </p>
+                            <h4 className="font-medium truncate">{ab.book.title}</h4>
+                            {ab.book.author && (
+                              <p className="text-sm text-muted-foreground truncate">by {ab.book.author}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-1">{ab.book.words?.length || 0} words</p>
                           </div>
                           <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
                             <Play className="w-4 h-4 text-white ml-0.5" />

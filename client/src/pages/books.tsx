@@ -441,6 +441,7 @@ export default function Books() {
                   masteredCount={item.masteredCount}
                   totalCount={item.totalCount}
                   onClick={() => setSelectedBook(item.book)}
+                  childId={childId}
                 />
               ))}
             </div>

@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { BookOpen, Star, Lock, Sparkles, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BookOpen, Star, Lock, Users, Library, Check, Loader2 } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Book } from "@shared/schema";
 
 interface BookCoverCardProps {
@@ -11,6 +13,7 @@ interface BookCoverCardProps {
   masteredCount: number;
   totalCount: number;
   onClick: () => void;
+  childId?: string;
 }
 
 const COVER_CACHE: Record<string, string | null> = {};
@@ -45,11 +48,29 @@ export function BookCoverCard({
   masteredCount,
   totalCount,
   onClick,
+  childId,
 }: BookCoverCardProps) {
   const [coverUrl, setCoverUrl] = useState<string | null>(
     book.coverImageUrl || book.customCoverUrl || null
   );
   const [imageError, setImageError] = useState(false);
+
+  // Check if book is already in library
+  const { data: libraryStatus } = useQuery<{ isInLibrary: boolean }>({
+    queryKey: ["/api/children", childId, "added-books", book.id],
+    enabled: !!childId,
+  });
+
+  // Add to library mutation
+  const addToLibraryMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/children/${childId}/added-books`, { bookId: book.id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "added-books"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "added-books", book.id] });
+    },
+  });
 
   useEffect(() => {
     if (!coverUrl && !imageError) {
@@ -62,6 +83,7 @@ export function BookCoverCard({
   const isReady = readinessPercent >= 90;
   const isAlmostReady = readinessPercent >= 70;
   const wordsToUnlock = totalCount - masteredCount;
+  const isInLibrary = libraryStatus?.isInLibrary || addToLibraryMutation.isSuccess;
 
   const getStatusColor = () => {
     if (isReady) return "bg-green-500";
@@ -73,6 +95,13 @@ export function BookCoverCard({
     if (isReady) return "ring-2 ring-green-500 ring-offset-2 ring-offset-background";
     if (isAlmostReady) return "ring-2 ring-amber-500/50 ring-offset-2 ring-offset-background";
     return "";
+  };
+
+  const handleAddToLibrary = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isInLibrary && childId) {
+      addToLibraryMutation.mutate();
+    }
   };
 
   return (
@@ -155,6 +184,26 @@ export function BookCoverCard({
             </Badge>
           )}
         </div>
+
+        {childId && (
+          <Button
+            variant={isInLibrary ? "secondary" : "outline"}
+            size="sm"
+            className="w-full mt-3 gap-1"
+            onClick={handleAddToLibrary}
+            disabled={isInLibrary || addToLibraryMutation.isPending}
+            data-testid={`button-add-to-library-${book.id}`}
+          >
+            {addToLibraryMutation.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : isInLibrary ? (
+              <Check className="h-3 w-3" />
+            ) : (
+              <Library className="h-3 w-3" />
+            )}
+            {isInLibrary ? "In My Library" : "Add to My Library"}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

@@ -620,6 +620,67 @@ Example: If required words are "cat, run, big" you might write "The big cat can 
     }
   });
 
+  // Get child's added books (books in their library)
+  app.get("/api/children/:id/added-books", ensureAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const child = await storage.getChildByUser(req.params.id, userId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
+      const addedBooks = await storage.getChildAddedBooks(req.params.id);
+      res.json(addedBooks);
+    } catch (error) {
+      console.error("Error fetching added books:", error);
+      res.status(500).json({ error: "Failed to fetch added books" });
+    }
+  });
+
+  // Add book to child's library
+  app.post("/api/children/:id/added-books", ensureAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const childId = req.params.id;
+      const { bookId } = req.body;
+      
+      if (!bookId) {
+        return res.status(400).json({ error: "bookId is required" });
+      }
+      
+      const child = await storage.getChildByUser(childId, userId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
+      
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      const added = await storage.addBookToChild(childId, bookId);
+      res.json(added);
+    } catch (error) {
+      console.error("Error adding book to library:", error);
+      res.status(500).json({ error: "Failed to add book to library" });
+    }
+  });
+
+  // Check if book is in child's library
+  app.get("/api/children/:id/added-books/:bookId", ensureAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const child = await storage.getChildByUser(req.params.id, userId);
+      if (!child) {
+        return res.status(404).json({ error: "Child not found" });
+      }
+      const isInLibrary = await storage.isBookInChildLibrary(req.params.id, req.params.bookId);
+      res.json({ isInLibrary });
+    } catch (error) {
+      console.error("Error checking book in library:", error);
+      res.status(500).json({ error: "Failed to check book status" });
+    }
+  });
+
   // Import book words to a child's word library
   const importBookWordsSchema = z.object({
     bookId: z.string().min(1),

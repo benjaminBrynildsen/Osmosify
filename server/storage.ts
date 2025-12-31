@@ -28,6 +28,7 @@ import {
   users,
   globalWordStats,
   childAddedPresets,
+  childAddedBooks,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray, isNull, asc } from "drizzle-orm";
@@ -1015,6 +1016,93 @@ export class DatabaseStorage implements IStorage {
     }
     
     return added;
+  }
+
+  // Child Added Books
+  async getChildAddedBooks(childId: string): Promise<Array<{ id: string; childId: string; bookId: string; addedAt: Date; book: Book }>> {
+    const results = await db
+      .select({
+        id: childAddedBooks.id,
+        childId: childAddedBooks.childId,
+        bookId: childAddedBooks.bookId,
+        addedAt: childAddedBooks.addedAt,
+        bookId2: books.id,
+        bookTitle: books.title,
+        bookAuthor: books.author,
+        bookCoverImageUrl: books.coverImageUrl,
+        bookCustomCoverUrl: books.customCoverUrl,
+        bookWords: books.words,
+        bookIsPreset: books.isPreset,
+        bookIsBeta: books.isBeta,
+        bookGradeLevel: books.gradeLevel,
+        bookIsbn: books.isbn,
+        bookDescription: books.description,
+        bookAmazonUrl: books.amazonUrl,
+        bookBookshopUrl: books.bookshopUrl,
+        bookContributorLabel: books.contributorLabel,
+        bookUnlockCount: books.unlockCount,
+      })
+      .from(childAddedBooks)
+      .innerJoin(books, eq(childAddedBooks.bookId, books.id))
+      .where(eq(childAddedBooks.childId, childId))
+      .orderBy(desc(childAddedBooks.addedAt));
+    
+    return results.map(row => ({
+      id: row.id,
+      childId: row.childId,
+      bookId: row.bookId,
+      addedAt: row.addedAt,
+      book: {
+        id: row.bookId2,
+        title: row.bookTitle,
+        author: row.bookAuthor,
+        coverImageUrl: row.bookCoverImageUrl,
+        customCoverUrl: row.bookCustomCoverUrl,
+        words: row.bookWords,
+        isPreset: row.bookIsPreset,
+        isBeta: row.bookIsBeta,
+        gradeLevel: row.bookGradeLevel,
+        isbn: row.bookIsbn,
+        description: row.bookDescription,
+        amazonUrl: row.bookAmazonUrl,
+        bookshopUrl: row.bookBookshopUrl,
+        contributorLabel: row.bookContributorLabel,
+        unlockCount: row.bookUnlockCount,
+      },
+    }));
+  }
+
+  async addBookToChild(childId: string, bookId: string): Promise<{ id: string; childId: string; bookId: string; addedAt: Date }> {
+    const [added] = await db
+      .insert(childAddedBooks)
+      .values({ childId, bookId })
+      .onConflictDoNothing()
+      .returning();
+    
+    if (!added) {
+      const [existing] = await db
+        .select()
+        .from(childAddedBooks)
+        .where(and(
+          eq(childAddedBooks.childId, childId),
+          eq(childAddedBooks.bookId, bookId)
+        ));
+      return existing;
+    }
+    
+    return added;
+  }
+
+  async isBookInChildLibrary(childId: string, bookId: string): Promise<boolean> {
+    const [result] = await db
+      .select({ id: childAddedBooks.id })
+      .from(childAddedBooks)
+      .where(and(
+        eq(childAddedBooks.childId, childId),
+        eq(childAddedBooks.bookId, bookId)
+      ))
+      .limit(1);
+    return !!result;
   }
 }
 
