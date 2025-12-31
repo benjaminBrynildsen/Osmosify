@@ -218,7 +218,14 @@ export default function LavaLetters() {
       updated[closestToBottom.creatureIdx] = { ...updated[closestToBottom.creatureIdx], saved: true };
       
       playSuccessSound();
-      setSavedCount(s => s + 1);
+      setSavedCount(s => {
+        const newCount = s + 1;
+        // Increase speed slightly every 4 saves (5% faster each time)
+        if (newCount % 4 === 0) {
+          setSpeedMultiplier(m => Math.min(m + 0.1, 2.5)); // Cap at 2.5x speed
+        }
+        return newCount;
+      });
       
       // Clear the "heard" display so it's ready for fresh input
       setTimeout(() => setSpokenText(""), 300);
