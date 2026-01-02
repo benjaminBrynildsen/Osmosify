@@ -10,7 +10,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { startContinuousListening, playSuccessSound, isSpeechRecognitionSupported } from "@/lib/speech";
 import { SentenceCelebration } from "@/components/SentenceCelebration";
 import { getTheme } from "@/lib/themes";
-import { trackEvent } from "@/lib/analytics";
 import type { Word, Child, Book, PresetWordList, ThemeOption } from "@shared/schema";
 
 interface PrioritizedWord {
@@ -269,7 +268,6 @@ export default function LavaLetters() {
     setLives(l => {
       const newLives = l - 1;
       if (newLives <= 0) {
-        trackEvent("lava_words_completed", { mode: "authenticated" });
         if (lessonMode) {
           setGameState("gameover");
         } else {
@@ -309,12 +307,6 @@ export default function LavaLetters() {
   }, []);
 
   const startGame = useCallback(() => {
-    trackEvent("lava_words_started", { 
-      mode: "authenticated", 
-      bookId: bookId || undefined,
-      presetId: presetId || undefined 
-    });
-    
     setGameState("playing");
     setLives(3);
     setCreatures([]);
@@ -337,7 +329,7 @@ export default function LavaLetters() {
     if (speechSupported) {
       startListening();
     }
-  }, [playableWords, speechSupported, startListening, bookId, presetId]);
+  }, [playableWords, speechSupported, startListening]);
 
   const togglePause = useCallback(() => {
     if (gameState === "playing") {
@@ -359,16 +351,11 @@ export default function LavaLetters() {
   const handleCelebrationComplete = useCallback(() => {
     // In lesson mode, go back to dashboard; otherwise show game over
     if (lessonMode) {
-      trackEvent("lesson_completed", { 
-        mode: "authenticated",
-        bookId: bookId || undefined,
-        presetId: presetId || undefined
-      });
       setLocation(`/child/${childId}`);
     } else {
       setGameState("gameover");
     }
-  }, [lessonMode, childId, setLocation, bookId, presetId]);
+  }, [lessonMode, childId, setLocation]);
 
   // Progressive difficulty: increase speed every 30 seconds of actual play time
   useEffect(() => {
@@ -419,7 +406,6 @@ export default function LavaLetters() {
           setLives(l => {
             const newLives = l - hitLava.length;
             if (newLives <= 0) {
-              trackEvent("lava_words_completed", { mode: "authenticated" });
               // Always show celebration at end of lesson mode; otherwise show if we have words
               if (lessonMode) {
                 setGameState("celebration");
@@ -450,7 +436,6 @@ export default function LavaLetters() {
   useEffect(() => {
     if (gameState === "playing" && unclearedWords.length === 0 && playableWords.length > 0) {
       stopListening();
-      trackEvent("lava_words_completed", { mode: "authenticated", victory: true });
       // Always show celebration at end of lesson mode; otherwise victory or celebration
       if (lessonMode) {
         setGameState("celebration");

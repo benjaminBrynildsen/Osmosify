@@ -126,8 +126,7 @@ export function useGuestMode() {
   const markFlashcardSessionCompleted = useCallback(() => {
     setGuestData(prev => {
       const updated = { ...prev, flashcardSessionCompleted: true };
-      // Show login prompt after first activity completion
-      if (!prev.flashcardSessionCompleted) {
+      if (updated.popGameCompleted) {
         setShowLoginPrompt(true);
       }
       return updated;
@@ -137,8 +136,7 @@ export function useGuestMode() {
   const markPopGameCompleted = useCallback(() => {
     setGuestData(prev => {
       const updated = { ...prev, popGameCompleted: true };
-      // Show login prompt after first activity completion
-      if (!prev.popGameCompleted) {
+      if (updated.flashcardSessionCompleted) {
         setShowLoginPrompt(true);
       }
       return updated;

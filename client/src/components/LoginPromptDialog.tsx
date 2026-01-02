@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,7 +8,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { LogIn, Sparkles } from "lucide-react";
-import { trackEvent } from "@/lib/analytics";
 
 interface LoginPromptDialogProps {
   open: boolean;
@@ -24,12 +22,6 @@ export function LoginPromptDialog({
   onLogin,
   onContinueAsGuest,
 }: LoginPromptDialogProps) {
-  useEffect(() => {
-    if (open) {
-      trackEvent("signup_viewed", { source: "login_prompt_dialog" });
-    }
-  }, [open]);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">

@@ -7,7 +7,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 import { GuestModeProvider, useGuestModeContext } from "@/hooks/use-guest-mode";
 import { LoginPromptDialog } from "@/components/LoginPromptDialog";
-import { initSession, trackEvent, linkSessionToUser } from "@/lib/analytics";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Landing from "@/pages/landing";
@@ -26,7 +25,6 @@ import LavaLetters from "@/pages/lava-letters";
 import PresetBooks from "@/pages/preset-books";
 import MyLibrary from "@/pages/my-library";
 import Moderation from "@/pages/moderation";
-import Analytics from "@/pages/analytics";
 import GuestOnboarding from "@/pages/guest-onboarding";
 import GuestFlashcards from "@/pages/guest-flashcards";
 import GuestDashboard from "@/pages/guest-dashboard";
@@ -54,7 +52,6 @@ function AuthenticatedRouter() {
       <Route path="/child/:id/my-library" component={MyLibrary} />
       <Route path="/session/:id" component={SessionDetails} />
       <Route path="/moderation" component={Moderation} />
-      <Route path="/analytics" component={Analytics} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -82,20 +79,6 @@ function AuthWrapper() {
   // Always call hooks at the top level
   const guestModeContext = useGuestModeContext();
   const { isGuestMode, enterGuestMode, showLoginPrompt, setShowLoginPrompt } = guestModeContext;
-
-  // Initialize session tracking on app load
-  useEffect(() => {
-    initSession().then(() => {
-      trackEvent("app_opened");
-    });
-  }, []);
-
-  // Link session to user when they authenticate
-  useEffect(() => {
-    if (isAuthenticated && user?.id) {
-      linkSessionToUser();
-    }
-  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     if (isAuthenticated) {

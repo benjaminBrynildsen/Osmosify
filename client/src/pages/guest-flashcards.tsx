@@ -1,10 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useLocation, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Home, PartyPopper } from "lucide-react";
 import { FlashcardDisplay } from "@/components/FlashcardDisplay";
 import { useGuestModeContext } from "@/hooks/use-guest-mode";
-import { trackEvent } from "@/lib/analytics";
 import type { Word } from "@shared/schema";
 
 export default function GuestFlashcards() {
@@ -13,10 +12,6 @@ export default function GuestFlashcards() {
   const { guestData, markFlashcardSessionCompleted, updateGuestWordStatus } = useGuestModeContext();
   const [isComplete, setIsComplete] = useState(false);
   const childId = params.id || guestData.child?.id || "";
-
-  useEffect(() => {
-    trackEvent("flashcards_started", { mode: "guest" });
-  }, []);
 
   const sessionWordsRef = useRef<Word[] | null>(null);
   const deckSize = 4;
@@ -49,7 +44,6 @@ export default function GuestFlashcards() {
   const handleComplete = (masteredWordIds: string[]) => {
     setIsComplete(true);
     markFlashcardSessionCompleted();
-    trackEvent("flashcards_completed", { mode: "guest", masteredCount: masteredWordIds.length });
   };
 
   if (words.length === 0) {
