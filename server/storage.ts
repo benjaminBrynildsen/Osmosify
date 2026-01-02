@@ -18,6 +18,13 @@ import {
   type GlobalWordStats,
   type PrioritizedWord,
   type ChildAddedPreset,
+  type AnonymousSession,
+  type InsertAnonymousSession,
+  type AnalyticsEvent,
+  type InsertAnalyticsEvent,
+  type AnalyticsEventType,
+  type GuestProgress,
+  type InsertGuestProgress,
   children,
   readingSessions,
   words,
@@ -29,6 +36,9 @@ import {
   globalWordStats,
   childAddedPresets,
   childAddedBooks,
+  anonymousSessions,
+  analyticsEvents,
+  guestProgress,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray, isNull, asc } from "drizzle-orm";
@@ -113,6 +123,28 @@ export interface IStorage {
   // Child Added Presets (tracking which word lists a child has added)
   getChildAddedPresets(childId: string): Promise<Array<ChildAddedPreset & { preset: PresetWordList }>>;
   addPresetToChild(childId: string, presetId: string): Promise<ChildAddedPreset>;
+
+  // Anonymous Session Tracking
+  getOrCreateAnonymousSession(sessionId: string, userAgent?: string, referrer?: string): Promise<AnonymousSession>;
+  updateSessionActivity(sessionId: string): Promise<void>;
+  linkSessionToUser(sessionId: string, userId: string): Promise<AnonymousSession | undefined>;
+  
+  // Analytics Events
+  trackEvent(sessionId: string, eventType: AnalyticsEventType, eventData?: Record<string, unknown>, userId?: string): Promise<AnalyticsEvent>;
+  getSessionEvents(sessionId: string): Promise<AnalyticsEvent[]>;
+  
+  // Guest Progress
+  getGuestProgress(sessionId: string): Promise<GuestProgress | undefined>;
+  updateGuestProgress(sessionId: string, data: Partial<InsertGuestProgress>): Promise<GuestProgress>;
+  migrateGuestProgressToChild(sessionId: string, childId: string): Promise<void>;
+  
+  // Analytics Queries
+  getSessionFunnelMetrics(): Promise<{
+    totalSessions: number;
+    sessionsPlayedGame: number;
+    sessionsCompletedLesson: number;
+    sessionsConverted: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1103,6 +1135,178 @@ export class DatabaseStorage implements IStorage {
       ))
       .limit(1);
     return !!result;
+  }
+
+  // ==================== ANONYMOUS SESSION TRACKING ====================
+
+  async getOrCreateAnonymousSession(sessionId: string, userAgent?: string, referrer?: string): Promise<AnonymousSession> {
+    const [existing] = await db
+      .select()
+      .from(anonymousSessions)
+      .where(eq(anonymousSessions.id, sessionId));
+    
+    if (existing) {
+      await db
+        .update(anonymousSessions)
+        .set({ lastActiveAt: new Date() })
+        .where(eq(anonymousSessions.id, sessionId));
+      return { ...existing, lastActiveAt: new Date() };
+    }
+    
+    const [created] = await db
+      .insert(anonymousSessions)
+      .values({ id: sessionId, userAgent, referrer })
+      .returning();
+    return created;
+  }
+
+  async updateSessionActivity(sessionId: string): Promise<void> {
+    await db
+      .update(anonymousSessions)
+      .set({ lastActiveAt: new Date() })
+      .where(eq(anonymousSessions.id, sessionId));
+  }
+
+  async linkSessionToUser(sessionId: string, userId: string): Promise<AnonymousSession | undefined> {
+    const [updated] = await db
+      .update(anonymousSessions)
+      .set({ userId, linkedAt: new Date() })
+      .where(eq(anonymousSessions.id, sessionId))
+      .returning();
+    
+    if (updated) {
+      await db
+        .update(analyticsEvents)
+        .set({ userId })
+        .where(eq(analyticsEvents.sessionId, sessionId));
+    }
+    
+    return updated;
+  }
+
+  // ==================== ANALYTICS EVENTS ====================
+
+  async trackEvent(
+    sessionId: string, 
+    eventType: AnalyticsEventType, 
+    eventData?: Record<string, unknown>, 
+    userId?: string
+  ): Promise<AnalyticsEvent> {
+    const [event] = await db
+      .insert(analyticsEvents)
+      .values({ 
+        sessionId, 
+        eventType, 
+        eventData: eventData || null,
+        userId 
+      })
+      .returning();
+    return event;
+  }
+
+  async getSessionEvents(sessionId: string): Promise<AnalyticsEvent[]> {
+    return db
+      .select()
+      .from(analyticsEvents)
+      .where(eq(analyticsEvents.sessionId, sessionId))
+      .orderBy(desc(analyticsEvents.createdAt));
+  }
+
+  // ==================== GUEST PROGRESS ====================
+
+  async getGuestProgress(sessionId: string): Promise<GuestProgress | undefined> {
+    const [progress] = await db
+      .select()
+      .from(guestProgress)
+      .where(eq(guestProgress.sessionId, sessionId));
+    return progress;
+  }
+
+  async updateGuestProgress(sessionId: string, data: Partial<InsertGuestProgress>): Promise<GuestProgress> {
+    const existing = await this.getGuestProgress(sessionId);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(guestProgress)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(guestProgress.sessionId, sessionId))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db
+      .insert(guestProgress)
+      .values({ sessionId, ...data })
+      .returning();
+    return created;
+  }
+
+  async migrateGuestProgressToChild(sessionId: string, childId: string): Promise<void> {
+    const progress = await this.getGuestProgress(sessionId);
+    if (!progress) return;
+
+    for (const word of progress.masteredWords) {
+      await this.bulkUpsertWords(childId, [word]);
+      const existingWord = await this.getWordByChildAndWord(childId, word);
+      if (existingWord) {
+        await this.updateWord(existingWord.id, { 
+          status: "mastered", 
+          masteryCorrectCount: 4 
+        });
+      }
+    }
+
+    for (const word of progress.learningWords) {
+      await this.bulkUpsertWords(childId, [word]);
+      const existingWord = await this.getWordByChildAndWord(childId, word);
+      if (existingWord && existingWord.status === "new") {
+        await this.updateWord(existingWord.id, { 
+          status: "learning", 
+          masteryCorrectCount: 1 
+        });
+      }
+    }
+  }
+
+  // ==================== ANALYTICS QUERIES ====================
+
+  async getSessionFunnelMetrics(): Promise<{
+    totalSessions: number;
+    sessionsPlayedGame: number;
+    sessionsCompletedLesson: number;
+    sessionsConverted: number;
+  }> {
+    const [totalResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(anonymousSessions);
+    
+    const [gamesResult] = await db
+      .select({ count: sql<number>`count(distinct ${analyticsEvents.sessionId})::int` })
+      .from(analyticsEvents)
+      .where(
+        inArray(analyticsEvents.eventType, [
+          "word_pop_started", 
+          "flashcards_started", 
+          "lava_words_started"
+        ])
+      );
+    
+    const [lessonsResult] = await db
+      .select({ count: sql<number>`count(distinct ${analyticsEvents.sessionId})::int` })
+      .from(analyticsEvents)
+      .where(eq(analyticsEvents.eventType, "lesson_completed"));
+    
+    const [convertedResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(anonymousSessions)
+      .where(sql`${anonymousSessions.userId} is not null`);
+    
+    return {
+      totalSessions: totalResult?.count || 0,
+      sessionsPlayedGame: gamesResult?.count || 0,
+      sessionsCompletedLesson: lessonsResult?.count || 0,
+      sessionsConverted: convertedResult?.count || 0,
+    };
   }
 }
 

@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { speak } from "@/lib/voice";
 import { playSuccessSound } from "@/lib/speech";
 import { SentenceCelebration } from "@/components/SentenceCelebration";
+import { trackEvent } from "@/lib/analytics";
 import type { Word, Child, Book, PresetWordList } from "@shared/schema";
 
 interface PrioritizedWord {
@@ -212,6 +213,12 @@ export default function WordPop() {
     // Reset priority index to start from the highest-leverage words
     priorityIndexRef.current = 0;
     
+    trackEvent("word_pop_started", { 
+      mode: "authenticated", 
+      bookId: bookId || undefined,
+      presetId: presetId || undefined 
+    });
+    
     setGameState("playing");
     setScore(0);
     setStreak(0);
@@ -223,7 +230,7 @@ export default function WordPop() {
     setPracticedWords([]);
     practicedWordsRef.current = [];
     nextRound(1, 0);
-  }, [nextRound]);
+  }, [nextRound, bookId, presetId]);
   
   const handleCelebrationComplete = useCallback(() => {
     setGameState("gameover");
@@ -276,6 +283,11 @@ export default function WordPop() {
       setLives(prev => {
         const newLives = prev - 1;
         if (newLives <= 0) {
+          trackEvent("word_pop_completed", { 
+            mode: "authenticated",
+            bookId: bookId || undefined,
+            presetId: presetId || undefined
+          });
           // In lesson mode, skip celebration (it happens at end of flashcards)
           // Otherwise show celebration if we have practiced words
           if (lessonMode) {
@@ -315,6 +327,7 @@ export default function WordPop() {
           setLives(l => {
             const newLives = l - 1;
             if (newLives <= 0) {
+              trackEvent("word_pop_completed", { mode: "authenticated" });
               // In lesson mode, skip celebration (it happens at end of flashcards)
               if (lessonMode) {
                 setGameState("gameover");

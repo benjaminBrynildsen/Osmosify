@@ -355,3 +355,109 @@ export interface PrioritizedWord {
   bookCount: number;
   totalOccurrences: number;
 }
+
+// ==================== ANONYMOUS SESSION TRACKING ====================
+
+// Event types for product analytics
+export type AnalyticsEventType =
+  | "app_opened"
+  | "lesson_started"
+  | "lesson_completed"
+  | "word_pop_started"
+  | "word_pop_completed"
+  | "flashcards_started"
+  | "flashcards_completed"
+  | "lava_words_started"
+  | "lava_words_completed"
+  | "signup_viewed"
+  | "signup_completed"
+  | "child_profile_created"
+  | "book_added"
+  | "preset_added";
+
+// Anonymous sessions table - tracks users before they create an account
+export const anonymousSessions = pgTable("anonymous_sessions", {
+  id: varchar("id").primaryKey(), // Client-generated session ID
+  firstSeenAt: timestamp("first_seen_at").notNull().defaultNow(),
+  lastActiveAt: timestamp("last_active_at").notNull().defaultNow(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }), // Linked after signup
+  linkedAt: timestamp("linked_at"), // When the session was linked to a user
+  userAgent: text("user_agent"),
+  referrer: text("referrer"),
+});
+
+export const anonymousSessionsRelations = relations(anonymousSessions, ({ one, many }) => ({
+  user: one(users, {
+    fields: [anonymousSessions.userId],
+    references: [users.id],
+  }),
+  events: many(analyticsEvents),
+}));
+
+export const insertAnonymousSessionSchema = createInsertSchema(anonymousSessions).omit({
+  firstSeenAt: true,
+  lastActiveAt: true,
+  linkedAt: true,
+});
+
+export type InsertAnonymousSession = z.infer<typeof insertAnonymousSessionSchema>;
+export type AnonymousSession = typeof anonymousSessions.$inferSelect;
+
+// Analytics events table - tracks meaningful product events
+export const analyticsEvents = pgTable("analytics_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => anonymousSessions.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }), // Populated after signup
+  eventType: text("event_type").notNull().$type<AnalyticsEventType>(),
+  eventData: jsonb("event_data"), // Additional context (e.g., which game, duration, etc.)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const analyticsEventsRelations = relations(analyticsEvents, ({ one }) => ({
+  session: one(anonymousSessions, {
+    fields: [analyticsEvents.sessionId],
+    references: [anonymousSessions.id],
+  }),
+  user: one(users, {
+    fields: [analyticsEvents.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAnalyticsEvent = z.infer<typeof insertAnalyticsEventSchema>;
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+
+// Guest progress table - stores anonymous user progress before account creation
+export const guestProgress = pgTable("guest_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => anonymousSessions.id, { onDelete: "cascade" }),
+  childName: text("child_name"),
+  gradeLevel: text("grade_level"),
+  masteredWords: text("mastered_words").array().notNull().default(sql`ARRAY[]::text[]`),
+  learningWords: text("learning_words").array().notNull().default(sql`ARRAY[]::text[]`),
+  lessonsCompleted: integer("lessons_completed").notNull().default(0),
+  gamesPlayed: integer("games_played").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const guestProgressRelations = relations(guestProgress, ({ one }) => ({
+  session: one(anonymousSessions, {
+    fields: [guestProgress.sessionId],
+    references: [anonymousSessions.id],
+  }),
+}));
+
+export const insertGuestProgressSchema = createInsertSchema(guestProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertGuestProgress = z.infer<typeof insertGuestProgressSchema>;
+export type GuestProgress = typeof guestProgress.$inferSelect;

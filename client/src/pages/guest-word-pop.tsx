@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { speak } from "@/lib/voice";
 import { playSuccessSound } from "@/lib/speech";
 import { useGuestModeContext } from "@/hooks/use-guest-mode";
+import { trackEvent } from "@/lib/analytics";
 
 interface Bubble {
   id: number;
@@ -114,6 +115,7 @@ export default function GuestWordPop() {
   }, [playableWords, spawnBubbles, level, roundsInLevel]);
 
   const startGame = useCallback(() => {
+    trackEvent("word_pop_started", { mode: "guest" });
     setGameState("playing");
     setScore(0);
     setStreak(0);
@@ -174,6 +176,7 @@ export default function GuestWordPop() {
         if (newLives <= 0) {
           setGameState("gameover");
           markPopGameCompleted();
+          trackEvent("word_pop_completed", { mode: "guest", score, level, wordsPlayed });
         }
         return newLives;
       });
@@ -208,6 +211,7 @@ export default function GuestWordPop() {
             if (newLives <= 0) {
               setGameState("gameover");
               markPopGameCompleted();
+              trackEvent("word_pop_completed", { mode: "guest" });
             } else {
               setTimeout(nextRound, 500);
             }

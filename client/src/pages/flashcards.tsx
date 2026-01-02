@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation, useSearch } from "wouter";
 import { AppHeader } from "@/components/AppHeader";
@@ -7,6 +7,7 @@ import { LoadingScreen } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { trackEvent } from "@/lib/analytics";
 import type { Child, Word, Book, PresetWordList } from "@shared/schema";
 
 interface PrioritizedWord {
@@ -156,8 +157,27 @@ export default function Flashcards() {
     masterWordMutation.mutate(wordId);
   };
 
+  // Track flashcard session start
+  const hasTrackedStart = useRef(false);
+  useEffect(() => {
+    if (!hasTrackedStart.current && !isLoading) {
+      hasTrackedStart.current = true;
+      trackEvent("flashcards_started", { 
+        mode: "authenticated", 
+        bookId: bookId || undefined, 
+        presetId: presetId || undefined 
+      });
+    }
+  }, [isLoading, bookId, presetId]);
+
   const handleComplete = (masteredWordIds: string[]) => {
     queryClient.invalidateQueries({ queryKey: ["/api/children", childId, "words"] });
+    trackEvent("flashcards_completed", { 
+      mode: "authenticated", 
+      masteredCount: masteredWordIds.length,
+      bookId: bookId || undefined,
+      presetId: presetId || undefined
+    });
     // Only show toast in standalone mode, not lesson mode
     if (wordPopWords.length === 0) {
       toast({
