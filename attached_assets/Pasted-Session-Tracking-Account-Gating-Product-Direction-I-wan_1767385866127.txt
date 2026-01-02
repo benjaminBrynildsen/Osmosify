@@ -1,0 +1,107 @@
+Session Tracking + Account Gating — Product Direction
+
+I want to improve how we understand real usage in the app and also introduce user accounts at the right moment without hurting early adoption.
+
+1. Anonymous sessions first (before login)
+
+Right now, analytics are mostly based on IPs and requests, which isn’t telling us how many people are actually using the app. I’d like to add anonymous session tracking so we can measure real engagement even before someone creates an account.
+
+Conceptually:
+
+On a user’s first visit, the app should generate a persistent session ID and store it locally in the browser.
+
+That session ID should be attached to backend requests.
+
+On the backend, we should track:
+
+when the session was first seen
+
+when it was last active
+
+which key features were used
+
+This lets us count “real users” as sessions instead of IPs.
+
+2. Track meaningful events (not just page loads)
+
+Rather than guessing usage from API traffic, I want us to explicitly log product events tied to a session (and later to a user).
+
+Examples of events we should track:
+
+app opened
+
+lesson started
+
+Word Pop started
+
+Flashcards started
+
+Lava Words started
+
+lesson completed
+
+signup viewed
+
+signup completed
+
+This will give us a clear view of the funnel and where people drop off.
+
+3. Accounts should be required later, not immediately
+
+I don’t want to force login on first use. The goal is to let people experience the product first, then require an account at a natural point.
+
+Good moments to require an account could be:
+
+after completing a lesson
+
+when saving progress
+
+when adding a child profile
+
+when returning for continued use
+
+The message should be framed as:
+
+“Create a free account to save progress and keep your child’s word mastery.”
+
+4. Preserve progress when someone signs up
+
+When a user creates an account:
+
+their existing anonymous session should be linked to that account
+
+past activity and progress should carry over
+
+future activity should now be associated with the user
+
+I want to avoid losing any progress at signup.
+
+5. What I want to be able to see
+
+With this in place, I should be able to answer:
+
+how many unique sessions used the app
+
+how many sessions actually played a game
+
+how many sessions completed a lesson
+
+how many sessions converted to accounts
+
+how many accounts became paid users
+
+This is more important to me than raw traffic numbers.
+
+Summary
+
+The key idea is:
+
+sessions first
+
+events over page views
+
+accounts after value
+
+progress always preserved
+
+I’m not prescriptive about how this is implemented internally, as long as it works cleanly within our current Replit setup.
