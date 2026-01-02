@@ -74,8 +74,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
   const [sentenceCelebrationWords, setSentenceCelebrationWords] = useState<string[]>([]);
   const [lastCelebrationCount, setLastCelebrationCount] = useState(0);
   const [initialWordCount, setInitialWordCount] = useState(0);
-  const [showFinalCelebration, setShowFinalCelebration] = useState(false);
-  const [finalCelebrationDone, setFinalCelebrationDone] = useState(false);
+  const [lessonNavigationTriggered, setLessonNavigationTriggered] = useState(false);
   const initializedRef = useRef(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -150,8 +149,7 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     setTimeLeft(timerSeconds);
     setSpokenText("");
     setShowFeedback(null);
-    setShowFinalCelebration(false);
-    setFinalCelebrationDone(false);
+    setLessonNavigationTriggered(false);
     setSentenceCelebrationWords([]);
     if (!initializedRef.current) {
       setInitialWordCount(propInitialCount ?? words.length);
@@ -463,33 +461,15 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     }
   }, [wordProgress, masteredIds, queue, mode, props]);
 
-  // Trigger final celebration when complete in lesson mode (wordPopWords exist)
-  // Only fires once per completion due to finalCelebrationDone guard
+  // In lesson mode, skip celebration and go directly to Lava Letters
+  // Celebration happens at the end of Lava Letters
   useEffect(() => {
-    if (isComplete && wordPopWords.length > 0 && !showFinalCelebration && !finalCelebrationDone) {
-      // Build combined words list
-      const flashcardWords = masteredIds.map(id => {
-        const prog = wordProgress.get(id);
-        return prog?.word.word || "";
-      }).filter(w => w.length > 0);
-      
-      const allWords = Array.from(new Set([...wordPopWords, ...flashcardWords]));
-      if (allWords.length > 0) {
-        setSentenceCelebrationWords(allWords);
-        setShowFinalCelebration(true);
-      }
-    }
-  }, [isComplete, wordPopWords, showFinalCelebration, finalCelebrationDone, masteredIds, wordProgress]);
-
-  const handleFinalCelebrationComplete = useCallback(() => {
-    setShowFinalCelebration(false);
-    setFinalCelebrationDone(true);
-    setSentenceCelebrationWords([]);
-    // Navigate back to dashboard after lesson celebration
-    if (onLessonComplete) {
+    if (isComplete && wordPopWords.length > 0 && !lessonNavigationTriggered && onLessonComplete) {
+      setLessonNavigationTriggered(true);
+      // Go directly to Lava Letters - celebration happens there
       onLessonComplete();
     }
-  }, [onLessonComplete]);
+  }, [isComplete, wordPopWords, lessonNavigationTriggered, onLessonComplete]);
 
   useEffect(() => {
     return () => {
@@ -535,23 +515,12 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     );
   }
 
-  // Final celebration with combined Word Pop + Flashcard words
-  if (showFinalCelebration && sentenceCelebrationWords.length > 0) {
-    return (
-      <SentenceCelebration
-        masteredWords={sentenceCelebrationWords}
-        onComplete={handleFinalCelebrationComplete}
-        gifCelebrationsEnabled={gifCelebrationsEnabled}
-      />
-    );
-  }
-
-  // In lesson mode, wait for final celebration to complete before showing completion screen
-  if (isComplete && wordPopWords.length > 0 && !showFinalCelebration && !finalCelebrationDone) {
-    // Effect will trigger showFinalCelebration, wait for it
+  // In lesson mode, we skip celebration here and navigate to Lava Letters
+  // Wait for navigation to complete
+  if (isComplete && wordPopWords.length > 0 && onLessonComplete) {
     return (
       <div className="flex flex-col items-center justify-center min-h-96 p-4">
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-muted-foreground">Continuing to Lava Letters...</p>
       </div>
     );
   }
