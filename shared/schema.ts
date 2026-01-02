@@ -355,3 +355,83 @@ export interface PrioritizedWord {
   bookCount: number;
   totalOccurrences: number;
 }
+
+// ============================================
+// Anonymous Session Tracking
+// ============================================
+
+// Anonymous sessions for tracking users before they sign up
+export const anonymousSessions = pgTable("anonymous_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionToken: text("session_token").notNull().unique(),
+  firstSeenAt: timestamp("first_seen_at").notNull().defaultNow(),
+  lastActiveAt: timestamp("last_active_at").notNull().defaultNow(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  convertedAt: timestamp("converted_at"),
+  userAgent: text("user_agent"),
+  deviceType: text("device_type"),
+});
+
+export const anonymousSessionsRelations = relations(anonymousSessions, ({ one, many }) => ({
+  user: one(users, {
+    fields: [anonymousSessions.userId],
+    references: [users.id],
+  }),
+  events: many(sessionEvents),
+}));
+
+export const insertAnonymousSessionSchema = createInsertSchema(anonymousSessions).omit({
+  id: true,
+  firstSeenAt: true,
+  lastActiveAt: true,
+  convertedAt: true,
+});
+
+export type InsertAnonymousSession = z.infer<typeof insertAnonymousSessionSchema>;
+export type AnonymousSession = typeof anonymousSessions.$inferSelect;
+
+// Event types for tracking
+export type SessionEventType = 
+  | "app_opened"
+  | "lesson_started"
+  | "lesson_completed"
+  | "word_pop_started"
+  | "word_pop_completed"
+  | "flashcards_started"
+  | "flashcards_completed"
+  | "lava_words_started"
+  | "lava_words_completed"
+  | "signup_viewed"
+  | "signup_completed"
+  | "child_added"
+  | "book_added"
+  | "reading_session_created";
+
+// Session events for tracking user actions
+export const sessionEvents = pgTable("session_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => anonymousSessions.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  eventType: text("event_type").notNull().$type<SessionEventType>(),
+  eventData: jsonb("event_data"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const sessionEventsRelations = relations(sessionEvents, ({ one }) => ({
+  session: one(anonymousSessions, {
+    fields: [sessionEvents.sessionId],
+    references: [anonymousSessions.id],
+  }),
+  user: one(users, {
+    fields: [sessionEvents.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertSessionEventSchema = createInsertSchema(sessionEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSessionEvent = z.infer<typeof insertSessionEventSchema>;
+export type SessionEvent = typeof sessionEvents.$inferSelect;
