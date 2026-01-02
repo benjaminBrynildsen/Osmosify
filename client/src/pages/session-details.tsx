@@ -92,7 +92,7 @@ export default function SessionDetails() {
                 ))}
               </div>
               <Button
-                variant="ghost"
+                variant="link"
                 className="px-0 mt-4"
                 onClick={() => setLocation(`/child/${session.childId}/flashcards`)}
                 data-testid="link-practice-session-words"

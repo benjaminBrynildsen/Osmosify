@@ -648,7 +648,7 @@ export default function WordPop() {
               top: bubble.y,
               width: bubble.size,
               height: bubble.size,
-              fontSize: 16,
+              fontSize: Math.max(14, 18 - bubble.word.length),
             }}
             onClick={() => handleBubbleTap(bubble)}
             data-testid={`bubble-${bubble.word}`}
