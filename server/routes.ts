@@ -1265,6 +1265,102 @@ Example: If required words are "cat, run, big" you might write "The big cat can 
     res.json(AVAILABLE_VOICES);
   });
 
+  // ============================================
+  // Session tracking endpoints (for analytics)
+  // ============================================
+
+  // Initialize or update anonymous session
+  app.post("/api/sessions/init", async (req, res) => {
+    try {
+      const { sessionId, userAgent } = req.body;
+      
+      if (!sessionId || typeof sessionId !== "string") {
+        return res.status(400).json({ error: "Session ID is required" });
+      }
+
+      const session = await storage.initAnonymousSession(sessionId, userAgent);
+      res.json(session);
+    } catch (error) {
+      console.error("Error initializing session:", error);
+      res.status(500).json({ error: "Failed to initialize session" });
+    }
+  });
+
+  // Increment lessons completed for session
+  app.post("/api/sessions/lesson-completed", async (req, res) => {
+    try {
+      const { sessionId } = req.body;
+      
+      if (!sessionId || typeof sessionId !== "string") {
+        return res.status(400).json({ error: "Session ID is required" });
+      }
+
+      const session = await storage.incrementSessionLessons(sessionId);
+      res.json(session);
+    } catch (error) {
+      console.error("Error incrementing lessons:", error);
+      res.status(500).json({ error: "Failed to increment lessons" });
+    }
+  });
+
+  // Link session to user account (called on signup)
+  app.post("/api/sessions/link", ensureAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { sessionId } = req.body;
+      
+      if (!sessionId || typeof sessionId !== "string") {
+        return res.status(400).json({ error: "Session ID is required" });
+      }
+
+      const session = await storage.linkSessionToUser(sessionId, userId);
+      res.json(session);
+    } catch (error) {
+      console.error("Error linking session:", error);
+      res.status(500).json({ error: "Failed to link session" });
+    }
+  });
+
+  // Track product event
+  app.post("/api/events", async (req, res) => {
+    try {
+      const { sessionId, eventType, eventData } = req.body;
+      
+      if (!sessionId || typeof sessionId !== "string") {
+        return res.status(400).json({ error: "Session ID is required" });
+      }
+      
+      if (!eventType || typeof eventType !== "string") {
+        return res.status(400).json({ error: "Event type is required" });
+      }
+
+      // Get userId if authenticated
+      const userId = getUserId(req) || null;
+
+      const event = await storage.trackProductEvent({
+        sessionId,
+        userId,
+        eventType,
+        eventData: eventData || null,
+      });
+      res.json(event);
+    } catch (error) {
+      console.error("Error tracking event:", error);
+      res.status(500).json({ error: "Failed to track event" });
+    }
+  });
+
+  // Admin: Get analytics summary
+  app.get("/api/admin/analytics", async (req, res) => {
+    try {
+      const analytics = await storage.getAnalyticsSummary();
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+  });
+
   // Seed presets on startup
   await storage.seedPresetWordLists(presetData);
   await storage.seedPresetBooks(presetBooksData);

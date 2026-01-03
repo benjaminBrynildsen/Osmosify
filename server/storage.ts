@@ -18,6 +18,9 @@ import {
   type GlobalWordStats,
   type PrioritizedWord,
   type ChildAddedPreset,
+  type AnonymousSession,
+  type ProductEvent,
+  type ProductEventType,
   children,
   readingSessions,
   words,
@@ -29,6 +32,8 @@ import {
   globalWordStats,
   childAddedPresets,
   childAddedBooks,
+  anonymousSessions,
+  productEvents,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray, isNull, asc } from "drizzle-orm";
@@ -113,6 +118,19 @@ export interface IStorage {
   // Child Added Presets (tracking which word lists a child has added)
   getChildAddedPresets(childId: string): Promise<Array<ChildAddedPreset & { preset: PresetWordList }>>;
   addPresetToChild(childId: string, presetId: string): Promise<ChildAddedPreset>;
+
+  // Anonymous Sessions & Analytics
+  initAnonymousSession(sessionId: string, userAgent?: string): Promise<AnonymousSession>;
+  incrementSessionLessons(sessionId: string): Promise<AnonymousSession | undefined>;
+  linkSessionToUser(sessionId: string, userId: string): Promise<AnonymousSession | undefined>;
+  trackProductEvent(event: { sessionId: string; userId?: string | null; eventType: ProductEventType; eventData?: unknown }): Promise<ProductEvent>;
+  getAnalyticsSummary(): Promise<{
+    totalSessions: number;
+    sessionsWithGames: number;
+    sessionsWithLessonComplete: number;
+    convertedSessions: number;
+    eventCounts: Record<string, number>;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1103,6 +1121,124 @@ export class DatabaseStorage implements IStorage {
       ))
       .limit(1);
     return !!result;
+  }
+
+  // Anonymous Sessions & Analytics
+  async initAnonymousSession(sessionId: string, userAgent?: string): Promise<AnonymousSession> {
+    const now = new Date();
+    
+    const [existing] = await db
+      .select()
+      .from(anonymousSessions)
+      .where(eq(anonymousSessions.id, sessionId));
+    
+    if (existing) {
+      const [updated] = await db
+        .update(anonymousSessions)
+        .set({ lastActiveAt: now })
+        .where(eq(anonymousSessions.id, sessionId))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db
+      .insert(anonymousSessions)
+      .values({
+        id: sessionId,
+        userAgent: userAgent || null,
+        firstSeenAt: now,
+        lastActiveAt: now,
+        lessonsCompleted: 0,
+      })
+      .returning();
+    return created;
+  }
+
+  async incrementSessionLessons(sessionId: string): Promise<AnonymousSession | undefined> {
+    const [updated] = await db
+      .update(anonymousSessions)
+      .set({
+        lessonsCompleted: sql`${anonymousSessions.lessonsCompleted} + 1`,
+        lastActiveAt: new Date(),
+      })
+      .where(eq(anonymousSessions.id, sessionId))
+      .returning();
+    return updated;
+  }
+
+  async linkSessionToUser(sessionId: string, userId: string): Promise<AnonymousSession | undefined> {
+    const [updated] = await db
+      .update(anonymousSessions)
+      .set({
+        userId,
+        convertedAt: new Date(),
+        lastActiveAt: new Date(),
+      })
+      .where(eq(anonymousSessions.id, sessionId))
+      .returning();
+    return updated;
+  }
+
+  async trackProductEvent(event: { sessionId: string; userId?: string | null; eventType: ProductEventType; eventData?: unknown }): Promise<ProductEvent> {
+    const [created] = await db
+      .insert(productEvents)
+      .values({
+        sessionId: event.sessionId,
+        userId: event.userId || null,
+        eventType: event.eventType,
+        eventData: event.eventData || null,
+      })
+      .returning();
+    
+    await db
+      .update(anonymousSessions)
+      .set({ lastActiveAt: new Date() })
+      .where(eq(anonymousSessions.id, event.sessionId));
+    
+    return created;
+  }
+
+  async getAnalyticsSummary(): Promise<{
+    totalSessions: number;
+    sessionsWithGames: number;
+    sessionsWithLessonComplete: number;
+    convertedSessions: number;
+    eventCounts: Record<string, number>;
+  }> {
+    const [sessionStats] = await db
+      .select({
+        total: sql<number>`count(*)::int`,
+        converted: sql<number>`count(${anonymousSessions.convertedAt})::int`,
+        withLessons: sql<number>`count(case when ${anonymousSessions.lessonsCompleted} > 0 then 1 end)::int`,
+      })
+      .from(anonymousSessions);
+
+    const gameEvents: ProductEventType[] = ["word_pop_started", "flashcards_started", "lava_letters_started"];
+    const [gamesStat] = await db
+      .select({
+        count: sql<number>`count(distinct ${productEvents.sessionId})::int`,
+      })
+      .from(productEvents)
+      .where(inArray(productEvents.eventType, gameEvents));
+
+    const eventCounts = await db
+      .select({
+        eventType: productEvents.eventType,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(productEvents)
+      .groupBy(productEvents.eventType);
+
+    return {
+      totalSessions: sessionStats?.total || 0,
+      sessionsWithGames: gamesStat?.count || 0,
+      sessionsWithLessonComplete: sessionStats?.withLessons || 0,
+      convertedSessions: sessionStats?.converted || 0,
+      eventCounts: eventCounts.reduce((acc, row) => {
+        acc[row.eventType] = row.count;
+        return acc;
+      }, {} as Record<string, number>),
+    };
   }
 }
 

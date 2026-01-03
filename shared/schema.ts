@@ -324,6 +324,56 @@ export const insertGlobalWordStatsSchema = createInsertSchema(globalWordStats).o
 export type InsertGlobalWordStats = z.infer<typeof insertGlobalWordStatsSchema>;
 export type GlobalWordStats = typeof globalWordStats.$inferSelect;
 
+// Anonymous sessions for tracking before login
+export const anonymousSessions = pgTable("anonymous_sessions", {
+  id: varchar("id").primaryKey(), // Client-generated session ID
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }), // Linked after signup
+  firstSeenAt: timestamp("first_seen_at").notNull().defaultNow(),
+  lastActiveAt: timestamp("last_active_at").notNull().defaultNow(),
+  userAgent: text("user_agent"),
+  lessonsCompleted: integer("lessons_completed").notNull().default(0),
+  convertedAt: timestamp("converted_at"), // When they signed up
+});
+
+export const insertAnonymousSessionSchema = createInsertSchema(anonymousSessions).omit({
+  firstSeenAt: true,
+  lastActiveAt: true,
+  convertedAt: true,
+});
+
+export type InsertAnonymousSession = z.infer<typeof insertAnonymousSessionSchema>;
+export type AnonymousSession = typeof anonymousSessions.$inferSelect;
+
+// Product events for analytics
+export type ProductEventType = 
+  | "app_opened"
+  | "lesson_started"
+  | "word_pop_started"
+  | "flashcards_started"
+  | "lava_letters_started"
+  | "lesson_completed"
+  | "signup_viewed"
+  | "signup_completed"
+  | "child_created"
+  | "book_selected";
+
+export const productEvents = pgTable("product_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => anonymousSessions.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  eventType: text("event_type").notNull().$type<ProductEventType>(),
+  eventData: jsonb("event_data"), // Optional metadata
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertProductEventSchema = createInsertSchema(productEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertProductEvent = z.infer<typeof insertProductEventSchema>;
+export type ProductEvent = typeof productEvents.$inferSelect;
+
 // Flashcard result type for frontend
 export interface FlashcardResult {
   wordId: string;
