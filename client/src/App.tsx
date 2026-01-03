@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 import { GuestModeProvider, useGuestModeContext } from "@/hooks/use-guest-mode";
-import { SessionTrackingProvider } from "@/hooks/use-session-tracking";
+import { SessionTrackingProvider, useSessionTracking } from "@/hooks/use-session-tracking";
 import { LoginPromptDialog } from "@/components/LoginPromptDialog";
 import { AccountGatingDialog } from "@/components/AccountGatingDialog";
 import NotFound from "@/pages/not-found";
@@ -77,10 +77,21 @@ function AuthWrapper() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeChecked, setWelcomeChecked] = useState(false);
   const [location, setLocation] = useLocation();
+  const { linkSessionToUser, dismissAccountPrompt } = useSessionTracking();
+  const sessionLinkedRef = useRef(false);
 
   // Always call hooks at the top level
   const guestModeContext = useGuestModeContext();
   const { isGuestMode, enterGuestMode, showLoginPrompt, setShowLoginPrompt } = guestModeContext;
+
+  // Link anonymous session to user when they authenticate
+  useEffect(() => {
+    if (isAuthenticated && !sessionLinkedRef.current) {
+      sessionLinkedRef.current = true;
+      linkSessionToUser();
+      dismissAccountPrompt(); // Don't show the prompt anymore once logged in
+    }
+  }, [isAuthenticated, linkSessionToUser, dismissAccountPrompt]);
 
   useEffect(() => {
     if (isAuthenticated) {

@@ -23,6 +23,7 @@ interface SessionTrackingContextValue {
   sessionId: string;
   trackEvent: (eventType: ProductEventType, eventData?: Record<string, unknown>) => Promise<void>;
   incrementLessonsCompleted: () => Promise<void>;
+  linkSessionToUser: () => Promise<void>;
   lessonsCompleted: number;
   shouldShowAccountPrompt: boolean;
   dismissAccountPrompt: () => void;
@@ -114,6 +115,23 @@ export function SessionTrackingProvider({ children }: { children: ReactNode }) {
     dismissAccountPromptInStorage();
   }, []);
 
+  const linkSessionToUser = useCallback(async () => {
+    if (!sessionIdRef.current) return;
+    
+    try {
+      await apiRequest("POST", "/api/sessions/link", {
+        sessionId: sessionIdRef.current,
+      });
+      // Also track signup completed event
+      await apiRequest("POST", "/api/events", {
+        sessionId: sessionIdRef.current,
+        eventType: "signup_completed" as ProductEventType,
+      });
+    } catch (error) {
+      console.error("[Session] Failed to link session:", error);
+    }
+  }, []);
+
   // Show account prompt after first lesson if not dismissed
   const shouldShowAccountPrompt = lessonsCompleted >= 1 && !accountPromptDismissed;
 
@@ -121,6 +139,7 @@ export function SessionTrackingProvider({ children }: { children: ReactNode }) {
     sessionId: sessionIdRef.current || getOrCreateSessionId(),
     trackEvent,
     incrementLessonsCompleted,
+    linkSessionToUser,
     lessonsCompleted,
     shouldShowAccountPrompt,
     dismissAccountPrompt,
