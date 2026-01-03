@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation, useSearch } from "wouter";
 import { AppHeader } from "@/components/AppHeader";
@@ -7,6 +7,7 @@ import { LoadingScreen } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useSessionTracking } from "@/hooks/use-session-tracking";
 import type { Child, Word, Book, PresetWordList } from "@shared/schema";
 
 interface PrioritizedWord {
@@ -25,6 +26,16 @@ export default function Flashcards() {
   const presetId = searchParams.get("presetId");
   const wordPopWordsParam = searchParams.get("wordPopWords");
   const childId = params.id;
+  const { trackEvent } = useSessionTracking();
+
+  // Track Flashcards started
+  const trackedRef = useRef(false);
+  useEffect(() => {
+    if (!trackedRef.current) {
+      trackedRef.current = true;
+      trackEvent("flashcards_started", { childId, bookId, presetId });
+    }
+  }, []);
 
   // Parse Word Pop words passed from the lesson flow
   const wordPopWords = wordPopWordsParam 

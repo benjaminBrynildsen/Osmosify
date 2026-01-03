@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { startContinuousListening, playSuccessSound, isSpeechRecognitionSupported } from "@/lib/speech";
 import { SentenceCelebration } from "@/components/SentenceCelebration";
 import { getTheme } from "@/lib/themes";
+import { useSessionTracking } from "@/hooks/use-session-tracking";
 import type { Word, Child, Book, PresetWordList, ThemeOption } from "@shared/schema";
 
 interface PrioritizedWord {
@@ -44,6 +45,16 @@ export default function LavaLetters() {
   const lessonMode = searchParams.get("lessonMode") === "true";
   const practicedWordsParam = searchParams.get("practicedWords");
   const childId = id || "";
+  const { trackEvent, incrementLessonsCompleted } = useSessionTracking();
+
+  // Track Lava Letters started
+  const trackedRef = useRef(false);
+  useEffect(() => {
+    if (!trackedRef.current) {
+      trackedRef.current = true;
+      trackEvent("lava_letters_started", { childId, bookId, presetId, lessonMode });
+    }
+  }, []);
   
   // Parse practiced words passed from lesson flow (Word Pop + Flashcards)
   const lessonPracticedWords = practicedWordsParam 
@@ -349,13 +360,17 @@ export default function LavaLetters() {
   }, [gameState, speechSupported, startListening, stopListening]);
 
   const handleCelebrationComplete = useCallback(() => {
+    // Track lesson completion
+    trackEvent("lesson_completed", { childId, bookId, presetId, lessonMode });
+    incrementLessonsCompleted();
+    
     // In lesson mode, go back to dashboard; otherwise show game over
     if (lessonMode) {
       setLocation(`/child/${childId}`);
     } else {
       setGameState("gameover");
     }
-  }, [lessonMode, childId, setLocation]);
+  }, [lessonMode, childId, bookId, presetId, setLocation, trackEvent, incrementLessonsCompleted]);
 
   // Progressive difficulty: increase speed every 30 seconds of actual play time
   useEffect(() => {

@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 import { GuestModeProvider, useGuestModeContext } from "@/hooks/use-guest-mode";
+import { SessionTrackingProvider } from "@/hooks/use-session-tracking";
 import { LoginPromptDialog } from "@/components/LoginPromptDialog";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -160,11 +161,13 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <GuestModeProvider>
-          {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
-          {!showSplash && <AuthWrapper />}
-          <Toaster />
-        </GuestModeProvider>
+        <SessionTrackingProvider>
+          <GuestModeProvider>
+            {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+            {!showSplash && <AuthWrapper />}
+            <Toaster />
+          </GuestModeProvider>
+        </SessionTrackingProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

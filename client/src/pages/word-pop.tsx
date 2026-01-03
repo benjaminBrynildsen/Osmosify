@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { speak } from "@/lib/voice";
 import { playSuccessSound } from "@/lib/speech";
 import { SentenceCelebration } from "@/components/SentenceCelebration";
+import { useSessionTracking } from "@/hooks/use-session-tracking";
 import type { Word, Child, Book, PresetWordList } from "@shared/schema";
 
 interface PrioritizedWord {
@@ -37,6 +38,16 @@ export default function WordPop() {
   const presetId = searchParams.get("presetId");
   const lessonMode = searchParams.get("lessonMode") === "true";
   const childId = id || "";
+  const { trackEvent } = useSessionTracking();
+
+  // Track Word Pop started
+  const trackedRef = useRef(false);
+  useEffect(() => {
+    if (!trackedRef.current) {
+      trackedRef.current = true;
+      trackEvent("word_pop_started", { childId, bookId, presetId, lessonMode });
+    }
+  }, []);
 
   // In lesson mode, skip celebration (it happens at end of flashcards)
   const [gameState, setGameState] = useState<"ready" | "playing" | "gameover" | "celebration">("ready");
