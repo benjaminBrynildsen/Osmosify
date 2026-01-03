@@ -352,7 +352,8 @@ export type ProductEventType =
   | "flashcards_started"
   | "lava_letters_started"
   | "lesson_completed"
-  | "signup_viewed"
+  | "signup_started"
+  | "signup_dismissed"
   | "signup_completed"
   | "child_created"
   | "book_selected";
