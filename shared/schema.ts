@@ -331,13 +331,16 @@ export const anonymousSessions = pgTable("anonymous_sessions", {
   firstSeenAt: timestamp("first_seen_at").notNull().defaultNow(),
   lastActiveAt: timestamp("last_active_at").notNull().defaultNow(),
   userAgent: text("user_agent"),
+  referrer: text("referrer"),
   lessonsCompleted: integer("lessons_completed").notNull().default(0),
+  linkedAt: timestamp("linked_at"), // When session was linked to user
   convertedAt: timestamp("converted_at"), // When they signed up
 });
 
 export const insertAnonymousSessionSchema = createInsertSchema(anonymousSessions).omit({
   firstSeenAt: true,
   lastActiveAt: true,
+  linkedAt: true,
   convertedAt: true,
 });
 

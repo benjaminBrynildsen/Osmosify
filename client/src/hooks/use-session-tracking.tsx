@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useCallback, useState, type ReactNode } from "react";
+// Note: useRef is still used for initializedRef
 import { apiRequest } from "@/lib/queryClient";
 import type { ProductEventType } from "@shared/schema";
 
@@ -27,6 +28,7 @@ interface SessionTrackingContextValue {
   lessonsCompleted: number;
   shouldShowAccountPrompt: boolean;
   dismissAccountPrompt: () => void;
+  temporarilyHideAccountPrompt: () => void; // Hide for this session only, will reappear on page refresh
 }
 
 const SessionTrackingContext = createContext<SessionTrackingContextValue | null>(null);
@@ -49,7 +51,8 @@ function dismissAccountPromptInStorage(): void {
 }
 
 export function SessionTrackingProvider({ children }: { children: ReactNode }) {
-  const sessionIdRef = useRef<string>("");
+  // Store sessionId in state so it's available immediately on first render
+  const [sessionId] = useState(() => getOrCreateSessionId());
   const initializedRef = useRef(false);
   const [lessonsCompleted, setLessonsCompleted] = useState(getLocalLessonsCompleted);
   const [accountPromptDismissed, setAccountPromptDismissed] = useState(isAccountPromptDismissed);
@@ -58,17 +61,15 @@ export function SessionTrackingProvider({ children }: { children: ReactNode }) {
     if (initializedRef.current) return;
     initializedRef.current = true;
     
-    sessionIdRef.current = getOrCreateSessionId();
-    
     const initSession = async () => {
       try {
         await apiRequest("POST", "/api/sessions/init", {
-          sessionId: sessionIdRef.current,
+          sessionId,
           userAgent: navigator.userAgent,
         });
         
         await apiRequest("POST", "/api/events", {
-          sessionId: sessionIdRef.current,
+          sessionId,
           eventType: "app_opened" as ProductEventType,
         });
       } catch (error) {
@@ -77,24 +78,24 @@ export function SessionTrackingProvider({ children }: { children: ReactNode }) {
     };
 
     initSession();
-  }, []);
+  }, [sessionId]);
 
   const trackEvent = useCallback(async (eventType: ProductEventType, eventData?: Record<string, unknown>) => {
-    if (!sessionIdRef.current) return;
+    if (!sessionId) return;
     
     try {
       await apiRequest("POST", "/api/events", {
-        sessionId: sessionIdRef.current,
+        sessionId,
         eventType,
         eventData,
       });
     } catch (error) {
       console.error("[Session] Failed to track event:", error);
     }
-  }, []);
+  }, [sessionId]);
 
   const incrementLessonsCompleted = useCallback(async () => {
-    if (!sessionIdRef.current) return;
+    if (!sessionId) return;
     
     // Update local state and storage
     const newCount = lessonsCompleted + 1;
@@ -103,46 +104,50 @@ export function SessionTrackingProvider({ children }: { children: ReactNode }) {
     
     try {
       await apiRequest("POST", "/api/sessions/lesson-completed", {
-        sessionId: sessionIdRef.current,
+        sessionId,
       });
     } catch (error) {
       console.error("[Session] Failed to increment lessons:", error);
     }
-  }, [lessonsCompleted]);
+  }, [sessionId, lessonsCompleted]);
 
   const dismissAccountPrompt = useCallback(() => {
     setAccountPromptDismissed(true);
     dismissAccountPromptInStorage();
   }, []);
 
+  // Temporarily hide the prompt for this page session only (won't persist on refresh)
+  const temporarilyHideAccountPrompt = useCallback(() => {
+    setAccountPromptDismissed(true);
+    // Don't persist to storage - dialog will reappear on page refresh
+  }, []);
+
+  // Note: linkSessionToUser only links the session, does NOT track signup_completed
+  // Signup completion is tracked separately when user actually signs up
   const linkSessionToUser = useCallback(async () => {
-    if (!sessionIdRef.current) return;
+    if (!sessionId) return;
     
     try {
       await apiRequest("POST", "/api/sessions/link", {
-        sessionId: sessionIdRef.current,
-      });
-      // Also track signup completed event
-      await apiRequest("POST", "/api/events", {
-        sessionId: sessionIdRef.current,
-        eventType: "signup_completed" as ProductEventType,
+        sessionId,
       });
     } catch (error) {
       console.error("[Session] Failed to link session:", error);
     }
-  }, []);
+  }, [sessionId]);
 
   // Show account prompt after first lesson if not dismissed
   const shouldShowAccountPrompt = lessonsCompleted >= 1 && !accountPromptDismissed;
 
   const value: SessionTrackingContextValue = {
-    sessionId: sessionIdRef.current || getOrCreateSessionId(),
+    sessionId,
     trackEvent,
     incrementLessonsCompleted,
     linkSessionToUser,
     lessonsCompleted,
     shouldShowAccountPrompt,
     dismissAccountPrompt,
+    temporarilyHideAccountPrompt,
   };
 
   return (

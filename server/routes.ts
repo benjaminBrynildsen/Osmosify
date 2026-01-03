@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { processText, getTopRepeatedWords } from "./textProcessor";
 import { extractTextFromImages } from "./ocrService";
-import { insertChildSchema, insertBookSchema, users } from "@shared/schema";
+import { insertChildSchema, insertBookSchema, users, type ProductEventType } from "@shared/schema";
 import { presetWordLists as presetData } from "./presetData";
 import { presetBooks as presetBooksData } from "./presetBooks";
 import { z } from "zod";
@@ -1340,7 +1340,7 @@ Example: If required words are "cat, run, big" you might write "The big cat can 
       const event = await storage.trackProductEvent({
         sessionId,
         userId,
-        eventType,
+        eventType: eventType as ProductEventType,
         eventData: eventData || null,
       });
       res.json(event);

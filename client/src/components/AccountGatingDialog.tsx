@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Sparkles, Star, BookOpen } from "lucide-react";
 
 export function AccountGatingDialog() {
-  const { shouldShowAccountPrompt, dismissAccountPrompt, trackEvent } = useSessionTracking();
+  const { shouldShowAccountPrompt, dismissAccountPrompt, temporarilyHideAccountPrompt, trackEvent } = useSessionTracking();
   const { isAuthenticated, isLoading } = useAuth();
 
   // Don't show if already authenticated or still loading
@@ -19,12 +19,21 @@ export function AccountGatingDialog() {
   };
 
   const handleMaybeLater = () => {
-    trackEvent("signup_dismissed", { source: "account_gating_dialog" });
-    dismissAccountPrompt();
+    trackEvent("signup_dismissed", { source: "account_gating_dialog", method: "button" });
+    dismissAccountPrompt(); // Permanently dismiss on explicit button click
+  };
+
+  // Handle dialog close via escape/backdrop - temporary dismiss only
+  // The dialog will reappear on page refresh (not persisted to storage)
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      // Temporarily hide for this page session - will reappear on refresh
+      temporarilyHideAccountPrompt();
+    }
   };
 
   return (
-    <Dialog open={shouldShowAccountPrompt} onOpenChange={(open) => !open && handleMaybeLater()}>
+    <Dialog open={shouldShowAccountPrompt} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-md" data-testid="dialog-account-gating">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">

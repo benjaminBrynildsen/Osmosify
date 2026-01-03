@@ -27,6 +27,7 @@ import LavaLetters from "@/pages/lava-letters";
 import PresetBooks from "@/pages/preset-books";
 import MyLibrary from "@/pages/my-library";
 import Moderation from "@/pages/moderation";
+import AdminAnalytics from "@/pages/admin-analytics";
 import GuestOnboarding from "@/pages/guest-onboarding";
 import GuestFlashcards from "@/pages/guest-flashcards";
 import GuestDashboard from "@/pages/guest-dashboard";
@@ -54,6 +55,7 @@ function AuthenticatedRouter() {
       <Route path="/child/:id/my-library" component={MyLibrary} />
       <Route path="/session/:id" component={SessionDetails} />
       <Route path="/moderation" component={Moderation} />
+      <Route path="/admin/analytics" component={AdminAnalytics} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -77,7 +79,7 @@ function AuthWrapper() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeChecked, setWelcomeChecked] = useState(false);
   const [location, setLocation] = useLocation();
-  const { linkSessionToUser, dismissAccountPrompt } = useSessionTracking();
+  const { linkSessionToUser, dismissAccountPrompt, trackEvent } = useSessionTracking();
   const sessionLinkedRef = useRef(false);
 
   // Always call hooks at the top level
@@ -90,8 +92,14 @@ function AuthWrapper() {
       sessionLinkedRef.current = true;
       linkSessionToUser();
       dismissAccountPrompt(); // Don't show the prompt anymore once logged in
+      
+      // Track signup_completed only for new signups (users without a role yet)
+      // Users who already have a role are returning users
+      if (!user?.role) {
+        trackEvent("signup_completed", { source: "auth_callback" });
+      }
     }
-  }, [isAuthenticated, linkSessionToUser, dismissAccountPrompt]);
+  }, [isAuthenticated, linkSessionToUser, dismissAccountPrompt, user?.role, trackEvent]);
 
   useEffect(() => {
     if (isAuthenticated) {
