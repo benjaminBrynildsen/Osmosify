@@ -50,6 +50,28 @@ let voicesInitialized = false;
 let currentAudio: HTMLAudioElement | null = null;
 let audioUnlocked = false;
 
+// Native TTS integration for Capacitor mobile apps
+let nativeTTS: typeof import('./nativeSpeech').nativeTTS | null = null;
+let isNativePlatform = false;
+let nativeInitPromise: Promise<void> | null = null;
+
+async function initNativeTTS() {
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    isNativePlatform = Capacitor.isNativePlatform();
+    if (isNativePlatform) {
+      const nativeSpeech = await import('./nativeSpeech');
+      nativeTTS = nativeSpeech.nativeTTS;
+      console.log('[TTS] Native platform detected, using device TTS');
+    }
+  } catch (e) {
+    console.log('[TTS] Web environment, using browser TTS');
+  }
+}
+
+// Initialize on module load
+nativeInitPromise = initNativeTTS();
+
 export type VoiceOption = "alloy" | "nova" | "shimmer";
 
 export function unlockAudio(): void {
@@ -297,7 +319,18 @@ function speakWordBrowser(word: string, voiceOption: VoiceOption = "nova", rate:
   });
 }
 
-export function speakWord(word: string, voice: VoiceOption = "nova", speed: number = 0.9): Promise<void> {
+export async function speakWord(word: string, voice: VoiceOption = "nova", speed: number = 0.9): Promise<void> {
+  // Wait for native TTS initialization to complete
+  if (nativeInitPromise) {
+    await nativeInitPromise;
+  }
+  
+  // Use native TTS on mobile platforms
+  if (isNativePlatform && nativeTTS) {
+    console.log(`[TTS] Using native device TTS for: "${word}"`);
+    return nativeTTS.speak({ text: word, rate: speed });
+  }
+  // Fall back to OpenAI/cloud TTS on web
   return speakWordWithOpenAI(word, voice, speed);
 }
 

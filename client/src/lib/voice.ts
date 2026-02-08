@@ -38,7 +38,44 @@ if ('speechSynthesis' in window) {
   window.speechSynthesis.onvoiceschanged = loadVoices;
 }
 
-export function speak(text: string, options?: { rate?: number; onEnd?: () => void }): void {
+// Native TTS integration for Capacitor mobile apps
+let nativeTTS: typeof import('./nativeSpeech').nativeTTS | null = null;
+let isNativePlatform = false;
+let nativeInitPromise: Promise<void> | null = null;
+
+async function initNativeTTS() {
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    isNativePlatform = Capacitor.isNativePlatform();
+    if (isNativePlatform) {
+      const nativeSpeech = await import('./nativeSpeech');
+      nativeTTS = nativeSpeech.nativeTTS;
+      console.log('[Voice] Native platform detected, using device TTS');
+    }
+  } catch (e) {
+    console.log('[Voice] Web environment, using browser TTS');
+  }
+}
+
+nativeInitPromise = initNativeTTS();
+
+export async function speak(text: string, options?: { rate?: number; onEnd?: () => void }): Promise<void> {
+  // Wait for native TTS initialization
+  if (nativeInitPromise) {
+    await nativeInitPromise;
+  }
+  
+  // Use native TTS on mobile platforms
+  if (isNativePlatform && nativeTTS) {
+    console.log(`[Voice] Using native device TTS for: "${text}"`);
+    await nativeTTS.speak({ text, rate: options?.rate ?? 0.85 });
+    if (options?.onEnd) {
+      options.onEnd();
+    }
+    return;
+  }
+  
+  // Fall back to browser SpeechSynthesis
   if (!('speechSynthesis' in window)) return;
   
   const rate = options?.rate ?? 0.85;
