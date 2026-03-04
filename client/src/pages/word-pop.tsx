@@ -10,6 +10,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { speak } from "@/lib/voice";
 import { playSuccessSound } from "@/lib/speech";
 import { SentenceCelebration } from "@/components/SentenceCelebration";
+import { LessonProgressStepper } from "@/components/LessonProgressStepper";
+import { LessonTransition } from "@/components/LessonTransition";
 import { useSessionTracking } from "@/hooks/use-session-tracking";
 import type { Word, Child, Book, PresetWordList } from "@shared/schema";
 
@@ -50,7 +52,7 @@ export default function WordPop() {
   }, []);
 
   // In lesson mode, skip celebration (it happens at end of flashcards)
-  const [gameState, setGameState] = useState<"ready" | "playing" | "gameover" | "celebration">("ready");
+  const [gameState, setGameState] = useState<"ready" | "playing" | "gameover" | "celebration" | "transition">("ready");
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
@@ -287,10 +289,10 @@ export default function WordPop() {
       setLives(prev => {
         const newLives = prev - 1;
         if (newLives <= 0) {
-          // In lesson mode, skip celebration (it happens at end of flashcards)
+          // In lesson mode, show transition screen to next game
           // Otherwise show celebration if we have practiced words
           if (lessonMode) {
-            setGameState("gameover");
+            setGameState("transition");
           } else {
             setGameState(practicedWordsRef.current.length > 0 ? "celebration" : "gameover");
           }
@@ -326,9 +328,9 @@ export default function WordPop() {
           setLives(l => {
             const newLives = l - 1;
             if (newLives <= 0) {
-              // In lesson mode, skip celebration (it happens at end of flashcards)
+              // In lesson mode, show transition screen to next game
               if (lessonMode) {
-                setGameState("gameover");
+                setGameState("transition");
               } else {
                 setGameState(practicedWordsRef.current.length > 0 ? "celebration" : "gameover");
               }
@@ -375,6 +377,17 @@ export default function WordPop() {
   }
 
   if (playableWords.length < 4) {
+    // In lesson mode, skip Word Pop and go straight to Flashcards
+    if (lessonMode && bookId) {
+      const wordsParam = encodeURIComponent(playableWords.map(w => w.word).join(","));
+      setLocation(`/child/${childId}/flashcards?bookId=${bookId}&wordPopWords=${wordsParam}&skippedWordPop=true`);
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <p className="text-muted-foreground">Skipping to Flashcards...</p>
+        </div>
+      );
+    }
+
     // Determine if it's because all words are mastered (for book-based practice)
     const allWordsMastered = hasValidBookId && prioritizedWords !== undefined && prioritizedWords.length === 0;
     
@@ -416,8 +429,28 @@ export default function WordPop() {
     );
   }
 
+  const navigateToFlashcards = useCallback(() => {
+    const wordsParam = encodeURIComponent(practicedWordsRef.current.join(","));
+    setLocation(`/child/${childId}/flashcards?bookId=${bookId}&wordPopWords=${wordsParam}`);
+  }, [childId, bookId, setLocation]);
+
+  if (gameState === "transition" && lessonMode && bookId) {
+    return (
+      <LessonTransition
+        fromLabel="Word Pop"
+        toLabel="Flashcards"
+        toIcon="flashcards"
+        encouragement={score > 50 ? "Amazing Job!" : wordsPlayed > 0 ? "Great Warm-Up!" : "Let's Keep Going!"}
+        statLine={`${wordsPlayed} words popped · Level ${level}`}
+        onContinue={navigateToFlashcards}
+        autoAdvanceMs={4000}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {lessonMode && <LessonProgressStepper currentStep="word-pop" />}
       <header className="p-4 border-b flex items-center justify-between gap-2">
         <Button
           variant="ghost"
@@ -589,7 +622,7 @@ export default function WordPop() {
           <div className="absolute inset-0 flex flex-col items-center justify-center p-8 bg-background/80 backdrop-blur-sm">
             <Trophy className="w-20 h-20 text-amber-500 mb-4" />
             <h2 className="text-3xl font-bold mb-2">
-              {lessonMode ? "Great Warm-Up!" : "Game Over!"}
+              Game Over!
             </h2>
             
             <div className="grid grid-cols-2 gap-4 my-6 text-center">

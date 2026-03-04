@@ -9,6 +9,7 @@ import { ArrowLeft, Heart, Play, RotateCcw, Mic, MicOff, Flame, Trophy, Star, Pa
 import { motion, AnimatePresence } from "framer-motion";
 import { startContinuousListening, playSuccessSound, isSpeechRecognitionSupported } from "@/lib/speech";
 import { SentenceCelebration } from "@/components/SentenceCelebration";
+import { LessonProgressStepper } from "@/components/LessonProgressStepper";
 import { getTheme } from "@/lib/themes";
 import { useSessionTracking } from "@/hooks/use-session-tracking";
 import type { Word, Child, Book, PresetWordList, ThemeOption } from "@shared/schema";
@@ -492,6 +493,24 @@ export default function LavaLetters() {
   }
 
   if (playableWords.length < 2) {
+    // In lesson mode, skip to sentence celebration directly
+    if (lessonMode) {
+      const allWords = Array.from(new Set([...lessonPracticedWords, ...practicedWords]));
+      if (allWords.length > 0) {
+        return (
+          <SentenceCelebration
+            childId={childId}
+            masteredWords={allWords}
+            onComplete={() => setLocation(`/child/${childId}`)}
+            gifCelebrationsEnabled={child?.gifCelebrationsEnabled ?? true}
+          />
+        );
+      }
+      // No words at all — just go back to dashboard
+      setLocation(`/child/${childId}`);
+      return null;
+    }
+
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="max-w-lg mx-auto">
@@ -539,6 +558,7 @@ export default function LavaLetters() {
 
   return (
     <div className={`min-h-screen ${theme.background} flex flex-col`}>
+      {lessonMode && <LessonProgressStepper currentStep="lava-letters" />}
       <div className="flex items-center justify-between p-3 bg-black/30">
         <Button
           variant="ghost"

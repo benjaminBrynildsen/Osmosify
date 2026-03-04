@@ -515,14 +515,9 @@ export function FlashcardDisplay(props: FlashcardDisplayProps) {
     );
   }
 
-  // In lesson mode, we skip celebration here and navigate to Lava Letters
-  // Wait for navigation to complete
+  // In lesson mode, parent handles the transition screen
   if (isComplete && wordPopWords.length > 0 && onLessonComplete) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-96 p-4">
-        <p className="text-muted-foreground">Continuing to Lava Letters...</p>
-      </div>
-    );
+    return null;
   }
 
   if (isComplete) {

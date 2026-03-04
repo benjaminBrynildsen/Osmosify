@@ -3,6 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation, useSearch } from "wouter";
 import { AppHeader } from "@/components/AppHeader";
 import { FlashcardDisplay } from "@/components/FlashcardDisplay";
+import { LessonProgressStepper } from "@/components/LessonProgressStepper";
+import { LessonTransition } from "@/components/LessonTransition";
 import { LoadingScreen } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -25,6 +27,7 @@ export default function Flashcards() {
   const bookId = searchParams.get("bookId");
   const presetId = searchParams.get("presetId");
   const wordPopWordsParam = searchParams.get("wordPopWords");
+  const skippedWordPop = searchParams.get("skippedWordPop") === "true";
   const childId = params.id;
   const { trackEvent } = useSessionTracking();
 
@@ -178,9 +181,14 @@ export default function Flashcards() {
     }
   };
 
-  // Called after final celebration in lesson mode - navigate to Lava Letters
+  const [showTransition, setShowTransition] = useState(false);
+
+  // Called after final celebration in lesson mode - show transition then navigate to Lava Letters
   const handleLessonComplete = () => {
-    // Combine wordPop words with flashcard deck words for Lava Letters
+    setShowTransition(true);
+  };
+
+  const navigateToLavaLetters = () => {
     const flashcardWords = limitedDeck.map(w => w.word);
     const allPracticedWords = Array.from(new Set([...wordPopWords, ...flashcardWords]));
     const wordsParam = encodeURIComponent(allPracticedWords.join(","));
@@ -236,9 +244,25 @@ export default function Flashcards() {
   const limitedDeck = deckWords.slice(0, deckSize);
   const headerTitle = book ? `Prepare: ${book.title}` : preset ? `Prepare: ${preset.name}` : "Word Preparation";
   const backPath = bookId ? `/child/${childId}/books` : presetId ? `/child/${childId}/presets` : `/child/${childId}`;
+  const isLessonMode = wordPopWords.length > 0 || skippedWordPop;
+
+  if (showTransition) {
+    return (
+      <LessonTransition
+        fromLabel="Flashcards"
+        toLabel="Lava Letters"
+        toIcon="lava-letters"
+        encouragement={limitedDeck.length > 0 ? `${limitedDeck.length} Words Unlocked!` : "Nice Work!"}
+        statLine="Time to spell them out!"
+        onContinue={navigateToLavaLetters}
+        autoAdvanceMs={4000}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {isLessonMode && <LessonProgressStepper currentStep="flashcards" skippedSteps={skippedWordPop ? ["word-pop"] : []} />}
       <AppHeader
         title={headerTitle}
         showBack
@@ -259,6 +283,17 @@ export default function Flashcards() {
             wordPopWords={wordPopWords}
             onLessonComplete={wordPopWords.length > 0 ? handleLessonComplete : undefined}
             gifCelebrationsEnabled={child?.gifCelebrationsEnabled ?? true}
+          />
+        ) : isLessonMode && bookId ? (
+          // In lesson mode, skip flashcards if no words to prepare and go to lava letters
+          <LessonTransition
+            fromLabel="Flashcards"
+            toLabel="Lava Letters"
+            toIcon="lava-letters"
+            encouragement="All Words Already Unlocked!"
+            statLine="Let's jump to spelling!"
+            onContinue={navigateToLavaLetters}
+            autoAdvanceMs={3000}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center p-4">

@@ -509,7 +509,7 @@ export default function Books() {
                   data-testid="button-start-lesson"
                 >
                   <BookOpen className="h-4 w-4" />
-                  Start Journey
+                  Start Lesson
                 </Button>
                 <Button
                   variant="outline"

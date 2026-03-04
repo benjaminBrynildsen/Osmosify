@@ -363,7 +363,6 @@ export default function ChildDashboard() {
             disabled={(words?.length || 0) < 2}
             data-testid="button-lava-letters"
           >
-            <Badge className="absolute top-1 right-1 text-xs bg-green-500 text-white">NEW</Badge>
             <Flame className="h-6 w-6 text-orange-500" />
             <span>Lava Letters</span>
           </Button>
