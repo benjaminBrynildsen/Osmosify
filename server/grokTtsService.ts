@@ -1,12 +1,6 @@
-import OpenAI from "openai";
-
 const GROK_BASE_URL = process.env.XAI_BASE_URL || "https://api.x.ai/v1";
 const GROK_TTS_MODEL = process.env.XAI_TTS_MODEL || "grok-tts";
-
-const grok = new OpenAI({
-  apiKey: process.env.XAI_API_KEY,
-  baseURL: GROK_BASE_URL,
-});
+const GROK_TTS_PATH = process.env.XAI_TTS_PATH || "/audio/speech";
 
 export type GrokVoiceOption =
   | "ember"
@@ -43,17 +37,34 @@ export async function synthesizeSpeechWithGrok(
     return audioCache.get(cacheKey)!;
   }
 
-  if (!process.env.XAI_API_KEY) {
+  const apiKey = process.env.XAI_API_KEY;
+  if (!apiKey) {
     throw new Error("XAI_API_KEY is not configured");
   }
 
+  const url = `${GROK_BASE_URL.replace(/\/+$/, "")}${GROK_TTS_PATH}`;
+
   try {
-    const response = await grok.audio.speech.create({
-      model: GROK_TTS_MODEL,
-      voice: voice,
-      input: text,
-      speed: speed,
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "audio/mpeg",
+      },
+      body: JSON.stringify({
+        model: GROK_TTS_MODEL,
+        voice,
+        input: text,
+        speed,
+        response_format: "mp3",
+      }),
     });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Grok TTS request failed: ${response.status} ${response.statusText} - ${errorBody}`);
+    }
 
     const arrayBuffer = await response.arrayBuffer();
     const audioBuffer = Buffer.from(arrayBuffer);
