@@ -44,7 +44,7 @@ export default function GuestWordPop() {
 
   const playableWords = useMemo(() => {
     return guestData.words
-      .filter(w => w.word.length >= 2 && w.word.length <= 12)
+      .filter(w => w.word.length >= 1 && w.word.length <= 12)
       .map((w, index) => ({ 
         id: index, 
         word: w.word.toLowerCase(), 

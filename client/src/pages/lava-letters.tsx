@@ -116,7 +116,7 @@ export default function LavaLetters() {
     if (hasValidBookId) {
       if (prioritizedWords !== undefined) {
         return prioritizedWords
-          .filter(pw => pw.word.length >= 2 && pw.word.length <= 12)
+          .filter(pw => pw.word.length >= 1 && pw.word.length <= 12)
           .slice(0, deckSize)
           .map((pw, index) => ({ 
             id: index, 
@@ -129,13 +129,13 @@ export default function LavaLetters() {
     
     if (preset && preset.words) {
       return preset.words
-        .filter(w => w.length >= 2 && w.length <= 12)
+        .filter(w => w.length >= 1 && w.length <= 12)
         .slice(0, deckSize)
         .map((word, index) => ({ id: index, word: word.toLowerCase(), status: "new" as const }));
     }
     
     return words
-      .filter(w => w.word.length >= 2 && w.word.length <= 12)
+      .filter(w => w.word.length >= 1 && w.word.length <= 12)
       .slice(0, deckSize);
   }, [words, preset, prioritizedWords, hasValidBookId, deckSize]);
 

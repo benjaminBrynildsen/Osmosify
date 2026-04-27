@@ -128,7 +128,7 @@ export default function WordPop() {
       // If prioritized data exists, use it (could be empty if all words are mastered)
       if (prioritizedWords !== undefined) {
         return prioritizedWords
-          .filter(pw => pw.word.length >= 2 && pw.word.length <= 12)
+          .filter(pw => pw.word.length >= 1 && pw.word.length <= 12)
           .map((pw, index) => ({ 
             id: index, 
             word: pw.word.toLowerCase(), 
@@ -143,12 +143,12 @@ export default function WordPop() {
     // For preset-based practice (no leverage-based prioritization)
     if (preset && preset.words) {
       return preset.words
-        .filter(w => w.length >= 2 && w.length <= 12)
+        .filter(w => w.length >= 1 && w.length <= 12)
         .map((word, index) => ({ id: index, word: word.toLowerCase(), status: "new" as const }));
     }
-    
+
     // General practice from child's word library
-    return words.filter(w => w.word.length >= 2 && w.word.length <= 12);
+    return words.filter(w => w.word.length >= 1 && w.word.length <= 12);
   }, [words, preset, prioritizedWords, hasValidBookId]);
 
   const getRandomWords = useCallback((count: number, mustInclude: string): string[] => {
