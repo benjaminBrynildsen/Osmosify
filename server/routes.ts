@@ -11,6 +11,12 @@ import { setupAuth, registerAuthRoutes, ensureAuthenticated } from "./replit_int
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { searchBooksForDisplay, fetchCoverForBook } from "./openLibrary";
 import { synthesizeSpeech, AVAILABLE_VOICES, VoiceOption } from "./ttsService";
+import {
+  synthesizeSpeechWithGrok,
+  GROK_AVAILABLE_VOICES,
+  GrokVoiceOption,
+  isGrokVoice,
+} from "./grokTtsService";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 
@@ -1235,24 +1241,32 @@ Example: If required words are "cat, run, big" you might write "The big cat can 
   // Text-to-Speech endpoint
   app.post("/api/tts/speak", ensureAuthenticated, async (req, res) => {
     try {
-      const { text, voice, speed } = req.body;
-      
+      const { text, voice, speed, provider } = req.body;
+
       if (!text || typeof text !== "string") {
         return res.status(400).json({ error: "Text is required" });
       }
-      
-      const validVoices: VoiceOption[] = ["alloy", "nova", "shimmer"];
-      const voiceName: VoiceOption = validVoices.includes(voice) ? voice : "nova";
+
       const speakingSpeed = typeof speed === "number" ? speed : 0.9;
-      
-      const audioBuffer = await synthesizeSpeech(text, voiceName, speakingSpeed);
-      
+      const useGrok = provider === "grok";
+
+      let audioBuffer: Buffer;
+
+      if (useGrok) {
+        const grokVoice: GrokVoiceOption = isGrokVoice(voice) ? voice : "ember";
+        audioBuffer = await synthesizeSpeechWithGrok(text, grokVoice, speakingSpeed);
+      } else {
+        const validVoices: VoiceOption[] = ["alloy", "nova", "shimmer"];
+        const voiceName: VoiceOption = validVoices.includes(voice) ? voice : "nova";
+        audioBuffer = await synthesizeSpeech(text, voiceName, speakingSpeed);
+      }
+
       res.set({
         "Content-Type": "audio/mpeg",
         "Content-Length": audioBuffer.length,
         "Cache-Control": "public, max-age=86400",
       });
-      
+
       res.send(audioBuffer);
     } catch (error) {
       console.error("TTS error:", error);
@@ -1262,6 +1276,10 @@ Example: If required words are "cat, run, big" you might write "The big cat can 
 
   // Get available TTS voices
   app.get("/api/tts/voices", ensureAuthenticated, async (req, res) => {
+    const provider = typeof req.query.provider === "string" ? req.query.provider : "openai";
+    if (provider === "grok") {
+      return res.json(GROK_AVAILABLE_VOICES);
+    }
     res.json(AVAILABLE_VOICES);
   });
 

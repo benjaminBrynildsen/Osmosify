@@ -73,6 +73,9 @@ async function initNativeTTS() {
 nativeInitPromise = initNativeTTS();
 
 export type VoiceOption = "alloy" | "nova" | "shimmer";
+export type GrokVoiceOption = "ember" | "ash" | "river" | "sage" | "aurora";
+export type TTSProvider = "openai" | "grok";
+export type AnyVoiceOption = VoiceOption | GrokVoiceOption;
 
 export function unlockAudio(): void {
   if (audioUnlocked) return;
@@ -112,15 +115,30 @@ export interface TTSVoice {
   description: string;
 }
 
-export async function fetchAvailableVoices(): Promise<TTSVoice[]> {
+export interface GrokTTSVoice {
+  name: GrokVoiceOption;
+  description: string;
+}
+
+export async function fetchAvailableVoices(provider: TTSProvider = "openai"): Promise<TTSVoice[] | GrokTTSVoice[]> {
   try {
-    const response = await fetch("/api/tts/voices", {
+    const url = provider === "grok" ? "/api/tts/voices?provider=grok" : "/api/tts/voices";
+    const response = await fetch(url, {
       credentials: "include",
     });
     if (!response.ok) throw new Error("Failed to fetch voices");
     return await response.json();
   } catch (error) {
     console.warn("Failed to fetch voices:", error);
+    if (provider === "grok") {
+      return [
+        { name: "ember", description: "Warm and conversational" },
+        { name: "ash", description: "Calm and steady" },
+        { name: "river", description: "Bright and friendly" },
+        { name: "sage", description: "Thoughtful and measured" },
+        { name: "aurora", description: "Expressive and energetic" },
+      ];
+    }
     return [
       { name: "nova", description: "Friendly and warm" },
       { name: "alloy", description: "Neutral and clear" },
@@ -129,20 +147,23 @@ export async function fetchAvailableVoices(): Promise<TTSVoice[]> {
   }
 }
 
-export async function speakWordWithOpenAI(
+async function speakWordWithCloud(
   word: string,
-  voice: VoiceOption = "nova",
-  speed: number = 0.9
+  voice: AnyVoiceOption,
+  speed: number,
+  provider: TTSProvider,
+  browserFallbackVoice: VoiceOption
 ): Promise<void> {
-  console.log(`[TTS] Speaking word: "${word}" with voice: ${voice}`);
-  
+  const label = provider === "grok" ? "Grok" : "OpenAI";
+  console.log(`[TTS] Speaking word: "${word}" with ${label} voice: ${voice}`);
+
   if (currentAudio) {
     currentAudio.pause();
     currentAudio = null;
   }
 
   try {
-    console.log("[TTS] Attempting OpenAI TTS...");
+    console.log(`[TTS] Attempting ${label} TTS...`);
     const response = await fetch("/api/tts/speak", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -151,46 +172,63 @@ export async function speakWordWithOpenAI(
         text: word,
         voice,
         speed,
+        provider,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.warn(`[TTS] OpenAI TTS failed with status ${response.status}: ${errorText}`);
+      console.warn(`[TTS] ${label} TTS failed with status ${response.status}: ${errorText}`);
       throw new Error(`TTS request failed: ${response.status}`);
     }
 
     const audioBlob = await response.blob();
     console.log(`[TTS] Received audio blob: ${audioBlob.size} bytes`);
     const audioUrl = URL.createObjectURL(audioBlob);
-    
+
     return new Promise((resolve) => {
       currentAudio = new Audio(audioUrl);
       currentAudio.onended = () => {
-        console.log("[TTS] OpenAI audio playback completed");
+        console.log(`[TTS] ${label} audio playback completed`);
         URL.revokeObjectURL(audioUrl);
         currentAudio = null;
         resolve();
       };
       currentAudio.onerror = (e) => {
-        console.warn("[TTS] OpenAI audio playback error:", e);
+        console.warn(`[TTS] ${label} audio playback error:`, e);
         URL.revokeObjectURL(audioUrl);
         currentAudio = null;
-        speakWordBrowser(word, voice, speed).then(resolve);
+        speakWordBrowser(word, browserFallbackVoice, speed).then(resolve);
       };
       currentAudio.play().then(() => {
-        console.log("[TTS] OpenAI audio started playing");
+        console.log(`[TTS] ${label} audio started playing`);
       }).catch((e) => {
-        console.warn("[TTS] OpenAI audio play() failed, trying browser TTS:", e);
+        console.warn(`[TTS] ${label} audio play() failed, trying browser TTS:`, e);
         URL.revokeObjectURL(audioUrl);
         currentAudio = null;
-        speakWordBrowser(word, voice, speed).then(resolve);
+        speakWordBrowser(word, browserFallbackVoice, speed).then(resolve);
       });
     });
   } catch (error) {
-    console.warn("[TTS] OpenAI TTS failed, falling back to browser TTS:", error);
-    return speakWordBrowser(word, voice, speed);
+    console.warn(`[TTS] ${label} TTS failed, falling back to browser TTS:`, error);
+    return speakWordBrowser(word, browserFallbackVoice, speed);
   }
+}
+
+export async function speakWordWithOpenAI(
+  word: string,
+  voice: VoiceOption = "nova",
+  speed: number = 0.9
+): Promise<void> {
+  return speakWordWithCloud(word, voice, speed, "openai", voice);
+}
+
+export async function speakWordWithGrok(
+  word: string,
+  voice: GrokVoiceOption = "ember",
+  speed: number = 0.9
+): Promise<void> {
+  return speakWordWithCloud(word, voice, speed, "grok", "nova");
 }
 
 export function initializeVoices(): Promise<SpeechSynthesisVoice[]> {
@@ -319,19 +357,28 @@ function speakWordBrowser(word: string, voiceOption: VoiceOption = "nova", rate:
   });
 }
 
-export async function speakWord(word: string, voice: VoiceOption = "nova", speed: number = 0.9): Promise<void> {
+export async function speakWord(
+  word: string,
+  voice: AnyVoiceOption = "nova",
+  speed: number = 0.9,
+  provider: TTSProvider = "openai"
+): Promise<void> {
   // Wait for native TTS initialization to complete
   if (nativeInitPromise) {
     await nativeInitPromise;
   }
-  
+
   // Use native TTS on mobile platforms
   if (isNativePlatform && nativeTTS) {
     console.log(`[TTS] Using native device TTS for: "${word}"`);
     return nativeTTS.speak({ text: word, rate: speed });
   }
+
+  if (provider === "grok") {
+    return speakWordWithGrok(word, voice as GrokVoiceOption, speed);
+  }
   // Fall back to OpenAI/cloud TTS on web
-  return speakWordWithOpenAI(word, voice, speed);
+  return speakWordWithOpenAI(word, voice as VoiceOption, speed);
 }
 
 export function isSpeechRecognitionSupported(): boolean {
