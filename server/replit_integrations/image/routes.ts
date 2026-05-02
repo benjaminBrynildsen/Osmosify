@@ -1,6 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { Modality } from "@google/genai";
-import { ai } from "./client";
+import { grok, GROK_IMAGE_MODEL } from "../../grokClient";
 
 export function registerImageRoutes(app: Express): void {
   app.post("/api/generate-image", async (req: Request, res: Response) => {
@@ -11,25 +10,21 @@ export function registerImageRoutes(app: Express): void {
         return res.status(400).json({ error: "Prompt is required" });
       }
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image",
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        config: {
-          responseModalities: [Modality.TEXT, Modality.IMAGE],
-        },
+      const response = await grok.images.generate({
+        model: GROK_IMAGE_MODEL,
+        prompt,
+        response_format: "b64_json",
+        n: 1,
       });
 
-      const candidate = response.candidates?.[0];
-      const imagePart = candidate?.content?.parts?.find((part: any) => part.inlineData);
-
-      if (!imagePart?.inlineData?.data) {
+      const b64 = response.data?.[0]?.b64_json;
+      if (!b64) {
         return res.status(500).json({ error: "No image data in response" });
       }
 
-      const mimeType = imagePart.inlineData.mimeType || "image/png";
       res.json({
-        b64_json: imagePart.inlineData.data,
-        mimeType,
+        b64_json: b64,
+        mimeType: "image/png",
       });
     } catch (error) {
       console.error("Error generating image:", error);
@@ -37,4 +32,3 @@ export function registerImageRoutes(app: Express): void {
     }
   });
 }
-

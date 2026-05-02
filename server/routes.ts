@@ -54,12 +54,11 @@ export async function registerRoutes(
         return res.status(400).json({ error: "No words provided" });
       }
 
-      const { ai } = await import("./replit_integrations/image/client");
-      
-      // Limit to reasonable number of words for sentence generation
+      const { grok, GROK_TEXT_MODEL } = await import("./grokClient");
+
       const practicedWords = words.slice(0, 8).map((w: string) => w.toLowerCase());
       const helperWords = (supportWords || []).slice(0, 5).map((w: string) => w.toLowerCase());
-      
+
       const prompt = `Create a simple sentence that a young child (ages 5-8) can read aloud.
 
 REQUIRED WORDS (must include ALL of these): ${practicedWords.join(", ")}
@@ -75,12 +74,12 @@ Rules:
 
 Example: If required words are "cat, run, big" you might write "The big cat can run fast."`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      const response = await grok.chat.completions.create({
+        model: GROK_TEXT_MODEL,
+        messages: [{ role: "user", content: prompt }],
       });
 
-      let sentence = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+      let sentence = response.choices[0]?.message?.content?.trim() || "";
       
       // Verify all required words are included, fallback if not
       const sentenceLower = sentence.toLowerCase();
@@ -1241,11 +1240,11 @@ Example: If required words are "cat, run, big" you might write "The big cat can 
       const speakingSpeed = typeof speed === "number" ? speed : 0.9;
       
       const audioBuffer = await synthesizeSpeech(text, voiceName, speakingSpeed);
-      
+
       res.set({
         "Content-Type": "audio/mpeg",
         "Content-Length": audioBuffer.length,
-        "Cache-Control": "public, max-age=86400",
+        "Cache-Control": "public, max-age=31536000, immutable",
       });
       
       res.send(audioBuffer);

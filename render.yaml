@@ -40,8 +40,11 @@ services:
         value: public
       - key: PRIVATE_OBJECT_PREFIX
         value: private
-      # Gemini (direct)
-      - key: GEMINI_API_KEY
+      # xAI Grok (OCR / sentence gen / image gen)
+      - key: XAI_API_KEY
+        sync: false
+      # OpenAI (TTS only)
+      - key: OPENAI_API_KEY
         sync: false
       # Twilio (phone auth — optional)
       - key: TWILIO_ACCOUNT_SID

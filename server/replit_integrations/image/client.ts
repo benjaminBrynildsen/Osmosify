@@ -1,31 +1,23 @@
-import { GoogleGenAI, Modality } from "@google/genai";
-
-export const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+import { grok, GROK_IMAGE_MODEL } from "../../grokClient";
 
 /**
  * Generate an image and return as base64 data URL.
- * Uses gemini-2.5-flash-image model.
+ * Uses xAI Grok image model.
  */
 export async function generateImage(prompt: string): Promise<string> {
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-image",
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: {
-      responseModalities: [Modality.TEXT, Modality.IMAGE],
-    },
+  const response = await grok.images.generate({
+    model: GROK_IMAGE_MODEL,
+    prompt,
+    response_format: "b64_json",
+    n: 1,
   });
 
-  const candidate = response.candidates?.[0];
-  const imagePart = candidate?.content?.parts?.find(
-    (part: { inlineData?: { data?: string; mimeType?: string } }) => part.inlineData
-  );
-
-  if (!imagePart?.inlineData?.data) {
+  const b64 = response.data?.[0]?.b64_json;
+  if (!b64) {
     throw new Error("No image data in response");
   }
-
-  const mimeType = imagePart.inlineData.mimeType || "image/png";
-  return `data:${mimeType};base64,${imagePart.inlineData.data}`;
+  return `data:image/png;base64,${b64}`;
 }
+
+// Re-export grok client for backward compatibility with callers expecting `ai`
+export { grok as ai } from "../../grokClient";
