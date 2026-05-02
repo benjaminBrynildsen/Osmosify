@@ -4,20 +4,12 @@ import { sendVerificationCode, generateVerificationCode } from "../../twilio";
 import { isAuthenticated } from "./replitAuth";
 import type { User } from "@shared/models/auth";
 
-// Utility to get current user ID from request (supports both auth methods)
+// Utility to get current user ID from request (supports phone/email/google auth)
 export async function getCurrentUserId(req: Request): Promise<string | null> {
   const sessionReq = req as any;
-  
-  // Check phone auth session first
   if (sessionReq.session?.userId) {
     return sessionReq.session.userId;
   }
-  
-  // Fall back to Replit auth
-  if (sessionReq.user?.claims?.sub) {
-    return sessionReq.user.claims.sub;
-  }
-  
   return null;
 }
 
@@ -60,28 +52,16 @@ function checkRateLimit(phoneNumber: string): { allowed: boolean; message?: stri
   return { allowed: true };
 }
 
-// Internal function to get user from session/Replit auth (for /api/auth/user route)
 async function handleGetAuthUser(req: any, res: any): Promise<void> {
   try {
-    // Check for phone or email auth session first (doesn't need token refresh)
-    if (req.session?.userId && (req.session?.authMethod === "phone" || req.session?.authMethod === "email")) {
+    if (req.session?.userId) {
       const user = await authStorage.getUser(req.session.userId);
       if (user) {
         return res.json(user);
       }
-      // Session exists but user not found - clear stale session
       delete req.session.userId;
       delete req.session.authMethod;
     }
-    
-    // Check for Replit auth (token was already refreshed by isAuthenticated)
-    if (req.user?.claims?.sub) {
-      const user = await authStorage.getUser(req.user.claims.sub);
-      if (user) {
-        return res.json(user);
-      }
-    }
-    
     return res.status(401).json({ message: "Not authenticated" });
   } catch (error) {
     console.error("Error fetching user:", error);
@@ -89,21 +69,9 @@ async function handleGetAuthUser(req: any, res: any): Promise<void> {
   }
 }
 
-// Register auth-specific routes
 export function registerAuthRoutes(app: Express): void {
-  // Get current authenticated user - supports Replit auth, phone auth, and email auth
-  // Always runs isAuthenticated first to handle Replit token refresh
-  app.get("/api/auth/user", (req: any, res, next) => {
-    // Check phone or email auth first (no token refresh needed)
-    if (req.session?.userId && (req.session?.authMethod === "phone" || req.session?.authMethod === "email")) {
-      return handleGetAuthUser(req, res);
-    }
-    
-    // For Replit auth or unknown, run isAuthenticated to handle token refresh
-    // If it fails (401), we still try to handle as unauthenticated gracefully
-    isAuthenticated(req, res, () => {
-      handleGetAuthUser(req, res);
-    });
+  app.get("/api/auth/user", (req: any, res) => {
+    handleGetAuthUser(req, res);
   });
 
   // Send verification code to phone number
@@ -202,31 +170,16 @@ export function registerAuthRoutes(app: Express): void {
   });
 }
 
-// Middleware to ensure user is authenticated (phone, email, OR Replit auth)
-// For phone/email auth: stores userId in req.phoneUserId without touching req.user
-// For Replit auth: uses isAuthenticated which handles token refresh
 export const ensureAuthenticated: RequestHandler = async (req: any, res, next) => {
-  // Check phone or email auth session first (doesn't require token refresh)
-  if (req.session?.userId && (req.session?.authMethod === "phone" || req.session?.authMethod === "email")) {
+  if (req.session?.userId) {
     const user = await authStorage.getUser(req.session.userId);
     if (user) {
-      // Store user context separately (don't touch req.user)
-      // Also set a unified field that works for all auth types
       req.phoneUserId = user.id;
       req.authenticatedUserId = user.id;
       return next();
     }
-    // Clear stale session data
     delete req.session.userId;
     delete req.session.authMethod;
   }
-  
-  // For Replit auth, use the full middleware chain for token refresh
-  // After it passes, set the unified authenticatedUserId field
-  return isAuthenticated(req, res, () => {
-    if (req.user?.claims?.sub) {
-      req.authenticatedUserId = req.user.claims.sub;
-    }
-    next();
-  });
+  return res.status(401).json({ message: "Unauthorized" });
 };

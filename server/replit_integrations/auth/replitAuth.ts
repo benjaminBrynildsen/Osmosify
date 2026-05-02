@@ -1,22 +1,9 @@
-import * as client from "openid-client";
-import { Strategy, type VerifyFunction } from "openid-client/passport";
-
 import passport from "passport";
+import { Strategy as GoogleStrategy, type Profile } from "passport-google-oauth20";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
-import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { authStorage } from "./storage";
-
-const getOidcConfig = memoize(
-  async () => {
-    return await client.discovery(
-      new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
-      process.env.REPL_ID!
-    );
-  },
-  { maxAge: 3600 * 1000 }
-);
 
 export function getSession() {
   const sessionTtl = 90 * 24 * 60 * 60 * 1000; // 3 months
@@ -34,29 +21,9 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       maxAge: sessionTtl,
     },
-  });
-}
-
-function updateUserSession(
-  user: any,
-  tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers
-) {
-  user.claims = tokens.claims();
-  user.access_token = tokens.access_token;
-  user.refresh_token = tokens.refresh_token;
-  user.expires_at = user.claims?.exp;
-}
-
-async function upsertUser(claims: any) {
-  await authStorage.upsertUser({
-    id: claims["sub"],
-    email: claims["email"],
-    firstName: claims["first_name"],
-    lastName: claims["last_name"],
-    profileImageUrl: claims["profile_image_url"],
   });
 }
 
@@ -66,86 +33,104 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  const config = await getOidcConfig();
+  const clientID = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const callbackURL = process.env.GOOGLE_CALLBACK_URL || "/api/callback";
 
-  const verify: VerifyFunction = async (
-    tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
-    verified: passport.AuthenticateCallback
-  ) => {
-    const user = {};
-    updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
-    verified(null, user);
-  };
-
-  // Keep track of registered strategies
-  const registeredStrategies = new Set<string>();
-
-  // Helper function to ensure strategy exists for a domain
-  const ensureStrategy = (domain: string) => {
-    const strategyName = `replitauth:${domain}`;
-    if (!registeredStrategies.has(strategyName)) {
-      const strategy = new Strategy(
+  if (clientID && clientSecret) {
+    passport.use(
+      new GoogleStrategy(
         {
-          name: strategyName,
-          config,
-          scope: "openid email profile offline_access",
-          callbackURL: `https://${domain}/api/callback`,
+          clientID,
+          clientSecret,
+          callbackURL,
         },
-        verify
-      );
-      passport.use(strategy);
-      registeredStrategies.add(strategyName);
-    }
-  };
+        async (
+          _accessToken: string,
+          _refreshToken: string,
+          profile: Profile,
+          done: (err: any, user?: any) => void,
+        ) => {
+          try {
+            const email = profile.emails?.[0]?.value?.toLowerCase();
+            if (!email) {
+              return done(new Error("Google profile missing email"));
+            }
+            const user = await authStorage.upsertUserByGoogleProfile({
+              email,
+              firstName: profile.name?.givenName,
+              lastName: profile.name?.familyName,
+              profileImageUrl: profile.photos?.[0]?.value,
+            });
+            return done(null, { id: user.id, email: user.email });
+          } catch (err) {
+            return done(err as Error);
+          }
+        },
+      ),
+    );
+  } else {
+    console.warn(
+      "[auth] GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET not set — Google login disabled",
+    );
+  }
 
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+  passport.serializeUser((user: any, cb) => cb(null, user));
+  passport.deserializeUser((user: any, cb) => cb(null, user));
 
-  app.get("/api/login", (req, res, next) => {
-    ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login",
-      scope: ["openid", "email", "profile"],
-    })(req, res, next);
-  });
+  app.get(
+    "/api/login",
+    passport.authenticate("google", { scope: ["profile", "email"] }),
+  );
 
-  app.get("/api/callback", (req, res, next) => {
-    ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
+  app.get(
+    "/api/callback",
+    passport.authenticate("google", {
       failureRedirect: "/api/login",
-    })(req, res, next);
-  });
-
-  app.get("/api/logout", (req, res) => {
-    req.logout(() => {
+      session: true,
+    }),
+    (req: any, res) => {
+      // Mirror onto the unified session.userId path used by phone/email auth
+      if (req.user?.id) {
+        req.session.userId = req.user.id;
+        req.session.authMethod = "google";
+      }
       res.redirect("/");
-    });
+    },
+  );
+
+  app.get("/api/logout", (req: any, res) => {
+    const finish = () => {
+      req.session?.destroy?.(() => {
+        res.redirect("/");
+      }) ?? res.redirect("/");
+    };
+    if (typeof req.logout === "function") {
+      req.logout(() => finish());
+    } else {
+      finish();
+    }
   });
 
   // Simple email login (no verification required)
   app.post("/api/auth/email-login", async (req: any, res) => {
     try {
       const { email } = req.body;
-      
+
       if (!email || typeof email !== "string") {
         return res.status(400).json({ message: "Email is required" });
       }
 
-      // Basic email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
         return res.status(400).json({ message: "Invalid email format" });
       }
 
-      // Create or get user by email
       const user = await authStorage.createOrUpdateUserByEmail(email);
 
-      // Set up the session directly (like phone auth does)
       req.session.userId = user.id;
       req.session.authMethod = "email";
-      
+
       res.json({ success: true, user: { id: user.id, email: user.email } });
     } catch (error) {
       console.error("Email login error:", error);
@@ -154,31 +139,12 @@ export async function setupAuth(app: Express) {
   });
 }
 
-export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  const user = req.user as any;
-
-  if (!req.isAuthenticated() || !user.expires_at) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  if (now <= user.expires_at) {
+export const isAuthenticated: RequestHandler = async (req: any, res, next) => {
+  if (
+    req.session?.userId &&
+    ["google", "email", "phone"].includes(req.session?.authMethod)
+  ) {
     return next();
   }
-
-  const refreshToken = user.refresh_token;
-  if (!refreshToken) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  try {
-    const config = await getOidcConfig();
-    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
-    updateUserSession(user, tokenResponse);
-    return next();
-  } catch (error) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
+  return res.status(401).json({ message: "Unauthorized" });
 };

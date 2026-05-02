@@ -2,13 +2,19 @@ import { users, verificationCodes, type User, type UpsertUser, type Verification
 import { db } from "../../db";
 import { eq, and, gt } from "drizzle-orm";
 
-// Interface for auth storage operations
-// (IMPORTANT) These user operations are mandatory for Replit Auth.
+export interface GoogleProfileInput {
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  profileImageUrl?: string;
+}
+
 export interface IAuthStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByPhone(phoneNumber: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  upsertUserByGoogleProfile(input: GoogleProfileInput): Promise<User>;
   createOrUpdateUserByPhone(phoneNumber: string, firstName?: string): Promise<User>;
   createOrUpdateUserByEmail(email: string): Promise<User>;
   saveVerificationCode(phoneNumber: string, code: string, expiresAt: Date): Promise<void>;
@@ -68,6 +74,40 @@ class AuthStorage implements IAuthStorage {
         phoneNumber,
         firstName,
       })
+      .returning();
+    return newUser;
+  }
+
+  async upsertUserByGoogleProfile(input: GoogleProfileInput): Promise<User> {
+    const normalizedEmail = input.email.toLowerCase().trim();
+    const existing = await this.getUserByEmail(normalizedEmail);
+
+    const profileFields = {
+      firstName: input.firstName,
+      lastName: input.lastName,
+      profileImageUrl: input.profileImageUrl,
+    };
+
+    if (existing) {
+      const updates: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
+      if (input.firstName && !existing.firstName) updates.firstName = input.firstName;
+      if (input.lastName && !existing.lastName) updates.lastName = input.lastName;
+      if (input.profileImageUrl && !existing.profileImageUrl)
+        updates.profileImageUrl = input.profileImageUrl;
+      if (Object.keys(updates).length === 1) {
+        return existing;
+      }
+      const [updated] = await db
+        .update(users)
+        .set(updates)
+        .where(eq(users.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    const [newUser] = await db
+      .insert(users)
+      .values({ email: normalizedEmail, ...profileFields })
       .returning();
     return newUser;
   }

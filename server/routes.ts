@@ -14,14 +14,9 @@ import { synthesizeSpeech, AVAILABLE_VOICES, VoiceOption } from "./ttsService";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 
-// Helper to get userId from authenticated request (supports email, phone, and Replit auth)
+// Helper to get userId from authenticated request (email/phone/google)
 function getUserId(req: any): string {
-  // Check for email or phone auth session first
-  if (req.session?.userId && (req.session?.authMethod === "email" || req.session?.authMethod === "phone")) {
-    return req.session.userId;
-  }
-  // Fall back to Replit OIDC auth
-  return req.user?.claims?.sub;
+  return req.session?.userId;
 }
 
 export async function registerRoutes(
