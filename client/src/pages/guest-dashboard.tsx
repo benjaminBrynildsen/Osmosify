@@ -287,7 +287,7 @@ export default function GuestDashboard() {
         )}
 
         <p className="text-center text-sm text-muted-foreground">
-          Try Flashcards and Word Pop to see what Osmosify can do!
+          Try Flashcards and Word Pop to see what Noah can do!
         </p>
       </main>
 
@@ -296,7 +296,7 @@ export default function GuestDashboard() {
           <DialogHeader>
             <DialogTitle>Unlock All Features</DialogTitle>
             <DialogDescription className="pt-2">
-              Sign up to access the full Osmosify experience including book library, 
+              Sign up to access the full Noah experience including book library,
               word lists, progress tracking, and more!
             </DialogDescription>
           </DialogHeader>

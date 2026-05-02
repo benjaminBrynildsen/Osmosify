@@ -29,8 +29,8 @@ interface GuestData {
   popGameCompleted: boolean;
 }
 
-const GUEST_DATA_KEY = "osmosify_guest_data";
-const GUEST_MODE_KEY = "osmosify_guest_mode";
+const GUEST_DATA_KEY = "noah_guest_data";
+const GUEST_MODE_KEY = "noah_guest_mode";
 
 const defaultGuestData: GuestData = {
   child: null,

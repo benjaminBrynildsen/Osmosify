@@ -136,7 +136,7 @@ export default function PhoneLogin() {
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-2 mb-8">
           <BookOpen className="h-10 w-10 text-primary" />
-          <span className="text-3xl font-bold">Osmosify</span>
+          <span className="text-3xl font-bold">Noah</span>
         </div>
 
         <Card>

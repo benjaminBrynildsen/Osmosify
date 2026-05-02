@@ -74,7 +74,7 @@ export function WelcomeCarousel({ onComplete }: WelcomeCarouselProps) {
   };
 
   const handleComplete = () => {
-    localStorage.setItem("osmosify_welcome_seen", "true");
+    localStorage.setItem("noah_welcome_seen", "true");
     onComplete();
   };
 
@@ -183,12 +183,12 @@ export function useWelcomeSeen() {
   const [hasSeenWelcome, setHasSeenWelcome] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const seen = localStorage.getItem("osmosify_welcome_seen") === "true";
+    const seen = localStorage.getItem("noah_welcome_seen") === "true";
     setHasSeenWelcome(seen);
   }, []);
 
   const markWelcomeSeen = () => {
-    localStorage.setItem("osmosify_welcome_seen", "true");
+    localStorage.setItem("noah_welcome_seen", "true");
     setHasSeenWelcome(true);
   };
 

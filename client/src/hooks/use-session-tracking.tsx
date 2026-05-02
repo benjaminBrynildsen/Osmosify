@@ -3,9 +3,9 @@ import { createContext, useContext, useEffect, useRef, useCallback, useState, ty
 import { apiRequest } from "@/lib/queryClient";
 import type { ProductEventType } from "@shared/schema";
 
-const SESSION_ID_KEY = "osmosify_session_id";
-const LESSONS_COMPLETED_KEY = "osmosify_lessons_completed";
-const ACCOUNT_PROMPT_DISMISSED_KEY = "osmosify_account_prompt_dismissed";
+const SESSION_ID_KEY = "noah_session_id";
+const LESSONS_COMPLETED_KEY = "noah_lessons_completed";
+const ACCOUNT_PROMPT_DISMISSED_KEY = "noah_account_prompt_dismissed";
 
 function generateSessionId(): string {
   return `sess_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;

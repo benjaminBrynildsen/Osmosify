@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.osmosify.app',
-  appName: 'Osmosify',
+  appId: 'com.readwithnoah.app',
+  appName: 'Noah',
   webDir: 'dist',
   server: {
     androidScheme: 'https',

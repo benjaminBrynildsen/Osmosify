@@ -30,7 +30,7 @@ export default function GuestOnboarding() {
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
             <BookOpen className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold">Osmosify</span>
+            <span className="text-2xl font-bold">Noah</span>
           </div>
           <CardTitle>Welcome! Let's get started</CardTitle>
           <CardDescription>

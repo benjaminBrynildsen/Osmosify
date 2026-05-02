@@ -33,7 +33,7 @@ export async function sendVerificationCode(
     console.log(`[Twilio] Sending from ${twilioPhoneNumber} to ${phoneNumber}`);
     
     const message = await client.messages.create({
-      body: `Your Osmosify verification code is: ${code}. It expires in 10 minutes.`,
+      body: `Your Noah verification code is: ${code}. It expires in 10 minutes.`,
       from: twilioPhoneNumber,
       to: phoneNumber,
     });

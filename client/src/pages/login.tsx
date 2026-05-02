@@ -62,9 +62,9 @@ export default function Login() {
           <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
             <BookOpen className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Welcome to Osmosify</CardTitle>
+          <CardTitle className="text-2xl">Welcome to Noah</CardTitle>
           <CardDescription>
-            Enter your email to sign in or create an account
+            Reading by osmosis. Enter your email to sign in or create an account.
           </CardDescription>
         </CardHeader>
         <CardContent>

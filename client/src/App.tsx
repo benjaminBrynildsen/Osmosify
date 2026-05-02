@@ -103,7 +103,7 @@ function AuthWrapper() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      const hasSeenWelcome = localStorage.getItem("osmosify_welcome_seen") === "true";
+      const hasSeenWelcome = localStorage.getItem("noah_welcome_seen") === "true";
       if (!hasSeenWelcome) {
         setShowWelcome(true);
       }
@@ -112,7 +112,7 @@ function AuthWrapper() {
   }, [isAuthenticated]);
 
   const handleWelcomeComplete = () => {
-    localStorage.setItem("osmosify_welcome_seen", "true");
+    localStorage.setItem("noah_welcome_seen", "true");
     setShowWelcome(false);
     setLocation("/");
   };

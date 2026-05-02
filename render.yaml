@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: osmosify
+    name: noah
     runtime: node
     region: oregon
     plan: starter

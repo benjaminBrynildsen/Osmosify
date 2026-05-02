@@ -46,7 +46,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
           >
             <img
               src={logoPath}
-              alt="Osmosify"
+              alt="Noah"
               className="w-64 h-auto max-w-[80vw]"
               data-testid="splash-logo"
             />

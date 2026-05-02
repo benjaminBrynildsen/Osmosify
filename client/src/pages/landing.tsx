@@ -14,7 +14,7 @@ export default function Landing({ onTryFree }: LandingProps) {
       <header className="container mx-auto px-4 py-6 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <BookOpen className="h-8 w-8 text-primary" />
-          <span className="text-2xl font-bold">Osmosify</span>
+          <span className="text-2xl font-bold">Noah</span>
         </div>
         <Button asChild data-testid="button-sign-in">
           <a href="/login">Sign In</a>
@@ -24,12 +24,12 @@ export default function Landing({ onTryFree }: LandingProps) {
       <main className="flex-1 container mx-auto px-4 py-12 flex flex-col items-center justify-center">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
-            They don't struggle through books.
+            Reading by osmosis.
             <br />
-            <span className="text-primary">They unlock the words first.</span>
+            <span className="text-primary">See it. Say it. Know it.</span>
           </h1>
           <p className="text-lg text-muted-foreground mb-8">
-            Osmosify quietly prepares your child's vocabulary so when it's time to read, the book finally clicks.
+            Noah teaches kids to read the way they learned to talk — by seeing words, saying words, and living with words until they just know.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button size="lg" asChild data-testid="button-get-started">
@@ -50,7 +50,7 @@ export default function Landing({ onTryFree }: LandingProps) {
         </div>
 
         <div className="w-full max-w-4xl mx-auto mb-16">
-          <h2 className="text-2xl font-semibold text-center mb-8">How Osmosify Works</h2>
+          <h2 className="text-2xl font-semibold text-center mb-8">How Noah Works</h2>
           <div className="grid md:grid-cols-3 gap-6">
             <Card className="text-center relative">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
@@ -62,7 +62,7 @@ export default function Landing({ onTryFree }: LandingProps) {
                 </div>
                 <h3 className="font-semibold mb-2">Words First</h3>
                 <p className="text-sm text-muted-foreground">
-                  Osmosify collects and tracks the words your child is exposed to through reading sessions and book preparation.
+                  Noah collects and tracks the words your child is exposed to through reading sessions and book preparation.
                 </p>
               </CardContent>
             </Card>
