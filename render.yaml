@@ -5,8 +5,8 @@ services:
     region: oregon
     plan: starter
     branch: main
-    buildCommand: npm ci && npm run build && npm run db:push
-    startCommand: npm start
+    buildCommand: echo "STAGE_INSTALL" && npm ci --no-audit --no-fund --prefer-offline 2>&1 && echo "STAGE_BUILD" && npm run build 2>&1 && echo "STAGE_DONE"
+    startCommand: npm run db:push && npm start
     healthCheckPath: /
     envVars:
       - key: NODE_ENV
